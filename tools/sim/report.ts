@@ -21,17 +21,19 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const TIER_VI = ['Bụi sao', 'Thiên thạch', 'Tiểu hành tinh', 'Sao chổi', 'Mặt trăng', 'Hành tinh', 'Khí khổng lồ', 'Ngôi sao', 'Hố đen', 'Thiên hà'];
 const RARITY_VI = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
 const UPGRADE_VI: Record<string, [string, string]> = {
-  focus: ['Core Focus', 'Năng lượng mỗi lần nhấp ×1,4 mỗi cấp'],
-  lens: ['Lucky Lens', '+6% cơ hội quét ra cao hơn 1 cấp (1/10 trong số đó cao hơn 2 cấp)'],
+  focus: ['Core Focus', 'Nhấp tay ×1,5 mỗi cấp (không tăng tàu thu)'],
+  lens: ['Gravity Lens', 'Sau auto. +4% cơ hội quét ra cao hơn 1 cấp (1/10 trong số đó cao hơn 2 cấp)'],
   slots: ['Orbit Ring', '+4 ô trên bảng (8 → 12 → 16)'],
-  discount: ['Efficient Optics', 'Giá quét ×0,88 mỗi cấp'],
-  probes: ['Probe Bay', 'Mở tự động hoá: tàu thu nhấp hộ 2 lần/giây. Không nhận bằng quảng cáo'],
+  discount: ['Lean Optics', 'Giá quét ×0,88 mỗi cấp'],
+  probes: ['Probe Bay', 'Mở tự động hoá: tàu thu bắt đầu thu năng lượng. Không nhận bằng quảng cáo'],
   crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 (chỉ nhấp tay)'],
   luck: ['Stellar Luck', 'Trọng số Rare trở lên +30% mỗi cấp'],
-  fleet: ['Probe Fleet', '+1 lần nhấp tự động/giây'],
+  fleet: ['Probe Fleet', 'Tàu thu ×1,5 mỗi cấp'],
+  binary: ['Binary Merge', 'Sau auto. +3% cơ hội ghép ra thêm 1 bản giống hệt (tới Khí khổng lồ)'],
+  starMagnet: ['Star Magnet', 'Sau auto. Sao băng dày hơn 15% mỗi cấp'],
   deepScan: ['Deep Scanner', 'Quét ra thẳng cấp cao hơn: Thiên thạch, rồi Tiểu hành tinh, rồi Sao chổi'],
   relay: ['Deep Space Relay', '+2 giờ trần thu nhập khi vắng mặt (gốc 2 giờ)'],
-  thrusters: ['Ion Thrusters', 'Tàu thu ×1,25 mỗi cấp'],
+  thrusters: ['Ion Thrusters', 'Tàu thu ×1,15 mỗi cấp'],
   autoScan: ['Auto Scanner', 'Tự quét mỗi 6 / 4 / 3 / 2 / 1,5 giây'],
   autoMerge: ['Gravity Well', 'Tự ghép một cặp mỗi 5 / 3,5 / 2,5 / 1,5 giây'],
 };
@@ -324,7 +326,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Nâng cấp và giá</h2>
-  <p class="muted">Giá từng cấp, cách nhau bằng dấu chấm giữa. Cột "Mua lần đầu" là phút trung vị người chơi không xem quảng cáo mua cấp 1. Tổng 13 dòng nâng cấp, ${content.upgrades.reduce((a, u) => a + u.max, 0)} cấp.</p>
+  <p class="muted">Giá từng cấp, cách nhau bằng dấu chấm giữa. Cột "Mua lần đầu" là phút trung vị người chơi không xem quảng cáo mua cấp 1. Tổng ${content.upgrades.length} dòng nâng cấp, ${content.upgrades.reduce((a, u) => a + u.max, 0)} cấp.</p>
   <div class="scroll"><table>
     <thead><tr><th>Nâng cấp</th><th>Cấp</th><th>Mua lần đầu</th><th>Giá từng cấp</th></tr></thead>
     <tbody>${upgradeRows}</tbody>
@@ -342,6 +344,8 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
     <ul class="plain">
       <li><b>Nâng cấp miễn phí</b>: gắn trên món đắt nhất chưa mua được, trong tầm ${vi(reward.freeUpgrade.maxIncomeSeconds / 60)} phút thu nhập. Hồi ${vi(reward.freeUpgrade.cooldown / 60)} phút.</li>
       <li><b>Lượt quét may mắn</b>: cao hơn ${reward.luckyScan.tierBonus} cấp so với máy quét, ít nhất Rare, không làm tăng giá quét. Hồi ${vi(reward.luckyScan.cooldown / 60)} phút.</li>
+      <li><b>Thêm 1 bản sau khi ghép</b>: nút hiện 5 giây cạnh thiên thể vừa ghép, tới cấp Khí khổng lồ. Hồi ${vi(reward.twin.cooldown / 60)} phút.</li>
+      <li>Mọi nút thưởng chỉ xuất hiện sau vài phút đầu (quét may mắn từ phút ${vi(reward.luckyScan.firstAt / 60)}, nâng cấp miễn phí từ phút ${vi(reward.freeUpgrade.firstAt / 60)}).</li>
       <li><b>Ghép tất cả</b>: hồi ${vi(reward.mergeAll.cooldown / 60)} phút. Chỉ để đỡ thao tác khi bảng rối; mô phỏng gần như không dùng.</li>
       <li><b>Khi portal tắt quảng cáo</b> (Basic Launch): thưởng vẫn trao, thời gian hồi ×${String(reward.freeCooldownMult).replace('.', ',')}.</li>
       <li>Ngoài màn chơi: x${reward.offlineMult} thu nhập khi vắng mặt, x${reward.dailyMult} quà ngày.</li>
@@ -355,7 +359,8 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
     <li>Nhấp tay 6 lần/giây trong 5 phút đầu, 4,5 lần/giây đến phút 15, sau đó 3 lần/giây. Người nhấp chậm bằng một nửa.</li>
     <li>Mỗi thao tác tốn thời gian: quét 0,35 giây, ghép 1 giây, mua 0,6 giây. Lúc đó không nhấp.</li>
     <li>Luôn ghép ngay khi có cặp. Khi món rẻ nhất trong shop còn thiếu dưới 30 giây thu nhập thì ngừng quét để để dành.</li>
-    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng 10 giây thu nhập, 1/10 là sao vàng x5.</li>
+    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng 10 giây thu nhập, 1/10 là sao vàng x5. Sao xuất hiện mỗi 15–25 giây trong 10 phút đầu, sau đó 30–50 giây.</li>
+    <li>Ba kiểu người chơi: nhấp đều (6, rồi 4,5, rồi 3 lần/giây), nhấp chậm bằng nửa, và thi thoảng nhấp (0,5 lần/giây sau khi có auto, không mua nâng cấp nhấp tay).</li>
     <li>Xem quảng cáo thật: bấm nút thưởng khoảng 1,5 phút sau khi nút sẵn sàng, mỗi quảng cáo 30 giây, game dừng trong lúc đó.</li>
     <li>Chơi liền một phiên. Chưa mô phỏng thu nhập khi vắng mặt và quà ngày.</li>
   </ul>
