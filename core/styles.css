@@ -10,7 +10,7 @@ body {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  background: #000;
+  /* No background here: index.html sets the game's own color before any script runs. */
   /* No pull-to-refresh, no bounce, no long-press menus, no text selection while tapping fast. */
   overscroll-behavior: none;
   touch-action: none;
