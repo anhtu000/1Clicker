@@ -63,10 +63,10 @@ export function rewardButton(scene: Phaser.Scene, x: number, y: number, options:
         const blocked = app.ads.lastOutcome === 'adblock';
         toast(scene, app.t(blocked ? 'core.adBlocked' : 'core.adUnavailable'));
       }
-      button.setVisible(app.ads.rewardedAvailable);
+      button.setVisible(app.ads.rewardedAvailable && !app.clean);
     },
   });
-  button.setVisible(app.ads.rewardedAvailable);
+  button.setVisible(app.ads.rewardedAvailable && !app.clean);
 
   if (options.cooldown) {
     const cooldown = options.cooldown;

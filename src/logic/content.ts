@@ -30,7 +30,9 @@ export type StatId =
   | 'luck'
   | 'autoScanEvery'
   | 'autoMergeEvery'
-  | 'offlineCapHours';
+  | 'offlineCapHours'
+  | 'twinChance'
+  | 'starRate';
 
 export interface ShowRule {
   /** Highest tier reached in this run. */
@@ -64,6 +66,8 @@ export interface EconomyDef {
   tap: { base: number; critMult: number };
   scan: { baseCost: number; exponent: number; spawnDiscount: number; doubleTierUpShare: number };
   absorbTaps: number;
+  /** Highest tier that can be copied (Binary Merge upgrade and the rewarded twin). */
+  twinMaxTier: number;
   /** Shooting stars: tap one for a burst of energy. Fills the wait between purchases. */
   stars: {
     everyMin: number;
@@ -75,14 +79,21 @@ export interface EconomyDef {
     activeTps: number;
     goldenChance: number;
     goldenMult: number;
+    /** Denser stars early on, so a reward is never far away in the first minutes. */
+    early?: { untilSec: number; everyMin: number; everyMax: number };
   };
   script: { rareScan: number; rareMerge: number };
   offline: { efficiency: number; capHours: number; minSeconds: number };
   rewarded: {
-    /** The free upgrade is the priciest one costing at most this many seconds of an active player's income. */
-    freeUpgrade: { cooldown: number; maxIncomeSeconds: number };
-    luckyScan: { cooldown: number; tierBonus: number; rarityFloor: number };
-    mergeAll: { cooldown: number };
+    /**
+     * firstAt: seconds into a run before the button first appears, so the opening minutes are about tapping.
+     * The free upgrade is the priciest one costing at most maxIncomeSeconds of an active player's income.
+     */
+    freeUpgrade: { cooldown: number; firstAt: number; maxIncomeSeconds: number };
+    luckyScan: { cooldown: number; firstAt: number; tierBonus: number; rarityFloor: number };
+    mergeAll: { cooldown: number; firstAt: number };
+    /** Rewarded copy of the body just merged. */
+    twin: { cooldown: number; firstAt: number };
     /** Cooldown multiplier while the portal gives rewards without an ad (CrazyGames Basic Launch). */
     freeCooldownMult: number;
     offlineMult: number;
@@ -111,6 +122,8 @@ const STATS: StatId[] = [
   'autoScanEvery',
   'autoMergeEvery',
   'offlineCapHours',
+  'twinChance',
+  'starRate',
 ];
 
 /**

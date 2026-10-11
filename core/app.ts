@@ -12,6 +12,7 @@ import { GameplayTracker, PauseManager } from './pause';
 import { createPlatform, type Platform } from './platform';
 import type { SaveStore } from './save';
 import { Settings } from './settings';
+import { Rng } from './rng';
 import { defaultTheme, type Theme } from './theme';
 import { Viewport, type ViewportOptions } from './viewport';
 import { BootScene } from './scenes/BootScene';
@@ -51,6 +52,24 @@ export interface GameConfig {
 }
 
 /**
+ * Big moments in play, for portal happy-time, clip capture and later analytics (CLAUDE.md 5c, A2).
+ * The game emits them with app.moments.emit(...); core and tools listen.
+ */
+export interface MomentEvents extends Record<string, unknown[]> {
+  /** A rare result. tier is the rarity index, odds the chance of that roll (0.002 = 1 in 500). */
+  rarePull: [{ tier: number; odds: number; label?: string }];
+  merge: [{ level: number }];
+  collectionNew: [{ id: string }];
+  finish: [{ runMs: number }];
+}
+
+class Moments extends Emitter<MomentEvents> {
+  emit<K extends keyof MomentEvents>(event: K, ...args: MomentEvents[K]) {
+    super.emit(event, ...args);
+  }
+}
+
+/**
  * Shared services. Scenes import `app` and use it directly:
  *   app.audio.play('coin');  app.t('shop.title');  app.save.data
  */
@@ -67,6 +86,16 @@ class App extends Emitter<{ language: [lang: string] }> {
   gameplay!: GameplayTracker;
   viewport!: Viewport;
   theme: Theme = defaultTheme;
+  /**
+   * Seeded random numbers for gameplay (CLAUDE.md 5c, A1). Never call Math.random() for gameplay.
+   * ?seed=123 fixes the seed in the web build only, so a rare moment can be replayed.
+   */
+  rng!: Rng;
+  /** Seed used for this session. */
+  seed = 0;
+  readonly moments = new Moments();
+  /** ?clean: no ad buttons, no toasts, no debug box, no mouse cursor. For recording videos (CLAUDE.md 5c, A4). */
+  clean = false;
 
   /** Translate a key of the current language. */
   t(key: string, vars?: Record<string, string | number>) {
@@ -135,6 +164,11 @@ class App extends Emitter<{ language: [lang: string] }> {
     this.config = config;
     this.theme = { ...defaultTheme, ...config.theme };
     const params = new URLSearchParams(location.search);
+    const seedParam = Number(params.get('seed'));
+    this.seed = __TARGET__ === 'web' && seedParam > 0 ? seedParam : (Date.now() ^ (performance.now() * 1000)) >>> 0;
+    this.rng = new Rng(this.seed);
+    this.clean = params.has('clean');
+    if (this.clean) document.documentElement.classList.add('clean');
 
     const parent = document.getElementById('game')!;
     this.viewport = new Viewport(parent, config.viewport);
@@ -193,13 +227,14 @@ class App extends Emitter<{ language: [lang: string] }> {
     this.wirePause();
     this.startAutosave(config.autosaveSec ?? 5);
 
-    if (params.has('debug')) this.toggleDebug();
+    if (params.has('debug') && !this.clean) this.toggleDebug();
   }
 
   private debug: DebugOverlay | null = null;
 
   /** Shows or hides the debug box. Also: ?debug in the URL, or tap the menu title 5 times. */
   toggleDebug() {
+    if (this.clean) return;
     if (this.debug) {
       this.debug.destroy();
       this.debug = null;

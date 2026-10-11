@@ -1,0 +1,21 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Bodies</title>
+<style>body{margin:0;background:#0b0a1e;color:#c9d2ff;font:14px sans-serif}canvas{display:block}</style></head>
+<body><canvas id="c"></canvas>
+<script type="module">
+import { drawBody } from '/src/render/bodies.ts';
+const S = 150, tiers = 10, rar = 5;
+const c = document.getElementById('c');
+c.width = S * rar + 140; c.height = S * tiers;
+const ctx = c.getContext('2d');
+const names = ['Stardust','Meteoroid','Asteroid','Comet','Moon','Planet','Gas giant','Star','Black hole','Galaxy'];
+for (let t = 1; t <= tiers; t++) {
+  ctx.fillStyle = '#c9d2ff'; ctx.font = '16px sans-serif'; ctx.fillText(names[t-1], 10, (t - 1) * S + S / 2);
+  for (let r = 0; r < rar; r++) {
+    const off = document.createElement('canvas'); off.width = off.height = 192;
+    drawBody(off.getContext('2d'), 192, t, r);
+    ctx.drawImage(off, 140 + r * S, (t - 1) * S, S, S);
+  }
+}
+document.title = 'ready';
+</script></body></html>

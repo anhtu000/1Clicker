@@ -1,25 +1,81 @@
 {
   "tiers": [
-    { "id": "stardust" },
-    { "id": "meteoroid" },
-    { "id": "asteroid" },
-    { "id": "comet" },
-    { "id": "moon" },
-    { "id": "planet" },
-    { "id": "gasGiant" },
-    { "id": "star" },
-    { "id": "blackHole" },
-    { "id": "galaxy" }
+    {
+      "id": "stardust"
+    },
+    {
+      "id": "meteoroid"
+    },
+    {
+      "id": "asteroid"
+    },
+    {
+      "id": "comet"
+    },
+    {
+      "id": "moon"
+    },
+    {
+      "id": "planet"
+    },
+    {
+      "id": "gasGiant"
+    },
+    {
+      "id": "star"
+    },
+    {
+      "id": "blackHole"
+    },
+    {
+      "id": "galaxy"
+    }
   ],
   "rarities": [
-    { "id": "common", "weight": 720, "mult": 1, "codexBonus": 0.02, "color": "#c9d2ff" },
-    { "id": "rare", "weight": 200, "mult": 1.5, "codexBonus": 0.03, "color": "#4fc3ff" },
-    { "id": "epic", "weight": 60, "mult": 2.5, "codexBonus": 0.05, "color": "#b56cff" },
-    { "id": "legendary", "weight": 18, "mult": 5, "codexBonus": 0.08, "color": "#ffb020" },
-    { "id": "mythic", "weight": 2, "mult": 12, "codexBonus": 0.15, "color": "#ff4f9a" }
+    {
+      "id": "common",
+      "weight": 720,
+      "mult": 1,
+      "codexBonus": 0.02,
+      "color": "#c9d2ff"
+    },
+    {
+      "id": "rare",
+      "weight": 200,
+      "mult": 1.5,
+      "codexBonus": 0.03,
+      "color": "#4fc3ff"
+    },
+    {
+      "id": "epic",
+      "weight": 60,
+      "mult": 2.2,
+      "codexBonus": 0.05,
+      "color": "#b56cff"
+    },
+    {
+      "id": "legendary",
+      "weight": 18,
+      "mult": 3.5,
+      "codexBonus": 0.08,
+      "color": "#ffb020"
+    },
+    {
+      "id": "mythic",
+      "weight": 2,
+      "mult": 7,
+      "codexBonus": 0.15,
+      "color": "#ff4f9a"
+    }
   ],
   "pity": [
-    { "minTier": 2, "within": 25 },
-    { "minTier": 3, "within": 120 }
+    {
+      "minTier": 2,
+      "within": 25
+    },
+    {
+      "minTier": 3,
+      "within": 120
+    }
   ]
 }

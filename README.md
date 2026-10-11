@@ -42,6 +42,9 @@ Tham số URL để thử (thêm vào cuối link, ví dụ `?debug&fps=144`):
 | `?ads=basic` | Giả lập Basic Launch của CrazyGames: quảng cáo tắt, nút thưởng vẫn cho thưởng |
 | `?muteAudio=true` | Portal ép tắt tiếng, nút âm thanh bị khoá |
 | `?lang=ru` | Ép ngôn ngữ |
+| `?seed=123` | Cố định RNG (chỉ build web), để lặp lại đúng một khoảnh khắc hiếm |
+| `?clean` | Ẩn nút quảng cáo, thông báo, bảng debug và con trỏ chuột. Dùng khi quay video |
+| `?preset=showcase` hoặc `#showcase` | Mở sẵn bảng đủ cấp và độ hiếm (chỉ build web). Lưu ở khoá riêng, không đè tiến trình thật. Trong artifact chỉ dùng được dạng `#showcase` |
 
 ## Cấu trúc
 
@@ -112,6 +115,15 @@ Các dịch vụ dùng qua `app`:
   - `quick.ts`: kiểm tra nhanh các mốc (`node --experimental-strip-types tools/sim/quick.ts 12`).
   - `tune.ts`: tự định giá nâng cấp theo lịch mục tiêu và khớp đường giá quét. Chạy `--refine` để chỉnh từ số hiện có. Lệnh này ghi đè giá trong `src/content`.
 - Sửa số trong JSON xong thì chạy lại `npm run sim` và `npm run sim:report` để xem hệ quả.
+
+## Màn chơi game #1
+
+- `src/scenes/PlayScene.ts`: màn chính, nối `Run` (kinh tế) với giao diện.
+- `src/ui/`: bảng kéo thả (`Board`), lõi sao để nhấp (`Core`), thẻ nâng cấp (`UpgradeList`), màn ra đồ hiếm (`Reveal`), sao băng (`ShootingStar`).
+- `src/render/`: thiên thể, nền và icon đều vẽ bằng code (Canvas 2D), không có file ảnh. Xem hết 50 thiên thể: `npm run dev` rồi mở `/tools/preview/bodies.html`.
+- Hướng dẫn theo bước dùng `Tutorial` của bộ khung; các bước đã xong lưu trong `save.data.tutorial`.
+
+Thêm vào bộ khung trong đợt này: `app.rng` (RNG có seed), `app.moments` (sự kiện khoảnh khắc), `?clean`, `Panel`, bảng thu nhập khi vắng mặt và màn quà 7 ngày (`showOfflinePanel`, `showDailyPanel`), `Tutorial`, nút thưởng có đếm ngược thời gian hồi, `menu: 'returning'`, `contentChecker`.
 
 ## Bộ khung dùng chung
 

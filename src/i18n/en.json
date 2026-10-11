@@ -1,12 +1,138 @@
 {
-  "demo": {
-    "perSecond": "{n} per second",
-    "upgradeTap": "+1 per tap",
-    "upgradeAuto": "+1 per second",
-    "cost": "{n}",
-    "rewardDouble": "Double coins",
-    "away": "Welcome back! You earned {n} in {t}.",
-    "hint": "Tap!",
-    "speed": "Orbit test"
+  "tier": {
+    "stardust": "Stardust",
+    "meteoroid": "Meteoroid",
+    "asteroid": "Asteroid",
+    "comet": "Comet",
+    "moon": "Moon",
+    "planet": "Planet",
+    "gasGiant": "Gas Giant",
+    "star": "Star",
+    "blackHole": "Black Hole",
+    "galaxy": "Galaxy"
+  },
+  "rarity": {
+    "common": "Common",
+    "rare": "Rare",
+    "epic": "Epic",
+    "legendary": "Legendary",
+    "mythic": "Mythic"
+  },
+  "upgrade": {
+    "focus": {
+      "name": "Core Focus",
+      "desc": "x{v} energy per tap"
+    },
+    "slots": {
+      "name": "Orbit Ring",
+      "desc": "+{v} board slots"
+    },
+    "discount": {
+      "name": "Lean Optics",
+      "desc": "Scans cost {v}% less"
+    },
+    "probes": {
+      "name": "Probe Bay",
+      "desc": "Probes collect for you"
+    },
+    "crit": {
+      "name": "Supernova Tap",
+      "desc": "+{v}% chance of a x6 tap"
+    },
+    "luck": {
+      "name": "Stellar Luck",
+      "desc": "Rare finds +{v}%"
+    },
+    "fleet": {
+      "name": "Probe Fleet",
+      "desc": "Probes x{v}"
+    },
+    "lens": {
+      "name": "Gravity Lens",
+      "desc": "+{v}% chance of a bigger body"
+    },
+    "binary": {
+      "name": "Binary Merge",
+      "desc": "+{v}% chance of a twin on merge"
+    },
+    "starMagnet": {
+      "name": "Star Magnet",
+      "desc": "Shooting stars {v}% more often"
+    },
+    "deepScan": {
+      "name": "Deep Scanner",
+      "desc": "Scans find {next}"
+    },
+    "relay": {
+      "name": "Deep Space Relay",
+      "desc": "+{v}h of offline income"
+    },
+    "thrusters": {
+      "name": "Ion Thrusters",
+      "desc": "Probes x{v}"
+    },
+    "autoScan": {
+      "name": "Auto Scanner",
+      "desc": "Scans by itself every {v}s"
+    },
+    "autoMerge": {
+      "name": "Gravity Well",
+      "desc": "Merges by itself every {v}s"
+    }
+  },
+  "hud": {
+    "perSecond": "+{n}/s",
+    "perTap": "{n} per tap",
+    "goal": "Goal: {name}",
+    "next": "Next: {name}"
+  },
+  "scan": {
+    "button": "Scan",
+    "full": "Board full",
+    "lucky": "Lucky",
+    "mergeAll": "Merge all"
+  },
+  "shop": {
+    "title": "Upgrades",
+    "level": "Lv {n}",
+    "max": "MAX",
+    "free": "Free",
+    "locked": "Reach {name} to unlock"
+  },
+  "reveal": {
+    "odds": "1 in {n}",
+    "new": "New discovery!",
+    "twin": "Twin!",
+    "copy": "Copy",
+    "absorbed": "+{n}"
+  },
+  "star": {
+    "golden": "Golden star!"
+  },
+  "tut": {
+    "tapDesktop": "Click the core, or press Space",
+    "tapMobile": "Tap the core to collect energy",
+    "scan": "Scan to find a celestial body",
+    "scanAgain": "Scan again",
+    "merge": "Drag one onto the other to merge them",
+    "power": "Bodies on the board make every tap stronger",
+    "upgrade": "Buy Core Focus: more energy per tap",
+    "goal": "Merge your way up to a Galaxy",
+    "ok": "Got it",
+    "star": "Catch the shooting star!",
+    "full": "Board full. Merge, or drag a body onto the core for energy",
+    "probes": "Probes collect energy while you merge",
+    "tapStill": "Tapping still adds a lot on top of probes",
+    "rarity": "Rarer bodies give more energy. Odds are in the scan panel",
+    "keepRarity": "Merging two Epics always keeps at least Epic",
+    "reward": "Free rewards come back every few minutes",
+    "twin": "Watch an ad to copy what you just merged"
+  },
+  "finish": {
+    "title": "Galaxy formed!",
+    "time": "Time: {t}",
+    "best": "Best: {t}",
+    "replay": "Speedrun",
+    "keep": "Keep collecting"
   }
 }

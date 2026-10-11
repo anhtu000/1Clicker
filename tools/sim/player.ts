@@ -1,7 +1,8 @@
 // Simulated player for balance checks. Drives the same Run class as the game.
-// The player model is an assumption (see PROFILES); real playtests replace it.
+// Everything about the player is an assumption (profiles, action times, saving habit);
+// real playtests replace it.
 import { checkContent, type Content } from '../../src/logic/content.ts';
-import { newRunState, Run, type RewardId } from '../../src/logic/run.ts';
+import { newRunState, Run, type MergeResult, type RewardId } from '../../src/logic/run.ts';
 
 /** How the player uses rewarded buttons. */
 export interface AdPolicy {
@@ -19,22 +20,37 @@ export const AD_POLICIES: AdPolicy[] = [
   { id: 'basic', label: 'Basic Launch (reward without ad, used as soon as ready)', delay: 0, adSeconds: 0 },
 ];
 
-/** Manual taps per second while the player is free to tap, by minute. Assumption. */
+/** How much the player taps by hand while free to tap. */
 export interface TapProfile {
   id: string;
-  tps: (sec: number) => number;
+  label: string;
+  /** Taps per second at wall-clock second `sec`. `auto`: probes are working. */
+  tps: (sec: number, auto: boolean) => number;
+  /** Stops buying hand-tap upgrades once probes work. */
+  ignoresTapUpgradesWithAuto?: boolean;
 }
 
 export const PROFILES: Record<string, TapProfile> = {
-  normal: { id: 'normal', tps: (s) => (s < 300 ? 6 : s < 900 ? 4.5 : 3) },
-  slow: { id: 'slow', tps: (s) => (s < 300 ? 3 : s < 900 ? 2.2 : 1.5) },
+  normal: { id: 'normal', label: 'Taps steadily', tps: (s) => (s < 300 ? 6 : s < 900 ? 4.5 : 3) },
+  slow: { id: 'slow', label: 'Taps at half speed', tps: (s) => (s < 300 ? 3 : s < 900 ? 2.2 : 1.5) },
+  idle: {
+    id: 'idle',
+    label: 'Taps only now and then once probes work',
+    tps: (s, auto) => (auto ? 0.5 : s < 300 ? 6 : 4.5),
+    ignoresTapUpgradesWithAuto: true,
+  },
 };
+
+const HAND_UPGRADES = new Set(['focus', 'crit']);
 
 /** Seconds of attention per action. Assumption. */
 const ACTION_TIME = { scan: 0.35, merge: 1.0, buy: 0.6, absorb: 1.2, reward: 0.5 };
 
-/** A player stops scanning to save for the cheapest upgrade when it is this many seconds of income away. */
-const SAVE_WINDOW_SEC = 30;
+/**
+ * The player stops scanning to save for the cheapest upgrade when it is this many seconds
+ * of income away. Shorter early, when everything is cheap and the player buys often.
+ */
+const saveWindow = (sec: number) => (sec < 600 ? 15 : 30);
 
 /** Upgrades a player buys as soon as they can, because they open something new. */
 const UNLOCKS = new Set(['probes', 'slots', 'deepScan', 'autoScan', 'autoMerge']);
@@ -52,27 +68,28 @@ export interface RunReport {
   /** Wall-clock seconds to the goal, ads included. */
   finishSec: number;
   milestones: Milestone[];
-  /** Longest stretch with no scan, merge or purchase, per period. */
+  /** Longest stretch with no reward (scan, merge, purchase, star), per period. */
   maxGap: { first10: number; to30: number; after30: number };
+  /** Every stretch of 20 s or more with no reward: [start, length]. */
+  longGaps: [number, number][];
   scans: number;
   merges: number;
+  twins: number;
   manualTaps: number;
   absorbs: number;
   stars: number;
   rewards: Record<string, number>;
   codexFound: number;
   rarityCounts: number[];
-  /** Energy per second (manual + auto) sampled each minute. */
-  incomeByMinute: number[];
-  scanCostByMinute: number[];
-  /** Expected energy per second (manual + probes), every 10 s of wall clock. */
-  incomeSeries: number[];
-  /** Every stretch of 20 s or more with no scan, merge or purchase: [start, length]. */
-  longGaps: [number, number][];
+  /** Expected energy per second, sampled every 10 s: hand tapping at this profile's pace, and probes. */
+  manualSeries: number[];
+  autoSeries: number[];
+  /** Hand income at a steady 4.5 taps per second divided by probe income, sampled every 10 s once probes work. */
+  tapToAutoSeries: number[];
 }
 
 /** Deterministic 0..1 from the seed and a counter, so a missed star does not use the game's RNG. */
-function starRoll(seed: number, n: number): number {
+function roll01(seed: number, n: number): number {
   const x = Math.sin(seed * 9301 + n * 49297) * 233280;
   return x - Math.floor(x);
 }
@@ -94,29 +111,30 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
   let manualTaps = 0;
   let absorbs = 0;
   let stars = 0;
+  let twins = 0;
   let lastAction = 0;
+  let rollN = 0;
   const maxGap = { first10: 0, to30: 0, after30: 0 };
-  const rewards: Record<string, number> = { freeUpgrade: 0, luckyScan: 0, mergeAll: 0 };
+  const longGaps: [number, number][] = [];
+  const rewards: Record<string, number> = { freeUpgrade: 0, luckyScan: 0, mergeAll: 0, twin: 0 };
   const milestones: Milestone[] = [];
   const seen = new Set<string>();
   const rarityCounts = content.rarities.map(() => 0);
-  const incomeByMinute: number[] = [];
-  const scanCostByMinute: number[] = [];
-  const incomeSeries: number[] = [];
-  let manualEnergyThisMinute = 0;
-  let energyMarkMinute = 0;
+  const manualSeries: number[] = [];
+  const autoSeries: number[] = [];
+  const tapToAutoSeries: number[] = [];
+  const auto = () => run.autoRate() > 0;
 
   const mark = (key: string, what: string) => {
     if (seen.has(key)) return;
     seen.add(key);
     milestones.push({ t: clock, what });
   };
-  const longGaps: [number, number][] = [];
   const acted = () => {
     const gap = clock - lastAction;
-    if (gap >= 20) longGaps.push([lastAction, gap]);
     const bucket = lastAction < 600 ? 'first10' : lastAction < 1800 ? 'to30' : 'after30';
     maxGap[bucket] = Math.max(maxGap[bucket], gap);
+    if (gap >= 20) longGaps.push([lastAction, gap]);
     lastAction = clock;
   };
   const noteBody = (r: number, t: number) => {
@@ -124,36 +142,15 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
     mark(`tier${t}`, `First ${content.tiers[t - 1].id} (tier ${t})`);
     if (r >= 2) mark(`rarity${r}`, `First ${content.rarities[r].id}`);
   };
-  const trackVisible = () => {
-    for (const u of content.upgrades) if (run.isVisible(u)) mark(`show-${u.id}`, `Shop shows ${u.id}`);
-  };
+  const bought = (id: string, viaAd = false) =>
+    mark(`bought-${id}-${run.level(id)}`, `${viaAd ? 'Got' : 'Bought'} ${id} L${run.level(id)}${viaAd ? ' (ad)' : ''}`);
 
-  const useReward = (id: RewardId): boolean => {
+  const adReady = (id: RewardId) => {
     if (policy.id === 'none' || !run.rewardReady(id)) return false;
     // "delay": the button has been ready for a while before this player bothers.
-    const readyAt = s.rewardReadyAt[id] ?? 0;
-    if (s.time < readyAt + policy.delay) return false;
-    if (id === 'freeUpgrade') {
-      const target = run.freeUpgradeTarget();
-      if (!target) return false;
-      run.grant(target);
-      mark(`bought-${target}-${run.level(target)}`, `Got ${target} L${run.level(target)} (ad)`);
-    } else if (id === 'luckyScan') {
-      const result = run.luckyScan();
-      if (!result) return false;
-      noteBody(result.body.r, result.body.t);
-    } else {
-      // Only worth an ad when it does real work.
-      let pairs = 0;
-      const tiers: Record<number, number> = {};
-      for (let i = 0; i < run.slots; i++) {
-        const b = s.board[i];
-        if (b) tiers[b.t] = (tiers[b.t] ?? 0) + 1;
-      }
-      for (const n of Object.values(tiers)) pairs += Math.floor(n / 2);
-      if (pairs < 3) return false;
-      for (const r of run.mergeAll()) noteBody(r.body.r, r.body.t);
-    }
+    return s.time >= (s.rewardReadyAt[id] ?? 0) + policy.delay;
+  };
+  const watchAd = (id: RewardId) => {
     run.useReward(id, policy.id === 'basic');
     rewards[id] += 1;
     acted();
@@ -161,16 +158,68 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
     clock += policy.adSeconds;
     lastAction = clock;
     busyUntil = Math.max(busyUntil, clock) + ACTION_TIME.reward;
-    return true;
   };
 
+  const afterMerge = (result: MergeResult) => {
+    noteBody(result.body.r, result.body.t);
+    if (result.twin) {
+      twins += 1;
+      noteBody(result.twin.body.r, result.twin.body.t);
+    }
+    // Rewarded copy of what was just merged, offered right after the merge.
+    if (adReady('twin') && run.canDuplicate(result.slot)) {
+      const copy = run.duplicate(result.slot);
+      if (copy) {
+        noteBody(copy.body.r, copy.body.t);
+        watchAd('twin');
+      }
+    }
+  };
+
+  const useRewards = (): boolean => {
+    if (adReady('freeUpgrade')) {
+      const target = run.freeUpgradeTarget();
+      if (target && !(profile.ignoresTapUpgradesWithAuto && auto() && HAND_UPGRADES.has(target))) {
+        run.grant(target);
+        bought(target, true);
+        watchAd('freeUpgrade');
+        return true;
+      }
+    }
+    if (adReady('luckyScan')) {
+      const result = run.luckyScan();
+      if (result) {
+        noteBody(result.body.r, result.body.t);
+        watchAd('luckyScan');
+        return true;
+      }
+    }
+    if (adReady('mergeAll')) {
+      // Only worth an ad when it does real work.
+      const tiers: Record<number, number> = {};
+      for (let i = 0; i < run.slots; i++) {
+        const b = s.board[i];
+        if (b) tiers[b.t] = (tiers[b.t] ?? 0) + 1;
+      }
+      const pairs = Object.values(tiers).reduce((a, n) => a + Math.floor(n / 2), 0);
+      if (pairs >= 3) {
+        for (const r of run.mergeAll()) afterMerge(r);
+        watchAd('mergeAll');
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const wants = (id: string) => !(profile.ignoresTapUpgradesWithAuto && auto() && HAND_UPGRADES.has(id));
+
   const decide = (): boolean => {
-    if (useReward('freeUpgrade') || useReward('luckyScan') || useReward('mergeAll')) return true;
+    if (useRewards()) return true;
 
     for (const u of content.upgrades) {
       if (UNLOCKS.has(u.id) && run.canBuy(u.id)) {
         run.buy(u.id);
-        mark(`bought-${u.id}-${run.level(u.id)}`, `Bought ${u.id} L${run.level(u.id)}`);
+        bought(u.id);
         busyUntil = clock + ACTION_TIME.buy;
         acted();
         return true;
@@ -179,18 +228,17 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
 
     const pair = run.findPair();
     if (pair) {
-      const result = run.merge(pair[0], pair[1])!;
-      noteBody(result.body.r, result.body.t);
+      afterMerge(run.merge(pair[0], pair[1])!);
       busyUntil = clock + ACTION_TIME.merge;
       acted();
       return true;
     }
 
-    // The cheapest upgrade in the shop is what the player is working toward.
+    // The cheapest upgrade this player cares about is what they work toward.
     let goal: string | null = null;
     let goalCost = Infinity;
     for (const u of content.upgrades) {
-      if (!run.isVisible(u) || run.isMaxed(u)) continue;
+      if (!run.isVisible(u) || run.isMaxed(u) || !wants(u.id)) continue;
       const cost = run.upgradeCost(u);
       if (cost < goalCost) {
         goal = u.id;
@@ -199,14 +247,14 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
     }
     if (goal && run.canBuy(goal)) {
       run.buy(goal);
-      mark(`bought-${goal}-${run.level(goal)}`, `Bought ${goal} L${run.level(goal)}`);
+      bought(goal);
       busyUntil = clock + ACTION_TIME.buy;
       acted();
       return true;
     }
     // Close enough to the goal: stop scanning and save for it.
-    const income = profile.tps(clock) * run.tapValue() * run.critAverage() + run.autoIncome();
-    const saving = goal !== null && goalCost - s.energy <= income * SAVE_WINDOW_SEC;
+    const income = run.manualIncome(profile.tps(clock, auto())) + run.autoIncome();
+    const saving = goal !== null && goalCost - s.energy <= income * saveWindow(clock);
     if (!saving && run.canScan()) {
       const result = run.scan()!;
       noteBody(result.body.r, result.body.t);
@@ -215,7 +263,7 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
       return true;
     }
     // Stuck: board full and nothing pairs. Feed the lowest body to the core.
-    if (run.freeSlot() < 0 && !pair) {
+    if (run.freeSlot() < 0) {
       let lowest = -1;
       for (let i = 0; i < run.slots; i++) {
         const b = s.board[i];
@@ -234,41 +282,35 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
   };
 
   while (clock < limitSec && s.finishedAt === null) {
-    // run.update counts run time; the player acts on the wall clock.
     for (const ev of run.update(dt)) {
-      if (ev.kind === 'scan' || ev.kind === 'merge') noteBody(ev.result.body.r, ev.result.body.t);
+      if (ev.kind === 'scan') noteBody(ev.result.body.r, ev.result.body.t);
+      else if (ev.kind === 'merge') afterMerge(ev.result);
     }
+    clock += dt;
+    for (const u of content.upgrades) if (run.isVisible(u)) mark(`show-${u.id}`, `Shop shows ${u.id}`);
+
     // Catch a shooting star after a short reaction time; the player misses about 1 in 6.
-    if (run.starUp && s.starTimer > -content.economy.stars.lifetime + 1.5 && starRoll(seed, s.taps) > 1 / 6) {
+    if (run.starUp && s.starTimer > -content.economy.stars.lifetime + 1.5 && roll01(seed, rollN++) > 1 / 6) {
       run.catchStar();
       stars += 1;
       mark('star', 'First shooting star caught');
       acted();
     }
-    clock += dt;
-    trackVisible();
 
-    if (clock >= busyUntil) {
-      if (!decide()) {
-        tapAcc += profile.tps(clock) * dt;
-        while (tapAcc >= 1) {
-          tapAcc -= 1;
-          manualEnergyThisMinute += run.tap().amount;
-          manualTaps += 1;
-        }
+    if (clock >= busyUntil && !decide()) {
+      tapAcc += profile.tps(clock, auto()) * dt;
+      while (tapAcc >= 1) {
+        tapAcc -= 1;
+        run.tap();
+        manualTaps += 1;
       }
     }
-    if (s.levels.probes) mark('auto', 'Automation: probes start tapping');
+    if (auto()) mark('auto', 'Automation: probes start working');
 
-    if (Math.floor(clock / 10) > incomeSeries.length - 1) {
-      incomeSeries.push(profile.tps(clock) * run.tapValue() * run.critAverage() + run.autoIncome());
-    }
-    const minute = Math.floor(clock / 60);
-    if (minute > energyMarkMinute) {
-      incomeByMinute.push(manualEnergyThisMinute / 60 + run.autoIncome());
-      scanCostByMinute.push(run.scanCost());
-      manualEnergyThisMinute = 0;
-      energyMarkMinute = minute;
+    if (Math.floor(clock / 10) > manualSeries.length - 1) {
+      manualSeries.push(run.manualIncome(profile.tps(clock, auto())));
+      autoSeries.push(run.autoIncome());
+      if (auto()) tapToAutoSeries.push(run.manualIncome(4.5) / run.autoIncome());
     }
   }
   acted();
@@ -281,17 +323,18 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
     finishSec: clock,
     milestones,
     maxGap,
+    longGaps,
     scans: s.scans,
     merges: s.merges,
+    twins,
     manualTaps,
     absorbs,
     stars,
     rewards,
     codexFound: Object.keys(run.codex.found).length,
     rarityCounts,
-    incomeByMinute,
-    scanCostByMinute,
-    incomeSeries,
-    longGaps,
+    manualSeries,
+    autoSeries,
+    tapToAutoSeries,
   };
 }

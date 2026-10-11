@@ -65,3 +65,9 @@ body {
   font: 600 16px system-ui, sans-serif;
   text-align: center;
 }
+
+/* ?clean (video recording): hide the mouse cursor everywhere, including Phaser's hand cursor. */
+html.clean,
+html.clean * {
+  cursor: none !important;
+}

@@ -4,7 +4,6 @@ import {
   BaseScene,
   Button,
   burst,
-  DebugOverlay,
   FixedStep,
   floatText,
   formatDuration,
@@ -13,209 +12,677 @@ import {
   punch,
   rewardButton,
   secondsAway,
+  showOfflinePanel,
   soundButton,
   toast,
+  Tutorial,
+  type TutorialStep,
   type ViewportInfo,
 } from '@core';
-import { save } from '../save';
+import { content } from '../game/content';
+import type { UpgradeDef } from '../logic/content.ts';
+import { newRunState, Run, type MergeResult, type NewBody } from '../logic/run.ts';
+import { SpaceBackground } from '../render/background';
+import { ensureBodyTexture } from '../render/bodies';
+import { energyIcon } from '../render/icons';
+import { RARITY_COLOR, RARITY_CSS } from '../render/palette';
+import { applyPreset } from '../game/presets';
+import { preset, save } from '../save';
+import { Board } from '../ui/Board';
+import { Core } from '../ui/Core';
+import { showReveal } from '../ui/Reveal';
+import { ShootingStar } from '../ui/ShootingStar';
+import { UpgradeList } from '../ui/UpgradeList';
 
-// Framework demo. It touches every core feature so the framework can be checked on a phone:
-// tap feedback, upgrades, idle income, offline income, rewarded ad, pause, sound, layout, delta time.
-// Game #1 replaces this scene.
+const STEP_SEC = 0.1;
 
-const ORBIT_SPEED = Math.PI / 2; // radians per second: one lap every 4 seconds at any frame rate
-
+/** Main screen: core to tap, board to merge, shop, and the systems around them. */
 export class PlayScene extends BaseScene {
-  private orb!: Phaser.GameObjects.Container;
-  private orbBody!: Phaser.GameObjects.Arc;
-  private comet!: Phaser.GameObjects.Arc;
-  private coinsText!: Phaser.GameObjects.Text;
+  private run!: Run;
+  private bg!: SpaceBackground;
+  private core!: Core;
+  private board!: Board;
+  private shop!: UpgradeList;
+  private energyText!: Phaser.GameObjects.Text;
+  private energyIconG!: Phaser.GameObjects.Graphics;
   private rateText!: Phaser.GameObjects.Text;
-  private hint!: Phaser.GameObjects.Text;
-  private stars!: Phaser.GameObjects.Graphics;
-  private starList: { x: number; y: number; r: number; speed: number }[] = [];
-  private buyTap!: Button;
-  private buyAuto!: Button;
-  private reward!: Button;
+  private goalLabel!: Phaser.GameObjects.Text;
+  private chain: Phaser.GameObjects.Image[] = [];
+  private chainMarker!: Phaser.GameObjects.Graphics;
+  private scanBtn!: Button;
+  private luckyBtn!: Button;
+  private mergeAllBtn!: Button;
   private pauseBtn!: Button;
   private soundBtn!: Button;
-  private orbitAngle = 0;
-  private orbitRadius = 200;
-  private income = new FixedStep(100, (sec) => this.addCoins(save.data.perSecond * sec, false));
-  // Measures orbit speed against the wall clock, to prove movement follows real time.
-  private measure = { start: 0, angle: 0 };
+  private copyBtn: Button | null = null;
+  private star: ShootingStar | null = null;
+  private tutorial!: Tutorial;
+  private step = new FixedStep(STEP_SEC * 1000, () => this.onStep());
+  private refreshTimer = 0;
+  private shownEnergy = 0;
+  /** Taps since the current tutorial step began. */
+  private tapsInStep = 0;
+  private starsCaught = 0;
+  private revealOpen = false;
 
   constructor() {
     super('Play', { gameplay: true });
   }
 
   protected build() {
-    const theme = app.theme;
-    this.stars = this.add.graphics();
-    for (let i = 0; i < 90; i++) {
-      this.starList.push({ x: Math.random(), y: Math.random(), r: Phaser.Math.FloatBetween(1, 3.2), speed: Phaser.Math.FloatBetween(8, 40) });
+    if (preset) applyPreset(preset, save.data);
+    if (!save.data.run) save.data.run = newRunState(content, 'main', app.rng.int(1, 2 ** 31 - 1));
+    this.run = new Run(content, save.data.run, save.data.codex);
+
+    this.bg = new SpaceBackground(this);
+    this.core = new Core(this, (x, y) => this.tapCore(x, y));
+    this.core.setDepth(8);
+
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    this.energyIconG = this.add.graphics().setDepth(30);
+    energyIcon(this.energyIconG, 44, 0xffc23d);
+    this.energyText = this.add.text(0, 0, '0', { ...font, fontStyle: '900', fontSize: 76, color: '#ffffff' }).setOrigin(0, 0.5).setDepth(30);
+    this.energyText.setShadow(0, 4, '#00000088', 8, false, true);
+    this.rateText = this.add.text(0, 0, '', { ...font, fontStyle: '700', fontSize: 28, color: '#b9b4d9' }).setOrigin(0.5).setDepth(30);
+    this.goalLabel = this.add.text(0, 0, app.t('hud.goal', { name: app.t('tier.galaxy') }), { ...font, fontStyle: '700', fontSize: 24, color: '#b9b4d9' }).setOrigin(0.5).setDepth(30);
+    this.chainMarker = this.add.graphics().setDepth(29);
+    for (let t = 1; t <= content.tiers.length; t++) {
+      this.chain.push(this.add.image(0, 0, ensureBodyTexture(this, t, 0)).setDepth(30));
     }
 
-    this.orbBody = this.add.circle(0, 0, 150, theme.primary);
-    const shine = this.add.circle(-45, -50, 46, 0xffffff, 0.22);
-    this.orb = this.add.container(0, 0, [this.orbBody, shine]);
-    this.orb.setSize(300, 300);
-    this.orb.setInteractive(new Phaser.Geom.Circle(150, 150, 165), Phaser.Geom.Circle.Contains);
-    this.orb.on('pointerdown', (p: Phaser.Input.Pointer) => this.tap(p.worldX, p.worldY));
-    this.comet = this.add.circle(0, 0, 14, 0xffffff);
-
-    this.coinsText = this.text(0, 0, '', 84).setOrigin(0.5);
-    this.rateText = this.text(0, 0, '', 32, theme.textDim, '700').setOrigin(0.5);
-    this.hint = this.text(0, 0, app.t('demo.hint'), 40, theme.text).setOrigin(0.5);
-    this.tweens.add({ targets: this.hint, alpha: 0.35, duration: 700, yoyo: true, repeat: -1 });
-
-    this.buyTap = new Button(this, 0, 0, { label: '', width: 420, height: 100, fontSize: 32, sound: false, onClick: () => this.buy('tap') });
-    this.buyAuto = new Button(this, 0, 0, { label: '', width: 420, height: 100, fontSize: 32, sound: false, onClick: () => this.buy('auto') });
-    this.reward = rewardButton(this, 0, 0, {
-      label: app.t('demo.rewardDouble'),
-      width: 420,
-      onReward: () => {
-        app.audio.play('reward');
-        this.addCoins(Math.max(10, save.data.coins), true);
-        burst(this, this.orb.x, this.orb.y, theme.reward, 28, 560);
-      },
+    this.board = new Board(this, this.run, {
+      onDrop: (from, to) => this.dropOnSlot(from, to),
+      onDropOutside: (from, x, y) => this.dropOutside(from, x, y),
+      dropZone: () => ({ x: this.core.x, y: this.core.y, r: this.core.radius * 1.25 }),
     });
+
+    this.shop = new UpgradeList(this, {
+      run: this.run,
+      describe: (u) => this.describe(u),
+      onBuy: (id) => this.buy(id),
+      onFree: (id) => {
+        this.run.grant(id);
+        this.run.useReward('freeUpgrade', app.ads.rewardsAreFree);
+        this.afterPurchase(id);
+      },
+      freeCooldown: () => this.run.rewardWait('freeUpgrade'),
+    });
+
+    this.scanBtn = new Button(this, 0, 0, { label: '', icon: scanIcon, width: 300, height: 108, fontSize: 36, sound: false, onClick: () => this.scan() });
+    this.scanBtn.setDepth(30);
+    this.luckyBtn = rewardButton(this, 0, 0, {
+      label: app.t('scan.lucky'),
+      width: 176,
+      height: 96,
+      fontSize: 28,
+      cooldown: () => this.run.rewardWait('luckyScan'),
+      onReward: () => {
+        const result = this.run.luckyScan();
+        if (!result) return toast(this, app.t('scan.full'));
+        this.run.useReward('luckyScan', app.ads.rewardsAreFree);
+        this.board.sync([result.slot]);
+        this.announce(result, true);
+      },
+    }).setDepth(30);
+    this.mergeAllBtn = rewardButton(this, 0, 0, {
+      label: app.t('scan.mergeAll'),
+      width: 176,
+      height: 96,
+      fontSize: 24,
+      cooldown: () => this.run.rewardWait('mergeAll'),
+      onReward: () => {
+        const results = this.run.mergeAll();
+        this.run.useReward('mergeAll', app.ads.rewardsAreFree);
+        this.board.sync(results.flatMap((r) => [r.slot, ...(r.twin ? [r.twin.slot] : [])]));
+        results.forEach((r, i) => this.time.delayedCall(i * 90, () => this.mergeFx(r)));
+      },
+    }).setDepth(30);
+
     this.pauseBtn = new Button(this, 0, 0, {
       icon: icons.pauseIcon,
-      width: 96,
-      height: 96,
-      color: theme.surface,
-      textColor: theme.surfaceText,
+      width: 88,
+      height: 88,
+      color: app.theme.surface,
+      textColor: app.theme.surfaceText,
       onClick: () => app.openPause(this),
-    });
-    this.soundBtn = soundButton(this, 0, 0);
+    }).setDepth(30);
+    this.soundBtn = soundButton(this, 0, 0, 88).setDepth(30);
     this.input.keyboard?.on('keydown-ESC', () => app.openPause(this));
-
-    this.creditAway(secondsAway(save.lastSavedAt));
-    // Coming back to the tab: credit the time spent away, like offline income.
-    const offResume = app.pause.on('resume', (ms) => {
-      this.measure.start = 0;
-      this.creditAway(ms / 1000);
-    });
-    // Scene events outlive a restart, so listeners added here are removed on shutdown.
-    const onSceneResume = () => (this.measure.start = 0);
-    this.events.on(Phaser.Scenes.Events.RESUME, onSceneResume);
-    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
-      offResume();
-      this.events.off(Phaser.Scenes.Events.RESUME, onSceneResume);
+    // Space taps the core on a computer (CLAUDE.md 4.2). Holding the key does not repeat.
+    this.input.keyboard?.addCapture('SPACE');
+    this.input.keyboard?.on('keydown-SPACE', (e: KeyboardEvent) => {
+      if (e.repeat || !this.spaceAllowed()) return;
+      this.tapCore(this.core.x + Phaser.Math.Between(-30, 30), this.core.y + Phaser.Math.Between(-30, 30));
     });
 
-    this.refresh();
+    this.tutorial = new Tutorial(this, {
+      onStepDone: (id) => {
+        if (!save.data.tutorial.includes(id)) save.data.tutorial.push(id);
+        this.tapsInStep = 0;
+      },
+    });
+
+    this.board.sync();
+    this.shop.refresh(true);
+    this.shownEnergy = this.run.s.energy;
+    this.startIntro();
+    this.welcomeBack();
+
+    const offResume = app.pause.on('resume', (ms) => this.creditAway(ms / 1000));
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, offResume);
   }
+
+  // ---------- layout ----------
 
   protected layout(vp: ViewportInfo) {
     const s = vp.safe;
-    this.pauseBtn.setPosition(80, 80);
-    this.soundBtn.setPosition(vp.width - 80, 80);
+    this.bg.layout();
     if (vp.portrait) {
-      // Phone: counter on top, orb in the middle, shop below. The shop never covers the orb.
-      this.coinsText.setPosition(vp.width / 2, s.y + 190);
-      this.rateText.setPosition(vp.width / 2, s.y + 260);
-      this.orb.setPosition(vp.width / 2, s.y + 560);
-      const bottom = vp.height - 90;
-      this.reward.setPosition(vp.width / 2, bottom - 280);
-      this.buyTap.setPosition(vp.width / 2, bottom - 140);
-      this.buyAuto.setPosition(vp.width / 2, bottom);
+      // Phone, top to bottom: energy, core, goal chain, board, scan row, shop strip.
+      // Uses the full height: taller phones get a bigger board instead of empty bands.
+      const cx = vp.width / 2;
+      const top = Math.max(0, s.y - 60);
+      const stripH = 184;
+      const stripTop = vp.height - stripH - 16;
+      const rowY = stripTop - 70;
+      const boardBottom = rowY - 72;
+      const headH = 430; // energy + core + chain
+      const avail = boardBottom - (top + headH);
+      const boardSize = Math.min(vp.width - 96, avail);
+      const cell = Math.floor(boardSize / (4 + 3 * 0.08));
+      const spare = Math.max(0, avail - boardSize);
+      const y0 = top + spare * 0.45;
+      this.placeEnergy(cx, y0 + 66);
+      this.rateText.setPosition(cx, y0 + 116);
+      this.core.setPosition(cx, y0 + 250);
+      this.core.setRadius(88);
+      this.placeChain(cx, y0 + 404, 600);
+      const size = cell * 4 + 3 * Math.round(cell * 0.08);
+      this.board.layout(cx, boardBottom - size / 2, cell);
+      this.scanBtn.setPosition(cx, rowY);
+      this.luckyBtn.setPosition(cx - 254, rowY);
+      this.mergeAllBtn.setPosition(cx + 254, rowY);
+      this.shop.layout(0, stripTop, vp.width, stripH, true);
+      this.pauseBtn.setPosition(56, y0 + 56);
+      this.soundBtn.setPosition(vp.width - 56, y0 + 56);
     } else {
-      // Desktop 16:9: orb on the left, shop in a column on the right.
-      const left = s.x + s.width * 0.36;
-      const right = s.x + s.width * 0.78;
-      this.coinsText.setPosition(left, s.y + 110);
-      this.rateText.setPosition(left, s.y + 180);
-      this.orb.setPosition(left, s.y + 440);
-      this.reward.setPosition(right, s.y + 260);
-      this.buyTap.setPosition(right, s.y + 400);
-      this.buyAuto.setPosition(right, s.y + 540);
+      // Desktop 16:9: core and scan on the left, board in the middle, shop column on the right.
+      const leftX = s.x + 200;
+      this.placeEnergy(leftX, s.y + 66);
+      this.rateText.setPosition(leftX, s.y + 116);
+      this.core.setPosition(leftX, s.y + 272);
+      this.core.setRadius(88);
+      this.placeChain(leftX, s.y + 430, 360);
+      this.scanBtn.setPosition(leftX, s.y + 548);
+      this.luckyBtn.setPosition(leftX - 96, s.y + 660);
+      this.mergeAllBtn.setPosition(leftX + 96, s.y + 660);
+      const cell = 132;
+      this.board.layout(s.x + 660, s.y + 372, cell);
+      this.shop.layout(s.x + s.width - 330, s.y + 110, 316, s.height - 120, false);
+      // Pause and sound sit together above the shop column, clear of the energy counter.
+      this.soundBtn.setPosition(s.x + s.width - 56, s.y + 52);
+      this.pauseBtn.setPosition(s.x + s.width - 160, s.y + 52);
     }
-    this.orbitRadius = 215;
-    this.hint.setPosition(this.orb.x, this.orb.y + 215);
+    this.energyY = this.energyText.y;
+    this.goalLabel.setPosition(this.chainCenter.x, this.chainCenter.y + 42);
   }
+
+  private chainCenter = { x: 0, y: 0, w: 0 };
+  private energyY = 0;
+
+  private placeEnergy(cx: number, y: number) {
+    const w = this.energyText.width + 56;
+    this.energyIconG.setPosition(cx - w / 2 + 22, y);
+    this.energyText.setPosition(cx - w / 2 + 52, y);
+  }
+
+  private placeChain(cx: number, y: number, width: number) {
+    this.chainCenter = { x: cx, y, w: width };
+    const step = width / this.chain.length;
+    this.chain.forEach((img, i) => {
+      img.setPosition(cx - width / 2 + step * (i + 0.5), y);
+      img.setScale((step * 1.25) / 192);
+    });
+    this.refreshChain();
+  }
+
+  private refreshChain() {
+    const top = this.run.s.highestTier;
+    this.chain.forEach((img, i) => {
+      const t = i + 1;
+      // Undiscovered tiers are dark silhouettes: the player sees there is more to find.
+      img.setTint(t <= top ? 0xffffff : 0x3a3478);
+      img.setAlpha(t <= top ? 1 : 0.55);
+    });
+    const g = this.chainMarker;
+    g.clear();
+    if (top > 0) {
+      const img = this.chain[top - 1];
+      g.lineStyle(3, 0xffc23d, 0.9);
+      g.strokeCircle(img.x, img.y, (this.chainCenter.w / this.chain.length) * 0.5);
+    }
+  }
+
+  // ---------- frame ----------
 
   update(_time: number, delta: number) {
-    // Movement scaled by delta: same speed at 30, 60 or 144 fps.
-    this.orbitAngle += ORBIT_SPEED * (delta / 1000);
-    this.comet.setPosition(
-      this.orb.x + Math.cos(this.orbitAngle) * this.orbitRadius,
-      this.orb.y + Math.sin(this.orbitAngle) * this.orbitRadius,
+    this.bg.update(delta);
+    if (!this.revealOpen) this.step.update(delta);
+    // Count up the energy display smoothly instead of jumping.
+    const target = this.run.s.energy;
+    this.shownEnergy += (target - this.shownEnergy) * Math.min(1, delta / 90);
+    if (Math.abs(target - this.shownEnergy) < 1) this.shownEnergy = target;
+    this.energyText.setText(formatNumber(this.shownEnergy));
+    this.placeEnergy(this.vp.portrait ? this.vp.width / 2 : this.vp.safe.x + 200, this.energyY);
+
+    this.refreshTimer -= delta;
+    if (this.refreshTimer <= 0) {
+      this.refreshTimer = 200;
+      this.refreshUi();
+    }
+    // Tutorial star: keep it on screen until it is caught.
+    if (this.star && this.tutorial.currentId === 'star') {
+      this.star.hold = true;
+      this.run.s.starTimer = Math.min(this.run.s.starTimer, -2);
+    }
+  }
+
+  private onStep() {
+    for (const ev of this.run.update(STEP_SEC)) {
+      if (ev.kind === 'scan') {
+        this.board.sync([ev.result.slot]);
+        this.announce(ev.result, false);
+      } else if (ev.kind === 'merge') {
+        this.board.sync([ev.result.slot, ...(ev.result.twin ? [ev.result.twin.slot] : [])]);
+        this.mergeFx(ev.result);
+      } else if (ev.kind === 'star') {
+        this.spawnStar(ev.golden);
+      } else if (ev.kind === 'starGone') {
+        this.removeStar(false);
+      }
+    }
+  }
+
+  private refreshUi() {
+    const run = this.run;
+    const auto = run.autoIncome();
+    this.rateText.setText(
+      auto > 0 ? app.t('hud.perSecond', { n: formatNumber(auto) }) : app.t('hud.perTap', { n: formatNumber(run.tapValue()) }),
     );
-    this.income.update(delta);
-    this.drawStars(delta);
+    const full = run.freeSlot() < 0;
+    this.scanBtn.setLabel(full ? app.t('scan.full') : `${app.t('scan.button')}  ${formatNumber(run.scanCost())}`);
+    this.scanBtn.setEnabled(run.canScan());
+    // Reward buttons stay hidden until they are first ready, so the opening minutes stay uncluttered.
+    const ads = app.ads.rewardedAvailable && !app.clean;
+    const firstReady = (id: 'luckyScan' | 'mergeAll') => run.s.time >= content.economy.rewarded[id].firstAt;
+    this.luckyBtn.setVisible(ads && firstReady('luckyScan'));
+    this.mergeAllBtn.setVisible(ads && firstReady('mergeAll'));
+    this.shop.refresh();
+    this.checkTutorialTriggers();
+  }
 
-    if (!this.measure.start) this.measure = { start: performance.now(), angle: this.orbitAngle };
-    const elapsed = (performance.now() - this.measure.start) / 1000;
-    if (elapsed > 1) {
-      const speed = (this.orbitAngle - this.measure.angle) / elapsed;
-      DebugOverlay.extra[app.t('demo.speed')] = `${speed.toFixed(3)} rad/s (want ${ORBIT_SPEED.toFixed(3)})`;
+  // ---------- actions ----------
+
+  private spaceAllowed() {
+    const id = this.tutorial.currentId;
+    return !this.revealOpen && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
+  }
+
+  private tapCore(x: number, y: number) {
+    if (this.revealOpen) return;
+    const id = this.tutorial.currentId;
+    if (id && id !== 'tap' && id !== 'tapPower' && id !== 'star') return;
+    const { amount, crit } = this.run.tap();
+    this.tapsInStep += 1;
+    this.core.hit(crit ? 2.5 : 1);
+    floatText(this, x, y - 30, `+${formatNumber(amount)}`, { color: crit ? '#ffd166' : '#ffffff', size: crit ? 64 : 44, rise: crit ? 170 : 120 });
+    if (crit) {
+      burst(this, x, y, 0xffd166, 18, 360);
+      app.audio.play('tap', { pitchJitter: 40, volume: 1 });
+      app.haptic(18);
+    } else {
+      app.audio.play('tap', { pitchJitter: 140, volume: 0.75 });
+      app.haptic(6);
+    }
+    if (this.run.s.taps % 20 === 0) burst(this, this.core.x, this.core.y, 0xa98bff, 10, 220);
+  }
+
+  private scan() {
+    const run = this.run;
+    if (!run.canScan()) {
+      if (run.freeSlot() < 0) toast(this, app.t('scan.full'));
+      return;
+    }
+    const result = run.scan()!;
+    app.audio.play('buy', { pitchJitter: 120, volume: 0.8 });
+    this.beam(result.slot);
+    this.board.sync([result.slot]);
+    this.announce(result, false);
+    this.refreshUi();
+  }
+
+  /** A short line of light from the core to the new body. */
+  private beam(slot: number) {
+    const to = this.board.slotPos(slot);
+    const g = this.add.graphics().setDepth(9).setBlendMode(Phaser.BlendModes.ADD);
+    g.lineStyle(6, 0x9fd8ff, 0.8);
+    g.lineBetween(this.core.x, this.core.y, to.x, to.y);
+    this.tweens.add({ targets: g, alpha: 0, duration: 260, onComplete: () => g.destroy() });
+  }
+
+  private dropOnSlot(from: number, to: number) {
+    const run = this.run;
+    if (run.canMerge(from, to)) {
+      this.board.slide(from, to, () => {
+        const result = run.merge(from, to);
+        if (!result) return this.board.sync();
+        this.board.sync([result.slot, ...(result.twin ? [result.twin.slot] : [])]);
+        this.mergeFx(result);
+        this.offerCopy(result);
+        this.refreshUi();
+      });
+    } else if (!run.s.board[to]) {
+      run.move(from, to);
+      this.board.moved(from, to);
+    } else if (run.swap(from, to)) {
+      this.board.sync();
     }
   }
 
-  private drawStars(delta: number) {
-    const { width, height } = this.vp;
-    this.stars.clear();
-    for (const star of this.starList) {
-      star.y += (star.speed * delta) / 1000 / height;
-      if (star.y > 1) star.y -= 1;
-      this.stars.fillStyle(0xffffff, 0.25 + star.r / 6);
-      this.stars.fillCircle(star.x * width, star.y * height, star.r);
-    }
+  private dropOutside(from: number, x: number, y: number): boolean {
+    // Dropping on the core feeds the body to it for energy.
+    if (Phaser.Math.Distance.Between(x, y, this.core.x, this.core.y) > this.core.radius * 1.4) return false;
+    const value = this.run.absorb(from);
+    if (!value) return false;
+    this.board.sync();
+    this.core.hit(2);
+    floatText(this, this.core.x, this.core.y - 60, app.t('reveal.absorbed', { n: formatNumber(value) }), { color: '#ffd166', size: 56 });
+    burst(this, this.core.x, this.core.y, 0xffb36b, 24, 420);
+    app.audio.play('reward', { volume: 0.7 });
+    return true;
   }
 
-  private tap(x: number, y: number) {
-    save.data.taps += 1;
-    this.addCoins(save.data.perTap, false);
-    floatText(this, x, y - 30, `+${formatNumber(save.data.perTap)}`, { color: '#ffffff', size: 46 });
-    punch(this, this.orb, 0.08);
-    app.audio.play('tap', { pitchJitter: 120, volume: 0.8 });
-    app.haptic(6);
-    if (save.data.taps % 25 === 0) burst(this, x, y, app.theme.primary, 12);
-    if (this.hint.visible && save.data.taps >= 3) this.hint.setVisible(false);
-  }
-
-  private cost(kind: 'tap' | 'auto') {
-    const level = kind === 'tap' ? save.data.perTap - 1 : save.data.perSecond;
-    const base = kind === 'tap' ? 10 : 25;
-    return Math.floor(base * 1.35 ** level);
-  }
-
-  private buy(kind: 'tap' | 'auto') {
-    const price = this.cost(kind);
-    if (save.data.coins < price) return;
-    save.data.coins -= price;
-    if (kind === 'tap') save.data.perTap += 1;
-    else save.data.perSecond += 1;
-    const button = kind === 'tap' ? this.buyTap : this.buyAuto;
+  private buy(id: string) {
+    if (!this.run.buy(id)) return;
     app.audio.play('buy');
     app.haptic(15);
-    punch(this, button, 0.06);
-    burst(this, button.x, button.y, app.theme.primary, 16);
-    this.refresh();
+    this.afterPurchase(id);
   }
 
-  private addCoins(amount: number, pop: boolean) {
-    save.data.coins += amount;
-    if (pop) punch(this, this.coinsText, 0.15);
-    this.refresh();
+  private afterPurchase(id: string) {
+    const rect = this.shop.cardRect(id);
+    if (rect) burst(this, rect.x, rect.y, 0xffc23d, 16, 300);
+    this.board.layout(this.board.x, this.board.y, this.board.cell);
+    this.board.sync();
+    this.shop.refresh(true);
+    this.refreshUi();
   }
 
+  // ---------- feedback ----------
+
+  /** New body: label it, and give Epic or rarer finds the full reveal. */
+  private announce(result: NewBody, lucky: boolean) {
+    const { body } = result;
+    const p = this.board.slotPos(result.slot);
+    this.refreshChain();
+    if (result.isNew) app.moments.emit('collectionNew', { id: `${body.t}.${body.r}` });
+    if (body.r >= 2) {
+      const odds = this.run.rarityOdds()[body.r];
+      app.moments.emit('rarePull', { tier: body.r, odds, label: `${body.t}` });
+      this.reveal(result);
+    } else if (body.r === 1 || result.isNew || lucky) {
+      const text = body.r === 1 ? app.t('rarity.rare') : app.t('reveal.new');
+      floatText(this, p.x, p.y - 40, text, { color: RARITY_CSS[body.r], size: 34, rise: 80 });
+    }
+    if (body.r >= 1) burst(this, p.x, p.y, RARITY_COLOR[body.r], 12 + body.r * 6, 320);
+  }
+
+  private reveal(result: NewBody) {
+    const { body } = result;
+    const odds = this.run.rarityOdds()[body.r];
+    const name = `${app.t(`rarity.${content.rarities[body.r].id}`)} ${app.t(`tier.${content.tiers[body.t - 1].id}`)}`;
+    this.revealOpen = true;
+    showReveal(this, body, app.t(`rarity.${content.rarities[body.r].id}`), name, app.t('reveal.odds', { n: formatNumber(Math.round(1 / odds)) }), () => {
+      this.revealOpen = false;
+      if (body.r >= 2 && !save.data.tutorial.includes('rarity')) {
+        this.queueOnce('rarity', [{ id: 'rarity', text: app.t('tut.rarity'), ack: app.t('tut.ok') }]);
+      }
+    });
+  }
+
+  private mergeFx(result: MergeResult) {
+    const p = this.board.slotPos(result.slot);
+    const color = RARITY_COLOR[result.body.r];
+    burst(this, p.x, p.y, color, 16 + result.body.t * 2, 300 + result.body.t * 20);
+    const sprite = this.board.sprite(result.slot);
+    if (sprite) punch(this, sprite, 0.25);
+    // Pitch rises with tier, so climbing the chain sounds like progress.
+    app.audio.play('buy', { volume: 0.9, pitchJitter: 0 });
+    app.haptic(12);
+    app.moments.emit('merge', { level: result.body.t });
+    if (result.twin) {
+      const q = this.board.slotPos(result.twin.slot);
+      floatText(this, q.x, q.y - 40, app.t('reveal.twin'), { color: '#9fd8ff', size: 40 });
+      burst(this, q.x, q.y, 0x9fd8ff, 16, 300);
+    }
+    this.announce(result, false);
+    if (result.finished) this.finish();
+  }
+
+  /** After a merge: a rewarded button to copy the result, for a few seconds. */
+  private offerCopy(result: MergeResult) {
+    this.copyBtn?.destroy();
+    this.copyBtn = null;
+    if (!this.run.rewardReady('twin') || !this.run.canDuplicate(result.slot) || !app.ads.rewardedAvailable || app.clean) return;
+    const p = this.board.slotPos(result.slot);
+    const btn = rewardButton(this, p.x, p.y - this.board.cell * 0.62, {
+      label: app.t('reveal.copy'),
+      width: 150,
+      height: 64,
+      fontSize: 26,
+      onReward: () => {
+        const copy = this.run.duplicate(result.slot);
+        this.run.useReward('twin', app.ads.rewardsAreFree);
+        if (copy) {
+          this.board.sync([copy.slot]);
+          this.announce(copy, false);
+        }
+        btn.destroy();
+      },
+    }).setDepth(45);
+    this.copyBtn = btn;
+    btn.setScale(0);
+    this.tweens.add({ targets: btn, scale: 1, duration: 200, ease: 'Back.Out' });
+    this.time.delayedCall(5000, () => {
+      if (btn.active) this.tweens.add({ targets: btn, alpha: 0, duration: 200, onComplete: () => btn.destroy() });
+    });
+    this.queueOnce('twin', [{ id: 'twin', text: app.t('tut.twin'), target: () => (btn.active ? { x: btn.x, y: btn.y, w: 150, h: 64 } : null), ack: app.t('tut.ok') }]);
+  }
+
+  private spawnStar(golden: boolean) {
+    this.removeStar(false);
+    const vp = this.vp;
+    const area = vp.portrait ? { x: 0, y: vp.safe.y + 160, w: vp.width, h: 700 } : { x: 0, y: vp.safe.y + 80, w: vp.width, h: 520 };
+    this.star = new ShootingStar(this, area, content.economy.stars.lifetime, golden, () => this.catchStar());
+    if (!save.data.tutorial.includes('star') && save.data.tutorial.includes('goal')) {
+      const star = this.star;
+      this.queueOnce('star', [
+        {
+          id: 'star',
+          text: app.t('tut.star'),
+          target: () => (star.active ? { x: star.x, y: star.y, w: 110, h: 110 } : null),
+          done: () => this.starsCaught > 0,
+        },
+      ]);
+    }
+  }
+
+  private catchStar() {
+    const star = this.star;
+    if (!star) return;
+    const golden = this.run.s.starGolden;
+    const value = this.run.catchStar();
+    if (!value) return;
+    this.starsCaught += 1;
+    floatText(this, star.x, star.y - 20, `+${formatNumber(value)}`, { color: golden ? '#ffd166' : '#cfe8ff', size: golden ? 64 : 50 });
+    if (golden) toast(this, app.t('star.golden'), 1500);
+    burst(this, star.x, star.y, golden ? 0xffd166 : 0x9fd8ff, golden ? 30 : 18, 380);
+    app.audio.play('reward', { volume: 0.8 });
+    app.haptic(20);
+    this.removeStar(true);
+  }
+
+  private removeStar(caught: boolean) {
+    const star = this.star;
+    if (!star) return;
+    this.star = null;
+    if (caught) star.destroy();
+    else this.tweens.add({ targets: star, alpha: 0, duration: 300, onComplete: () => star.destroy() });
+  }
+
+  private finish() {
+    const runMs = Math.round((this.run.s.finishedAt ?? this.run.s.time) * 1000);
+    app.moments.emit('finish', { runMs });
+    app.platform.happyTime();
+    if (this.run.s.mode === 'main' && !save.data.firstFinishMs) save.data.firstFinishMs = runMs;
+    if (this.run.s.mode === 'speedrun' && (!save.data.bestRunMs || runMs < save.data.bestRunMs)) save.data.bestRunMs = runMs;
+    toast(this, `${app.t('finish.title')}  ${app.t('finish.time', { t: formatDuration(runMs / 1000, app.i18n.durationUnits()) })}`, 4000);
+  }
+
+  // ---------- coming back ----------
+
+  private welcomeBack() {
+    if (save.isNewPlayer || !save.lastSavedAt) return;
+    const seconds = secondsAway(save.lastSavedAt, Date.now(), this.run.stat('offlineCapHours') * 3600);
+    const amount = this.run.offlineEarnings(seconds);
+    if (amount <= 0) return;
+    showOfflinePanel(this, {
+      seconds,
+      amount,
+      adMultiplier: content.economy.rewarded.offlineMult,
+      icon: (g, size, color) => energyIcon(g, size, color),
+      iconColor: 0xffc23d,
+      onCollect: (value) => {
+        this.run.addEnergy(value);
+        this.refreshUi();
+      },
+    });
+  }
+
+  /** Tab was hidden: probes kept working. Short breaks are credited quietly. */
   private creditAway(seconds: number) {
-    const earned = Math.floor(seconds * save.data.perSecond);
-    if (earned < 1 || seconds < 5) return;
-    this.addCoins(earned, true);
-    toast(this, app.t('demo.away', { n: formatNumber(earned), t: formatDuration(seconds, app.i18n.durationUnits()) }), 3200);
+    const amount = this.run.offlineEarnings(seconds);
+    if (amount <= 0) return;
+    this.run.addEnergy(amount);
+    toast(this, `+${formatNumber(amount)}`);
   }
 
-  private refresh() {
-    const d = save.data;
-    this.coinsText.setText(formatNumber(d.coins));
-    this.rateText.setText(app.t('demo.perSecond', { n: formatNumber(d.perSecond) }));
-    this.buyTap.setLabel(`${app.t('demo.upgradeTap')}  ·  ${formatNumber(this.cost('tap'))}`);
-    this.buyAuto.setLabel(`${app.t('demo.upgradeAuto')}  ·  ${formatNumber(this.cost('auto'))}`);
-    this.buyTap.setEnabled(d.coins >= this.cost('tap'));
-    this.buyAuto.setEnabled(d.coins >= this.cost('auto'));
+  // ---------- tutorial ----------
+
+  private queueOnce(id: string, steps: TutorialStep[]) {
+    if (save.data.tutorial.includes(id) || this.queued.has(id)) return;
+    this.queued.add(id);
+    this.tutorial.queue(steps);
+  }
+
+  private queued = new Set<string>();
+
+  private startIntro() {
+    if (save.data.tutorial.includes('goal')) return;
+    const coreRect = () => ({ x: this.core.x, y: this.core.y, w: this.core.radius * 2.2, h: this.core.radius * 2.2 });
+    const scanRect = () => ({ x: this.scanBtn.x, y: this.scanBtn.y, w: 300, h: 108 });
+    const desktop = !app.platform.isMobile();
+    const steps: TutorialStep[] = [
+      { id: 'tap', text: app.t(desktop ? 'tut.tapDesktop' : 'tut.tapMobile'), target: coreRect, done: () => this.tapsInStep >= 5 },
+      { id: 'scan', text: app.t('tut.scan'), target: scanRect, done: () => this.run.s.scans >= 1 },
+      { id: 'scan2', text: app.t('tut.scanAgain'), target: scanRect, done: () => this.run.s.scans >= 2 },
+      {
+        id: 'merge',
+        text: app.t('tut.merge'),
+        target: () => this.board.slotRect(1),
+        dragTo: () => this.board.slotRect(0),
+        done: () => this.run.s.merges >= 1,
+      },
+      { id: 'tapPower', text: app.t('tut.power'), target: coreRect, done: () => this.tapsInStep >= 5 },
+      {
+        id: 'goal',
+        text: app.t('tut.goal'),
+        target: () => ({ x: this.chainCenter.x, y: this.chainCenter.y, w: this.chainCenter.w, h: 70 }),
+        ack: app.t('tut.ok'),
+      },
+    ];
+    this.tutorial.queue(steps.filter((s) => !save.data.tutorial.includes(s.id)));
+  }
+
+  /** Teaches each new thing the first time it shows up. Runs with the UI refresh. */
+  private checkTutorialTriggers() {
+    if (!save.data.tutorial.includes('goal') || this.tutorial.active || this.revealOpen) return;
+    const run = this.run;
+    const focus = run.upgrade('focus');
+    if (run.s.energy >= run.upgradeCost(focus) && run.level('focus') === 0) {
+      this.shop.reveal('focus');
+      this.queueOnce('buy', [{ id: 'buy', text: app.t('tut.upgrade'), target: () => this.shop.cardRect('focus'), done: () => run.level('focus') > 0 }]);
+      return;
+    }
+    if (run.freeSlot() < 0 && !run.findPair()) {
+      this.queueOnce('full', [{ id: 'full', text: app.t('tut.full'), target: () => ({ x: this.board.x, y: this.board.y, w: this.board.size, h: this.board.size }), ack: app.t('tut.ok') }]);
+      return;
+    }
+    const probes = run.upgrade('probes');
+    if (run.isVisible(probes) && run.level('probes') === 0 && run.s.energy >= run.upgradeCost(probes)) {
+      this.shop.reveal('probes');
+      this.queueOnce('probes', [
+        { id: 'probes', text: app.t('tut.probes'), target: () => this.shop.cardRect('probes'), done: () => run.level('probes') > 0 },
+        { id: 'tapStill', text: app.t('tut.tapStill'), target: () => ({ x: this.core.x, y: this.core.y, w: this.core.radius * 2.2, h: this.core.radius * 2.2 }), ack: app.t('tut.ok') },
+      ]);
+      return;
+    }
+    if (this.luckyBtn.visible && this.run.rewardReady('luckyScan')) {
+      this.queueOnce('reward', [{ id: 'reward', text: app.t('tut.reward'), target: () => ({ x: this.luckyBtn.x, y: this.luckyBtn.y, w: 170, h: 96 }), ack: app.t('tut.ok') }]);
+    }
+  }
+
+  private describe(u: UpgradeDef): string {
+    const v = u.value ?? 0;
+    const level = this.run.level(u.id);
+    switch (u.stat) {
+      case 'tapMult':
+      case 'autoMult':
+        return app.t(`upgrade.${u.id}.desc`, { v: trim(v) });
+      case 'scanCostMult':
+      case 'starRate':
+        return app.t(`upgrade.${u.id}.desc`, { v: Math.round((1 - v) * 100) });
+      case 'critChance':
+      case 'tierUpChance':
+      case 'twinChance':
+        return app.t(`upgrade.${u.id}.desc`, { v: Math.round(v * 100) });
+      case 'luck':
+        return app.t(`upgrade.${u.id}.desc`, { v: Math.round(v * 100) });
+      case 'spawnTier': {
+        const next = Math.min(content.tiers.length, this.run.stat('spawnTier') + 1);
+        return app.t(`upgrade.${u.id}.desc`, { next: app.t(`tier.${content.tiers[next - 1].id}`) });
+      }
+      case 'autoScanEvery':
+      case 'autoMergeEvery': {
+        const values = u.values ?? [];
+        return app.t(`upgrade.${u.id}.desc`, { v: trim(values[Math.min(level, values.length - 1)]) });
+      }
+      default:
+        return app.t(`upgrade.${u.id}.desc`, { v: trim(v) });
+    }
   }
 }
+
+function trim(n: number) {
+  return String(Math.round(n * 100) / 100);
+}
+
+/** Radar sweep for the scan button. */
+const scanIcon: icons.IconDraw = (g, size, color) => {
+  const s = size / 2;
+  g.lineStyle(size * 0.09, color, 1);
+  g.strokeCircle(0, 0, s * 0.8);
+  g.strokeCircle(0, 0, s * 0.42);
+  g.fillStyle(color, 1);
+  g.fillTriangle(0, 0, s * 0.8, -s * 0.35, s * 0.8, s * 0.2);
+};

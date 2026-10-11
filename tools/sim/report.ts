@@ -8,7 +8,9 @@ import { loadContent } from './player.ts';
 const content = loadContent((p) => readFileSync(p, 'utf8'));
 const report = JSON.parse(readFileSync('tools/sim/out/report.json', 'utf8'));
 const P = report.policies;
-const S = report.slow;
+const S = report.profiles.slow;
+const IDLE = report.profiles.idle;
+const NORMAL = report.profiles.normal;
 
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 const num = (n: number) => formatNumber(n);
@@ -60,9 +62,9 @@ const verdict: [string, string, string, Status][] = [
   ],
   [
     'Tự động hoá',
-    'Phút 5–7',
+    'Phút 4–5',
     `${mmss(probes[0])} không quảng cáo · ${mmss(probes[1])} có quảng cáo · ${mmss(probes[2])} Basic Launch`,
-    probes.every((t) => t >= 300 && t <= 420) ? 'ok' : probes.every((t) => t >= 270 && t <= 450) ? 'near' : 'miss',
+    probes.every((t) => t >= 240 && t <= 300) ? 'ok' : probes.every((t) => t >= 210 && t <= 330) ? 'near' : 'miss',
   ],
   [
     'Về đích, có quảng cáo',
@@ -72,10 +74,22 @@ const verdict: [string, string, string, Status][] = [
   ],
   ['Về đích, không quảng cáo', '70–90 phút', `Trung vị ${mmss(P.none.p50)}, 80% người chơi trong ${mmss(P.none.p10)}–${mmss(P.none.p90)}`, within(P.none.p50 / 60, 70, 90)],
   [
+    'Nhấp đều so với chỉ để auto',
+    'Thu nhập gấp khoảng 2 lần',
+    `Nhấp 4,5 lần/giây cho thêm ${Math.round(NORMAL.none.tapToAuto.to30 * 100)}% so với auto trong 30 phút đầu, ${Math.round(NORMAL.none.tapToAuto.after30 * 100)}% sau đó`,
+    NORMAL.none.tapToAuto.to30 >= 0.8 ? 'ok' : 'near',
+  ],
+  [
+    'Người nhấp đều so với người thi thoảng nhấp',
+    'Về đích sớm hơn 30–40%',
+    `${mmss(NORMAL.none.p50)} so với ${mmss(IDLE.none.p50)}: sớm hơn ${Math.round((1 - NORMAL.none.p50 / IDLE.none.p50) * 100)}%`,
+    within((1 - NORMAL.none.p50 / IDLE.none.p50) * 100, 30, 40),
+  ],
+  [
     'Khoảng chỉ nhấp, không mua được gì',
-    'Ngắn',
+    '10–20 giây trong 10 phút đầu',
     `Dài nhất 10 phút đầu: ${Math.round(P.none.gapsP50.first10)} giây (trung vị). Sau phút 30: ${Math.round(P.none.gapsP50.after30)} giây`,
-    P.none.gapsP50.first10 <= 30 ? 'ok' : 'near',
+    P.none.gapsP50.first10 <= 21 ? 'ok' : 'near',
   ],
 ];
 
@@ -89,8 +103,9 @@ const slowRows = [
   { label: 'Không quảng cáo, nhấp chậm', d: S.none, slot: 1 },
   { label: 'Quảng cáo thật, nhấp chậm', d: S.realistic, slot: 2 },
   { label: 'Basic Launch, nhấp chậm', d: S.basic, slot: 3 },
+  { label: 'Không quảng cáo, thi thoảng nhấp', d: IDLE.none, slot: 1 },
 ];
-const MAX_MIN = 110;
+const MAX_MIN = 150;
 const chartW = 640;
 const labelW = 0;
 const x = (sec: number) => labelW + (Math.min(sec / 60, MAX_MIN) / MAX_MIN) * chartW;
@@ -269,7 +284,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Thời gian về đích</h2>
-  <p class="muted">Vạch là khoảng 80% người chơi ở giữa (10% đến 90%), chấm là trung vị. Hàng nhạt là người nhấp chậm bằng nửa. Thời gian tính cả lúc xem quảng cáo.</p>
+  <p class="muted">Vạch là khoảng 80% người chơi ở giữa (10% đến 90%), chấm là trung vị. Hàng nhạt: người nhấp chậm bằng nửa, và người chỉ thi thoảng nhấp sau khi có auto. Thời gian tính cả lúc xem quảng cáo.</p>
   <div class="chart">${chart.svg}<ul class="legend">${chart.legend}</ul></div>
   <div class="scroll"><table>
     <thead><tr><th>Trường hợp</th><th>10%</th><th>Trung vị</th><th>90%</th><th>Thưởng đã dùng</th></tr></thead>

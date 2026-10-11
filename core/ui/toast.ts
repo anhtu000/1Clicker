@@ -3,6 +3,7 @@ import { app } from '../app';
 
 /** Short message near the bottom of the screen that fades out by itself. */
 export function toast(scene: Phaser.Scene, message: string, durationMs = 2200) {
+  if (app.clean) return;
   const vp = app.viewport.info;
   const theme = app.theme;
   const text = scene.add

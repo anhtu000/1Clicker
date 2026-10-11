@@ -1,15 +1,53 @@
-import { SaveStore } from '@core';
+import { SaveStore, type DailyState } from '@core';
+import type { Codex, RunState } from './logic/run.ts';
 
-// Progress data of this game. Everything here is saved automatically.
+// Progress of this game. Everything here is saved automatically (core/save.ts).
 export interface SaveData {
-  coins: number;
-  perTap: number;
-  perSecond: number;
-  taps: number;
+  /** The main run. null until the first tap. */
+  run: RunState | null;
+  /** Timed replay run, separate from the main run. */
+  speedrun: RunState | null;
+  /** Bodies discovered, shared by all runs. */
+  codex: Codex;
+  /** Tutorial steps already done. */
+  tutorial: string[];
+  daily: DailyState;
+  /** Best replay time in ms, 0 = none yet. Lower is better. Leaderboard metric for later (CLAUDE.md 4b). */
+  bestRunMs: number;
+  /** Main-run time to the goal, kept for the finish screen. */
+  firstFinishMs: number;
 }
 
+/**
+ * ?preset=<name> or #<name> (web build only) starts from a prepared state and saves under its own key,
+ * so trying a preset never touches real progress.
+ */
+export const preset =
+  __TARGET__ === 'web'
+    ? // A link can carry #showcase where a query string is dropped (artifact pages).
+      (new URLSearchParams(location.search).get('preset') ?? (/^#[a-z]+$/.test(location.hash) ? location.hash.slice(1) : null))
+    : null;
+
 export const save = new SaveStore<SaveData>({
-  key: `${__GAME_ID__}.save`,
-  version: 1,
-  defaults: () => ({ coins: 0, perTap: 1, perSecond: 0, taps: 0 }),
+  key: preset ? `${__GAME_ID__}.preset.${preset}` : `${__GAME_ID__}.save`,
+  version: 2,
+  defaults: () => ({
+    run: null,
+    speedrun: null,
+    codex: { found: {} },
+    tutorial: [],
+    daily: { lastClaim: null, streak: 0 },
+    bestRunMs: 0,
+    firstFinishMs: 0,
+  }),
+  // Version 1 was the framework demo: nothing to keep.
+  migrate: () => ({
+    run: null,
+    speedrun: null,
+    codex: { found: {} },
+    tutorial: [],
+    daily: { lastClaim: null, streak: 0 },
+    bestRunMs: 0,
+    firstFinishMs: 0,
+  }),
 });

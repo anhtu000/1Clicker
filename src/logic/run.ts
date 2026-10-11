@@ -11,7 +11,7 @@ export interface Body {
 }
 
 export type RunMode = 'main' | 'speedrun';
-export type RewardId = 'freeUpgrade' | 'luckyScan' | 'mergeAll';
+export type RewardId = 'freeUpgrade' | 'luckyScan' | 'mergeAll' | 'twin';
 
 /** Everything about a run, as plain data so it can be saved as JSON. */
 export interface RunState {
@@ -58,6 +58,8 @@ export interface MergeResult extends NewBody {
   from: number;
   /** This merge made the goal tier. */
   finished: boolean;
+  /** Binary Merge upgrade: an identical copy that appeared in another slot. */
+  twin: NewBody | null;
 }
 
 export type RunEvent =
@@ -79,6 +81,8 @@ const BASE_STATS: Record<StatId, number> = {
   autoScanEvery: 0,
   autoMergeEvery: 0,
   offlineCapHours: 0,
+  twinChance: 0,
+  starRate: 1,
 };
 
 export function codexKey(body: Body): string {
@@ -104,7 +108,9 @@ export function newRunState(content: Content, mode: RunMode, seed = Date.now()):
     autoMergeAcc: 0,
     starTimer: content.economy.stars.everyMin,
     starGolden: false,
-    rewardReadyAt: {},
+    rewardReadyAt: Object.fromEntries(
+      (['freeUpgrade', 'luckyScan', 'mergeAll', 'twin'] as const).map((id) => [id, content.economy.rewarded[id].firstAt]),
+    ),
     totalEarned: 0,
   };
 }
@@ -174,8 +180,14 @@ export class Run {
     return this.codexCache;
   }
 
+  /** Energy from the board for one tap, before tap upgrades. Probes collect this much per probe tap. */
+  baseTapValue(): number {
+    return this.content.economy.tap.base * this.power() * this.codexMult();
+  }
+
+  /** Energy for one tap by hand. Tap upgrades (tapMult) and crits only help hand taps. */
   tapValue(): number {
-    return this.content.economy.tap.base * this.power() * this.stat('tapMult') * this.codexMult();
+    return this.baseTapValue() * this.stat('tapMult');
   }
 
   /** Average multiplier from critical taps. */
@@ -183,14 +195,19 @@ export class Run {
     return 1 + Math.min(1, this.stat('critChance')) * (this.content.economy.tap.critMult - 1);
   }
 
-  /** Taps per second done by probes. */
+  /** Probe taps per second, each worth baseTapValue. */
   autoRate(): number {
     return this.stat('autoTps') * this.stat('autoMult');
   }
 
-  /** Probe income. Probes never crit: critical hits are the reward for tapping by hand. */
+  /** Probe income per second. */
   autoIncome(): number {
-    return this.autoRate() * this.tapValue();
+    return this.autoRate() * this.baseTapValue();
+  }
+
+  /** Energy per second from steady tapping at `tps` taps per second, crits included. */
+  manualIncome(tps: number): number {
+    return tps * this.tapValue() * this.critAverage();
   }
 
   // ---------- actions ----------
@@ -321,7 +338,22 @@ export class Run {
     const result = this.place(b, { t: x.t + 1, r: this.rollRarity(floor) });
     const finished = result.body.t === this.content.economy.goalTier && this.s.finishedAt === null;
     if (finished) this.s.finishedAt = this.s.time;
-    return { ...result, from: a, finished };
+    let twin: NewBody | null = null;
+    if (this.canDuplicate(b) && this.rng.chance(this.stat('twinChance'))) twin = this.duplicate(b);
+    this.syncRng();
+    return { ...result, from: a, finished, twin };
+  }
+
+  /** Adds energy from outside the run (offline earnings, daily gift). */
+  addEnergy(amount: number) {
+    if (amount > 0) this.gain(amount);
+  }
+
+  /** Swaps two bodies that cannot merge, so the player can tidy the board. */
+  swap(a: number, b: number): boolean {
+    if (a === b || a >= this.slots || b >= this.slots || !this.s.board[a] || !this.s.board[b]) return false;
+    [this.s.board[a], this.s.board[b]] = [this.s.board[b], this.s.board[a]];
+    return true;
   }
 
   /** Moves a body to an empty slot. */
@@ -330,6 +362,19 @@ export class Run {
     this.s.board[b] = this.s.board[a];
     this.s.board[a] = null;
     return true;
+  }
+
+  /** A copy of this body can be made: low enough tier, and a free slot. */
+  canDuplicate(slot: number): boolean {
+    const body = this.s.board[slot];
+    return !!body && body.t <= this.content.economy.twinMaxTier && this.freeSlot() >= 0;
+  }
+
+  /** Puts an identical copy of the body in the first free slot (Binary Merge, or the rewarded twin). */
+  duplicate(slot: number): NewBody | null {
+    if (!this.canDuplicate(slot)) return null;
+    const body = this.s.board[slot]!;
+    return this.place(this.freeSlot(), { t: body.t, r: body.r });
   }
 
   /** Energy the core gives for absorbing this body. */
@@ -440,7 +485,7 @@ export class Run {
 
   /** Income of a player tapping at a steady pace, plus probes. Used to size rewards. */
   activeIncome(): number {
-    return this.content.economy.stars.activeTps * this.tapValue() * this.critAverage() + this.autoIncome();
+    return this.manualIncome(this.content.economy.stars.activeTps) + this.autoIncome();
   }
 
   /**
@@ -535,7 +580,7 @@ export class Run {
   /** Energy a caught star gives right now. */
   starValue(): number {
     const st = this.content.economy.stars;
-    const base = st.seconds * (st.activeTps * this.tapValue() + this.autoIncome());
+    const base = st.seconds * this.activeIncome();
     return base * (this.s.starGolden ? st.goldenMult : 1);
   }
 
@@ -550,7 +595,8 @@ export class Run {
 
   private nextStar() {
     const st = this.content.economy.stars;
-    this.s.starTimer = st.everyMin + this.rng.next() * (st.everyMax - st.everyMin);
+    const range = st.early && this.s.time < st.early.untilSec ? st.early : st;
+    this.s.starTimer = (range.everyMin + this.rng.next() * (range.everyMax - range.everyMin)) * this.stat('starRate');
     this.s.starGolden = false;
     this.syncRng();
   }

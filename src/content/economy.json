@@ -10,12 +10,13 @@
     "critMult": 6
   },
   "scan": {
-    "baseCost": 0.17,
-    "exponent": 4.5,
+    "baseCost": 0.035,
+    "exponent": 5.3,
     "spawnDiscount": 1,
     "doubleTierUpShare": 0.1
   },
   "absorbTaps": 15,
+  "twinMaxTier": 7,
   "script": {
     "rareScan": 2,
     "rareMerge": 1
@@ -28,27 +29,39 @@
   "rewarded": {
     "freeUpgrade": {
       "cooldown": 300,
-      "maxIncomeSeconds": 150
+      "maxIncomeSeconds": 150,
+      "firstAt": 240
     },
     "luckyScan": {
       "cooldown": 300,
       "tierBonus": 1,
-      "rarityFloor": 1
+      "rarityFloor": 1,
+      "firstAt": 150
     },
     "mergeAll": {
-      "cooldown": 300
+      "cooldown": 300,
+      "firstAt": 300
     },
     "offlineMult": 2,
     "dailyMult": 2,
-    "freeCooldownMult": 1.5
+    "freeCooldownMult": 1.5,
+    "twin": {
+      "cooldown": 300,
+      "firstAt": 360
+    }
   },
   "stars": {
-    "everyMin": 30,
+    "everyMin": 12,
     "everyMax": 50,
     "lifetime": 7,
     "seconds": 10,
     "activeTps": 5,
     "goldenChance": 0.1,
-    "goldenMult": 5
+    "goldenMult": 5,
+    "early": {
+      "untilSec": 600,
+      "everyMin": 15,
+      "everyMax": 25
+    }
   }
 }

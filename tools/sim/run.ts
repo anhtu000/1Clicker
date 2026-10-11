@@ -86,9 +86,16 @@ for (const profile of Object.values(PROFILES)) {
         median,
         finishTimes: times,
       };
-    } else {
-      (out as any).slow = { ...((out as any).slow ?? {}), [policy.id]: summary };
     }
+    const profiles = ((out as any).profiles ??= {});
+    (profiles[profile.id] ??= {})[policy.id] = {
+      ...summary,
+      tapToAuto: {
+        to10: pct(runs.flatMap((r) => r.tapToAutoSeries.slice(0, 60)), 50),
+        to30: pct(runs.flatMap((r) => r.tapToAutoSeries.slice(60, 180)), 50),
+        after30: pct(runs.flatMap((r) => r.tapToAutoSeries.slice(180)), 50),
+      },
+    };
   }
 }
 

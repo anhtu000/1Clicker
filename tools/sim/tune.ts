@@ -12,26 +12,28 @@ import type { Content } from '../../src/logic/content.ts';
 
 /** Minute each upgrade level should become affordable, for a player who never watches ads. */
 export const SCHEDULE: Record<string, number[]> = {
-  focus: [0.4, 1.2, 2.5, 4, 6, 9, 13, 18, 25, 33, 42, 52],
-  lens: [2, 7, 15, 28, 45],
-  slots: [3.5, 22],
-  discount: [5, 14, 26, 40, 58],
-  probes: [6],
-  crit: [7, 12, 20, 32, 48],
-  luck: [8, 17, 30, 44, 62],
-  fleet: [8, 10, 12, 15, 19, 24, 30, 37, 45, 55],
-  deepScan: [11, 30, 55],
-  relay: [12, 35, 65],
-  thrusters: [16, 27, 40, 56],
-  autoScan: [20, 28, 38, 50, 66],
-  autoMerge: [46, 56, 66, 76],
+  focus: [0.25, 0.6, 1, 1.6, 2.3, 3.2, 4.3, 5.8, 8, 11, 15, 20, 27, 36, 48],
+  slots: [2.6, 20],
+  discount: [3.6, 12, 24, 38, 56],
+  probes: [4.5],
+  crit: [5.2, 9.5, 17, 30, 46],
+  luck: [7, 15, 28, 43, 60],
+  fleet: [5, 6.2, 7.5, 9.5, 12.5, 17, 23, 31, 41, 53],
+  lens: [5.6, 12, 22, 35, 50],
+  binary: [6.5, 14, 26, 40, 57],
+  starMagnet: [8, 20, 38],
+  deepScan: [9, 28, 52],
+  relay: [11, 33, 62],
+  thrusters: [14, 25, 39, 55],
+  autoScan: [18, 26, 36, 48, 64],
+  autoMerge: [44, 54, 64, 74],
 };
 
 /** Minute the first body of each tier should appear. */
-export const TIER_TARGETS: Record<number, number> = { 4: 1.5, 5: 3, 6: 6.5, 7: 13, 8: 24, 9: 42, 10: 78 };
+export const TIER_TARGETS: Record<number, number> = { 4: 1, 5: 2.5, 6: 6, 7: 12, 8: 22, 9: 40, 10: 75 };
 
-/** Seconds of income one purchase should cost, by minute. */
-const saveSeconds = (minute: number) => (minute < 3 ? 12 : minute < 10 ? 20 : 30);
+/** Seconds of income one purchase should cost, by minute. Short early: a reward every 10-20 s. */
+const saveSeconds = (minute: number) => (minute < 3 ? 6 : minute < 10 ? 10 : 25);
 
 const SEEDS = [11, 12, 13, 14, 15];
 const none = AD_POLICIES.find((p) => p.id === 'none')!;
@@ -76,7 +78,10 @@ function measure(content: Content) {
   }
   let tierErr = 0;
   for (const [t, target] of Object.entries(TIER_TARGETS)) tierErr += (Number(t) === 10 ? 4 : 1) * Math.log(tiers[Number(t)] / target) ** 2;
-  return { tiers, buys, tierErr, buyErr: buyErr / n };
+  // Longest wait for a reward in the first 10 minutes should stay under 20 s.
+  const gap10 = median(runs.map((r) => r.maxGap.first10));
+  tierErr += Math.max(0, Math.log(gap10 / 20)) * 2;
+  return { tiers, buys, tierErr, buyErr: buyErr / n, gap10 };
 }
 
 /** Scales scan baseCost until the goal lands on its target. */
@@ -107,8 +112,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   // Stage 1: coarse search of the global knobs. Skipped with --refine (start from the files as they are).
   const refineOnly = process.argv.includes('--refine');
   let best = { err: Infinity, scale: 50, curve: 3.1, exp: scan.exponent, disc: scan.spawnDiscount, base: scan.baseCost };
-  for (const disc of refineOnly ? [] : [0.85, 1]) {
-    for (const curve of [3.1, 3.4]) {
+  for (const disc of refineOnly ? [] : [1]) {
+    for (const curve of [3.0, 3.4, 3.8]) {
       for (const scale of [25, 50]) {
         price(content, scale, curve);
         for (const exp of [0.7, 0.9, 1.1].map((x) => Number((curve + x).toFixed(2)))) {
@@ -117,7 +122,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
           const m = solveBase(content);
           const err = m.tierErr + m.buyErr;
           if (err < best.err) best = { err, scale, curve, exp, disc, base: scan.baseCost };
-          console.log(`disc ${disc} curve ${curve} scale ${scale} exp ${exp} base ${scan.baseCost.toPrecision(2)} | err ${err.toFixed(3)} (buy ${m.buyErr.toFixed(3)}) | ${showTiers(m.tiers)}`);
+          console.log(`disc ${disc} curve ${curve} scale ${scale} exp ${exp} base ${scan.baseCost.toPrecision(2)} | err ${err.toFixed(3)} (buy ${m.buyErr.toFixed(3)}) gap10 ${m.gap10.toFixed(1)} | ${showTiers(m.tiers)}`);
         }
       }
     }
@@ -154,13 +159,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     scan.exponent = bestFit.exp;
     scan.baseCost = bestFit.base;
     const after = bestFit.m;
-    console.log(`pass ${pass}: exp ${scan.exponent} base ${scan.baseCost.toPrecision(2)} buyErr ${after.buyErr.toFixed(3)} tierErr ${after.tierErr.toFixed(3)} | ${showTiers(after.tiers)}`);
+    console.log(`pass ${pass}: exp ${scan.exponent} base ${scan.baseCost.toPrecision(2)} buyErr ${after.buyErr.toFixed(3)} tierErr ${after.tierErr.toFixed(3)} gap10 ${after.gap10.toFixed(1)} | ${showTiers(after.tiers)}`);
   }
 
   for (const u of content.upgrades) if (u.costs) u.costs = u.costs.map(nice);
   scan.baseCost = Number(scan.baseCost.toPrecision(2));
   const final = measure(content);
-  console.log(`final: buyErr ${final.buyErr.toFixed(3)} tierErr ${final.tierErr.toFixed(3)} | ${showTiers(final.tiers)}`);
+  console.log(`final: buyErr ${final.buyErr.toFixed(3)} tierErr ${final.tierErr.toFixed(3)} gap10 ${final.gap10.toFixed(1)} | ${showTiers(final.tiers)}`);
 
   const upgradesPath = 'src/content/upgrades.json';
   const lines = content.upgrades.map((u) => '    ' + JSON.stringify(u).replace(/,"/g, ', "').replace(/":/g, '": '));

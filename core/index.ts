@@ -1,5 +1,5 @@
 // Public API of the shared framework. Game code imports from '@core'.
-export { app, startGame, type GameConfig } from './app';
+export { app, startGame, type GameConfig, type MomentEvents } from './app';
 export { SaveStore, type SaveOptions } from './save';
 export { BaseScene } from './scenes/BaseScene';
 export type { ViewportInfo } from './viewport';
@@ -7,6 +7,7 @@ export { Button, type ButtonOptions } from './ui/button';
 export { soundButton, rewardButton } from './ui/widgets';
 export { toast } from './ui/toast';
 export { Panel, type PanelOptions } from './ui/panel';
+export { Tutorial, type TutorialStep, type TutorialTarget } from './ui/tutorial';
 export { showOfflinePanel, showDailyPanel, dailyDayIndex, type DailyRewardView } from './ui/rewardPanels';
 export * as icons from './ui/icons';
 export { floatText, punch, burst } from './fx';

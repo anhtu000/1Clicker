@@ -1,7 +1,7 @@
-// Fast balance check while tuning: key milestone medians for each ad policy.
+// Fast balance check while tuning: key milestone medians for each ad policy, plus the idle player.
 // Run: node --experimental-strip-types tools/sim/quick.ts [seeds]
 import { readFileSync } from 'node:fs';
-import { AD_POLICIES, loadContent, PROFILES, simulate } from './player.ts';
+import { AD_POLICIES, loadContent, PROFILES, simulate, type AdPolicy, type TapProfile } from './player.ts';
 
 const seeds = Number(process.argv[2] ?? 8);
 const content = loadContent((p) => readFileSync(p, 'utf8'));
@@ -27,19 +27,38 @@ const KEYS = [
   'First galaxy (tier 10)',
 ];
 
-for (const policy of AD_POLICIES) {
-  const runs = Array.from({ length: seeds }, (_, i) => simulate(content, 1000 + i, policy, PROFILES.normal));
-  console.log(`\n${policy.label}`);
+function show(policy: AdPolicy, profile: TapProfile, full: boolean) {
+  const runs = Array.from({ length: seeds }, (_, i) => simulate(content, 1000 + i, policy, profile));
+  const finish = median(runs.map((r) => r.finishSec));
+  console.log(`\n${policy.label} | ${profile.label}: finish ${fmt(finish)}`);
+  if (!full) return finish;
   const row = KEYS.map((k) => `${k.replace('First ', '').replace('Bought ', '+')}: ${fmt(median(runs.flatMap((r) => r.milestones.filter((m) => m.what === k).map((m) => m.t))))}`);
   for (let i = 0; i < row.length; i += 5) console.log('  ' + row.slice(i, i + 5).join(' | '));
   const r0 = runs[0];
-  const at = (m: number) => (r0.incomeByMinute[m - 1] ?? 0).toExponential(1);
-  console.log(`  income/s @1 ${at(1)} @5 ${at(5)} @10 ${at(10)} @20 ${at(20)} @30 ${at(30)} @45 ${at(45)} @60 ${at(60)}`);
+  const at = (m: number) => {
+    const i = m * 6;
+    const man = r0.manualSeries[i];
+    const aut = r0.autoSeries[i];
+    return man === undefined ? '-' : `${man.toExponential(1)}/${aut.toExponential(1)}`;
+  };
+  console.log(`  hand/probe income @2 ${at(2)} @5 ${at(5)} @10 ${at(10)} @20 ${at(20)} @30 ${at(30)} @45 ${at(45)} @60 ${at(60)}`);
+  const ratio = (from: number, to: number) => {
+    const xs = runs.flatMap((r) => r.tapToAutoSeries.slice(from * 6, to * 6));
+    return median(xs)?.toFixed(2) ?? '-';
+  };
+  console.log(`  hand(4.5 tps)/probe after auto: first 10 min ${ratio(0, 10)}, 10-30 ${ratio(10, 30)}, 30+ ${ratio(30, 999)}`);
   console.log(
-    `  scans ${median(runs.map((r) => r.scans))} merges ${median(runs.map((r) => r.merges))} taps ${median(runs.map((r) => r.manualTaps))} ` +
-      `absorbs ${median(runs.map((r) => r.absorbs))} gaps10 ${median(runs.map((r) => r.maxGap.first10))?.toFixed(1)} ` +
-      `gaps30 ${median(runs.map((r) => r.maxGap.to30))?.toFixed(1)} gaps+ ${median(runs.map((r) => r.maxGap.after30))?.toFixed(1)} rewards ${JSON.stringify(r0.rewards)}`,
+    `  scans ${median(runs.map((r) => r.scans))} merges ${median(runs.map((r) => r.merges))} twins ${median(runs.map((r) => r.twins))} ` +
+      `absorbs ${median(runs.map((r) => r.absorbs))} stars ${median(runs.map((r) => r.stars))} | ` +
+      `max wait for a reward: first10 ${median(runs.map((r) => r.maxGap.first10))?.toFixed(1)}s ` +
+      `10-30 ${median(runs.map((r) => r.maxGap.to30))?.toFixed(1)}s 30+ ${median(runs.map((r) => r.maxGap.after30))?.toFixed(1)}s | rewards ${JSON.stringify(r0.rewards)}`,
   );
-  const ups = r0.milestones.filter((m) => m.what.startsWith('Bought') || m.what.startsWith('Got')).length;
-  console.log(`  upgrades bought (run 0): ${ups}, unfinished: ${runs.filter((r) => !r.finished).length}`);
+  const first10 = runs.map((r) => r.longGaps.filter(([start]) => start < 600).length);
+  console.log(`  waits of 20 s+ in the first 10 min (median count): ${median(first10)}`);
+  return finish;
 }
+
+for (const policy of AD_POLICIES) show(policy, PROFILES.normal, true);
+const engaged = show(AD_POLICIES[0], PROFILES.normal, false)!;
+const idle = show(AD_POLICIES[0], PROFILES.idle, false)!;
+console.log(`\nSteady tapper finishes ${Math.round((1 - engaged / idle) * 100)}% sooner than the idle player (no ads).`);
