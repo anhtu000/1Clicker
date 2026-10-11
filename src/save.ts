@@ -7,6 +7,8 @@ export interface SaveData {
   run: RunState | null;
   /** Timed replay run, separate from the main run. */
   speedrun: RunState | null;
+  /** Which run is on screen. The main run is never touched by a timed run. */
+  mode: 'main' | 'speedrun';
   /** Bodies discovered, shared by all runs. */
   codex: Codex;
   /** Tutorial steps already done. */
@@ -34,6 +36,7 @@ export const save = new SaveStore<SaveData>({
   defaults: () => ({
     run: null,
     speedrun: null,
+    mode: 'main',
     codex: { found: {} },
     tutorial: [],
     daily: { lastClaim: null, streak: 0 },
@@ -44,6 +47,7 @@ export const save = new SaveStore<SaveData>({
   migrate: () => ({
     run: null,
     speedrun: null,
+    mode: 'main',
     codex: { found: {} },
     tutorial: [],
     daily: { lastClaim: null, streak: 0 },

@@ -19,6 +19,8 @@ function showcase(): RunState {
   return run;
 }
 
+const ALL_STEPS = ['tap', 'scan', 'scan2', 'merge', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin', 'autoScan'];
+
 /** Right after the opening tutorial, with the first shooting star two seconds away (checks the star step). */
 function starStep(): RunState {
   const run = newRunState(content, 'main', 7);
@@ -30,6 +32,15 @@ function starStep(): RunState {
   return run;
 }
 
+/** One merge from the Galaxy: two Black Holes side by side (checks the finish panel). */
+function almost(): RunState {
+  const run = showcase();
+  run.board[10] = { t: 9, r: 1 };
+  run.board[11] = { t: 9, r: 3 };
+  run.time = 41 * 60 + 7.5;
+  return run;
+}
+
 export function applyPreset(name: string, data: SaveData) {
   if (data.run) return; // keep what the preset session did since
   if (name === 'starstep') {
@@ -37,9 +48,14 @@ export function applyPreset(name: string, data: SaveData) {
     data.tutorial = ['tap', 'scan', 'scan2', 'merge', 'tapPower', 'goal'];
     data.codex.found['2.1'] = 1;
   }
+  if (name === 'almost') {
+    data.run = almost();
+    data.tutorial = [...ALL_STEPS];
+    for (const b of data.run.board) if (b) data.codex.found[`${b.t}.${b.r}`] = 1;
+  }
   if (name === 'showcase') {
     data.run = showcase();
-    data.tutorial = ['tap', 'scan', 'scan2', 'merge', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin'];
+    data.tutorial = [...ALL_STEPS];
     for (const b of data.run.board) if (b) data.codex.found[`${b.t}.${b.r}`] = 1;
   }
 }

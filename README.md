@@ -45,6 +45,7 @@ Tham số URL để thử (thêm vào cuối link, ví dụ `?debug&fps=144`):
 | `?seed=123` | Cố định RNG (chỉ build web), để lặp lại đúng một khoảnh khắc hiếm |
 | `?clean` | Ẩn nút quảng cáo, thông báo, bảng debug và con trỏ chuột. Dùng khi quay video |
 | `?preset=showcase` hoặc `#showcase` | Mở sẵn bảng đủ cấp và độ hiếm (chỉ build web). Lưu ở khoá riêng, không đè tiến trình thật. Trong artifact chỉ dùng được dạng `#showcase` |
+| `#almost` | Một lần ghép nữa là ra Thiên hà (2 Hố đen cạnh nhau): thử màn chúc mừng và lượt chơi tính giờ (chỉ build web, khoá lưu riêng) |
 | `#starstep` | Vừa xong phần hướng dẫn đầu, sao băng xuất hiện sau 2 giây: thử bước hướng dẫn sao băng (chỉ build web, khoá lưu riêng) |
 
 ## Cấu trúc

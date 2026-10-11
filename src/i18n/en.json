@@ -132,10 +132,26 @@
     "autoScan": "Auto Scan buys scans for you. Turn it off to save up for an upgrade"
   },
   "finish": {
-    "title": "Galaxy formed!",
-    "time": "Time: {t}",
+    "title": "Galaxy complete!",
+    "from": "From stardust to {rarity} Galaxy",
+    "time": "Time",
+    "merges": "Merges",
+    "scans": "Scans",
+    "collection": "Collection",
+    "record": "New record!",
     "best": "Best: {t}",
-    "replay": "Speedrun",
-    "keep": "Keep collecting"
+    "noBest": "Race to a Galaxy in a timed run to set a record",
+    "keep": "Keep playing",
+    "timed": "Timed run",
+    "again": "Try again",
+    "home": "My galaxy",
+    "timedText": "Race from stardust to a Galaxy against the clock. Your own galaxy stays saved.",
+    "start": "Start",
+    "cancel": "Cancel",
+    "leaveTitle": "Leave this run?",
+    "leaveText": "This run will not be kept. Your own galaxy is waiting.",
+    "leave": "Leave",
+    "stay": "Stay",
+    "endless": "Galaxy complete · Collection {n}/{total}"
   }
 }

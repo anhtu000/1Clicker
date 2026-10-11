@@ -6,9 +6,11 @@ import {
   burst,
   FixedStep,
   floatText,
+  formatClock,
   formatDuration,
   formatNumber,
   icons,
+  Panel,
   secondsAway,
   showOfflinePanel,
   soundButton,
@@ -21,7 +23,7 @@ import { content } from '../game/content';
 import type { UpgradeDef } from '../logic/content.ts';
 import { newRunState, Run, type MergeResult, type NewBody } from '../logic/run.ts';
 import { SpaceBackground } from '../render/background';
-import { ensureBodyTexture } from '../render/bodies';
+import { ensureAuraTexture, ensureBodyTexture } from '../render/bodies';
 import { energyIcon, UPGRADE_ICONS } from '../render/icons';
 import { RARITY_COLOR, RARITY_CSS } from '../render/palette';
 import { applyPreset } from '../game/presets';
@@ -55,6 +57,13 @@ export class PlayScene extends BaseScene {
   private autoShown = '';
   private pauseBtn!: Button;
   private soundBtn!: Button;
+  /** Main run: start a timed run (after the first Galaxy). Timed run: back to the main run. */
+  private modeBtn!: Button;
+  private timerText!: Phaser.GameObjects.Text;
+  private bestText!: Phaser.GameObjects.Text;
+  /** The Galaxy was made: show the finish panel once nothing else is on screen. */
+  private finishPending: { runMs: number; record: boolean; rarity: number } | null = null;
+  private panelOpen = false;
   /** Rewarded copy of the body just merged, offered on the boost card for a few seconds. */
   private copyOffer: { slot: number; until: number } | null = null;
   private star: ShootingStar | null = null;
@@ -72,9 +81,26 @@ export class PlayScene extends BaseScene {
   }
 
   protected build() {
+    // Phaser reuses this object when the scene restarts (timed run, language change): reset per-run state.
+    this.chain = [];
+    this.autoShown = '';
+    this.copyOffer = null;
+    this.star = null;
+    this.step = new FixedStep(STEP_SEC * 1000, () => this.onStep());
+    this.refreshTimer = 0;
+    this.tapsInStep = 0;
+    this.starsCaught = 0;
+    this.revealOpen = false;
+    this.revealQueue = [];
+    this.queued = new Set();
+    this.finishPending = null;
+    this.panelOpen = false;
+
     if (preset) applyPreset(preset, save.data);
     if (!save.data.run) save.data.run = newRunState(content, 'main', app.rng.int(1, 2 ** 31 - 1));
-    this.run = new Run(content, save.data.run, save.data.codex);
+    if (save.data.mode === 'speedrun' && !save.data.speedrun) save.data.mode = 'main';
+    const state = save.data.mode === 'speedrun' ? save.data.speedrun! : save.data.run;
+    this.run = new Run(content, state, save.data.codex);
 
     this.bg = new SpaceBackground(this);
     this.core = new Core(this, (x, y) => this.tapCore(x, y));
@@ -125,6 +151,19 @@ export class PlayScene extends BaseScene {
       onClick: () => app.openPause(this),
     }).setDepth(30);
     this.soundBtn = soundButton(this, 0, 0, 88).setDepth(30);
+    const timed = this.run.s.mode === 'speedrun';
+    this.modeBtn = new Button(this, 0, 0, {
+      icon: timed ? icons.homeIcon : stopwatchIcon,
+      width: 88,
+      height: 88,
+      color: app.theme.surface,
+      textColor: app.theme.surfaceText,
+      onClick: () => (timed ? this.showLeavePanel() : this.showTimedPanel()),
+    }).setDepth(30);
+    this.timerText = this.add.text(0, 0, '', { ...font, fontStyle: '900', fontSize: 34, color: '#ffffff' }).setDepth(30);
+    this.bestText = this.add.text(0, 0, '', { ...font, fontStyle: '700', fontSize: 22, color: '#b9b4d9' }).setDepth(30);
+    this.timerText.setVisible(timed);
+    this.bestText.setVisible(timed).setText(save.data.bestRunMs ? app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) }) : '');
     this.input.keyboard?.on('keydown-ESC', () => app.openPause(this));
     // Space taps the core on a computer (CLAUDE.md 4.2). Holding the key does not repeat.
     this.input.keyboard?.addCapture('SPACE');
@@ -185,11 +224,18 @@ export class PlayScene extends BaseScene {
       // Pause and sound together in the top-left corner, clear of the centered energy counter.
       this.pauseBtn.setPosition(52, y0 + 52);
       this.soundBtn.setPosition(150, y0 + 52);
+      // Timed run controls on the right, clear of the centered energy counter.
+      this.modeBtn.setPosition(vp.width - 52, y0 + 52);
+      this.timerText.setOrigin(1, 0.5).setPosition(vp.width - 16, y0 + 122);
+      this.bestText.setOrigin(1, 0.5).setPosition(vp.width - 16, y0 + 156);
     } else {
       // Desktop: pause and sound in the top-left corner of the screen; the whole right side,
       // top to bottom, is the upgrade column; core column and board share the rest, centered.
       this.pauseBtn.setPosition(56, 56);
       this.soundBtn.setPosition(156, 56);
+      this.modeBtn.setPosition(256, 56);
+      this.timerText.setOrigin(0, 0.5).setPosition(316, 40);
+      this.bestText.setOrigin(0, 0.5).setPosition(316, 76);
       const shopW = 320;
       const shopX = vp.width - shopW - 16;
       this.shop.layout(shopX, 16, shopW, vp.height - 32, false);
@@ -259,6 +305,12 @@ export class PlayScene extends BaseScene {
   // ---------- frame ----------
 
   update(_time: number, delta: number) {
+    if (this.timerText.visible) this.timerText.setText(formatClock(this.run.s.finishedAt ?? this.run.s.time));
+    if (this.finishPending && !this.revealOpen && !this.panelOpen && !this.tutorial.active) {
+      const done = this.finishPending;
+      this.finishPending = null;
+      this.showFinishPanel(done.runMs, done.record, done.rarity);
+    }
     this.bg.update(delta);
     if (!this.revealOpen) this.step.update(delta);
     // Count up the energy display smoothly instead of jumping.
@@ -308,6 +360,7 @@ export class PlayScene extends BaseScene {
     this.scanBtn.setLabel(full ? app.t('scan.full') : `${app.t('scan.button')}  ${formatNumber(run.scanCost())}`);
     this.scanBtn.setEnabled(run.canScan());
     this.refreshAutoButton();
+    this.refreshGoal();
     this.shop.refresh();
     this.checkTutorialTriggers();
   }
@@ -469,7 +522,7 @@ export class PlayScene extends BaseScene {
       burst(this, q.x, q.y, 0x9fd8ff, 16, 300);
     }
     this.announce(result, false);
-    if (result.finished) this.finish();
+    if (result.finished) this.finish(result.body.r);
   }
 
   // ---------- rewarded boosts (one card at the front of the shop, CLAUDE.md 4b) ----------
@@ -604,13 +657,190 @@ export class PlayScene extends BaseScene {
     else this.tweens.add({ targets: star, alpha: 0, duration: 300, onComplete: () => star.destroy() });
   }
 
-  private finish() {
+  private finish(rarity: number) {
     const runMs = Math.round((this.run.s.finishedAt ?? this.run.s.time) * 1000);
     app.moments.emit('finish', { runMs });
     app.platform.happyTime();
     if (this.run.s.mode === 'main' && !save.data.firstFinishMs) save.data.firstFinishMs = runMs;
-    if (this.run.s.mode === 'speedrun' && (!save.data.bestRunMs || runMs < save.data.bestRunMs)) save.data.bestRunMs = runMs;
-    toast(this, `${app.t('finish.title')}  ${app.t('finish.time', { t: formatDuration(runMs / 1000, app.i18n.durationUnits()) })}`, 4000);
+    const record = this.run.s.mode === 'speedrun' && (!save.data.bestRunMs || runMs < save.data.bestRunMs);
+    if (record) save.data.bestRunMs = runMs;
+    save.flush();
+    // Shown once the Galaxy reveal (and any tutorial step) is gone.
+    this.finishPending = { runMs, record, rarity };
+  }
+
+  // ---------- end of a run: finish panel, timed runs (CLAUDE.md 4b, item 7) ----------
+
+  private collectionCount() {
+    return { n: Object.keys(save.data.codex.found).length, total: content.tiers.length * content.rarities.length };
+  }
+
+  /** Two buttons of the same size side by side, for the bottom of a panel. */
+  private panelButtons(panel: Panel, y: number, left: { label: string; onClick: () => void }, right: { label: string; onClick: () => void }) {
+    const w = Math.min(268, (panel.panelWidth - 72) / 2);
+    const a = new Button(this, -w / 2 - 12, y, { label: left.label, width: w, height: 96, fontSize: 32, color: app.theme.surface, textColor: app.theme.surfaceText, onClick: left.onClick });
+    const b = new Button(this, w / 2 + 12, y, { label: right.label, width: w, height: 96, fontSize: 32, onClick: right.onClick });
+    // Surface-colored button on a surface panel: give it an outline so it reads as a button.
+    const ring = this.add.graphics();
+    ring.lineStyle(3, 0xffffff, 0.25);
+    ring.strokeRoundedRect(-w / 2 - 12 - w / 2, y - 48, w, 96, app.theme.radius);
+    panel.content.add([ring, a, b]);
+  }
+
+  private showFinishPanel(runMs: number, record: boolean, rarity: number) {
+    const run = this.run;
+    const timed = run.s.mode === 'speedrun';
+    this.panelOpen = true;
+    // Wide screens get the stats in one row, so everything fits in a 16:9 frame.
+    const wide = !this.vp.portrait;
+    const panel = new Panel(this, { title: app.t('finish.title'), width: wide ? 900 : 640, height: wide ? 680 : 880, closable: false, onClose: () => (this.panelOpen = false) });
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    const W = panel.panelWidth;
+    const H = panel.panelHeight;
+    const cols = wide ? 4 : 2;
+    const rows = 4 / cols;
+    const statH = 92;
+    const statsH = rows * statH + (rows - 1) * 12;
+    // Space between the title and the buttons, shared out; the Galaxy takes what is left.
+    const avail = H - 120 - 150;
+    const fixed = 8 + 36 + 22 + statsH + 22 + 48;
+    const size = Phaser.Math.Clamp(avail - fixed, 90, 220);
+    let y = panel.top - 14 + size / 2;
+
+    // The Galaxy itself, slowly turning, with a glow behind it.
+    const scale = (size / 192) * 1.15;
+    const glow = this.add.image(0, y, ensureAuraTexture(this, Math.max(1, rarity))).setScale(scale * 1.5).setAlpha(0.8).setBlendMode(Phaser.BlendModes.ADD);
+    const galaxy = this.add.image(0, y, ensureBodyTexture(this, content.economy.goalTier, rarity)).setScale(scale);
+    this.tweens.add({ targets: [glow, galaxy], angle: 360, duration: 24000, repeat: -1 });
+    y += size / 2 + 8 + 18;
+    const from = this.add
+      .text(0, y, app.t('finish.from', { rarity: withArticle(app.t(`rarity.${content.rarities[rarity].id}`)) }), { ...font, fontStyle: '700', fontSize: 28, color: RARITY_CSS[rarity] })
+      .setOrigin(0.5);
+    panel.content.add([glow, galaxy, from]);
+    y += 18 + 22;
+
+    // Stats.
+    const { n, total } = this.collectionCount();
+    const time = timed ? formatClock(runMs / 1000) : formatDuration(runMs / 1000, app.i18n.durationUnits());
+    const stats: [string, string][] = [
+      [app.t('finish.time'), time],
+      [app.t('finish.merges'), formatNumber(run.s.merges)],
+      [app.t('finish.scans'), formatNumber(run.s.scans)],
+      [app.t('finish.collection'), `${n}/${total}`],
+    ];
+    const cellW = (W - 64 - (cols - 1) * 12) / cols;
+    stats.forEach(([label, value], i) => {
+      const col = i % cols;
+      const row = Math.floor(i / cols);
+      const x = -W / 2 + 32 + cellW / 2 + col * (cellW + 12);
+      const cy = y + statH / 2 + row * (statH + 12);
+      const box = this.add.graphics();
+      box.fillStyle(0x000000, 0.22);
+      box.fillRoundedRect(x - cellW / 2, cy - statH / 2, cellW, statH, 18);
+      const l = this.add.text(x, cy - 20, label, { ...font, fontStyle: '700', fontSize: 22, color: app.theme.textDim }).setOrigin(0.5);
+      const v = this.add.text(x, cy + 16, value, { ...font, fontStyle: '900', fontSize: 36, color: '#ffffff' }).setOrigin(0.5);
+      if (v.width > cellW - 16) v.setScale((cellW - 16) / v.width);
+      panel.content.add([box, l, v]);
+    });
+    y += statsH + 22 + 24;
+    const recordY = y;
+
+    // Record line.
+    let recordText: string;
+    let recordColor = app.theme.textDim;
+    if (timed && record) {
+      recordText = app.t('finish.record');
+      recordColor = '#ffd166';
+    } else if (save.data.bestRunMs) {
+      recordText = app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) });
+    } else {
+      recordText = app.t('finish.noBest');
+    }
+    const rec = this.add.text(0, recordY, recordText, { ...font, fontStyle: '900', fontSize: record ? 40 : 26, color: recordColor, align: 'center', wordWrap: { width: panel.panelWidth - 80 } }).setOrigin(0.5);
+    panel.content.add(rec);
+    if (record) this.tweens.add({ targets: rec, scale: 1.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+
+    const buttonsY = panel.bottom - 80;
+    if (timed) {
+      this.panelButtons(panel, buttonsY, { label: app.t('finish.home'), onClick: () => this.leaveTimedRun() }, { label: app.t('finish.again'), onClick: () => void this.startTimedRun() });
+    } else {
+      this.panelButtons(
+        panel,
+        buttonsY,
+        {
+          label: app.t('finish.keep'),
+          onClick: () => {
+            panel.close();
+            this.refreshGoal();
+          },
+        },
+        { label: app.t('finish.timed'), onClick: () => void this.startTimedRun() },
+      );
+    }
+
+    // Celebration around the panel.
+    const vp = this.vp;
+    for (let i = 0; i < 6; i++) {
+      this.time.delayedCall(i * 180, () => burst(this, vp.width * (0.2 + Math.random() * 0.6), vp.height * (0.15 + Math.random() * 0.3), [0xffd166, 0x9fd8ff, 0xd38bff][i % 3], 26, 520));
+    }
+    app.audio.play('reward');
+  }
+
+  /** Explains the timed run, then starts it. Opened from the stopwatch button. */
+  private showTimedPanel() {
+    if (this.panelOpen) return;
+    this.panelOpen = true;
+    const panel = new Panel(this, { title: app.t('finish.timed'), width: 600, height: 520, onClose: () => (this.panelOpen = false) });
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    const text = this.add
+      .text(0, panel.top + 70, app.t('finish.timedText'), { ...font, fontStyle: '700', fontSize: 30, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
+      .setOrigin(0.5);
+    const best = this.add
+      .text(0, panel.top + 190, save.data.bestRunMs ? app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) }) : app.t('finish.noBest'), { ...font, fontStyle: '900', fontSize: 28, color: '#ffd166', align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
+      .setOrigin(0.5);
+    panel.content.add([text, best]);
+    this.panelButtons(panel, panel.bottom - 80, { label: app.t('finish.cancel'), onClick: () => panel.close() }, { label: app.t('finish.start'), onClick: () => void this.startTimedRun() });
+  }
+
+  private showLeavePanel() {
+    if (this.panelOpen) return;
+    this.panelOpen = true;
+    const panel = new Panel(this, { title: app.t('finish.leaveTitle'), width: 600, height: 440, onClose: () => (this.panelOpen = false) });
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    const text = this.add
+      .text(0, panel.top + 70, app.t('finish.leaveText'), { ...font, fontStyle: '700', fontSize: 30, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
+      .setOrigin(0.5);
+    panel.content.add(text);
+    this.panelButtons(panel, panel.bottom - 80, { label: app.t('finish.stay'), onClick: () => panel.close() }, { label: app.t('finish.leave'), onClick: () => this.leaveTimedRun() });
+  }
+
+  /** New timed run from stardust. A natural break, so a midgame ad may show first (CLAUDE.md 4.5). */
+  private async startTimedRun() {
+    save.data.speedrun = newRunState(content, 'speedrun', app.rng.int(1, 2 ** 31 - 1));
+    save.data.mode = 'speedrun';
+    save.flush();
+    await app.ads.midgame();
+    this.scene.restart();
+  }
+
+  private leaveTimedRun() {
+    save.data.mode = 'main';
+    save.data.speedrun = null;
+    save.flush();
+    this.scene.restart();
+  }
+
+  /** Goal line under the chain: the Galaxy until it is made, then the collection. */
+  private refreshGoal() {
+    const done = this.run.s.mode === 'main' && (this.run.s.finishedAt !== null || save.data.firstFinishMs > 0);
+    if (done) {
+      const { n, total } = this.collectionCount();
+      this.goalLabel.setText(app.t('finish.endless', { n, total }));
+    } else {
+      this.goalLabel.setText(app.t('hud.goal', { name: app.t('tier.galaxy') }));
+    }
+    // The stopwatch shows once a Galaxy has been made; in a timed run the button leads home.
+    this.modeBtn.setVisible(this.run.s.mode === 'speedrun' || save.data.firstFinishMs > 0);
   }
 
   // ---------- coming back ----------
@@ -748,6 +978,22 @@ export class PlayScene extends BaseScene {
 function trim(n: number) {
   return String(Math.round(n * 100) / 100);
 }
+
+/** "Epic" -> "an Epic", "Rare" -> "a Rare" (English string only). */
+function withArticle(word: string) {
+  return `${/^[aeiou]/i.test(word) ? 'an' : 'a'} ${word}`;
+}
+
+/** Stopwatch: timed run. */
+const stopwatchIcon: icons.IconDraw = (g, size, color) => {
+  const s = size / 2;
+  g.lineStyle(size * 0.1, color, 1);
+  g.strokeCircle(0, s * 0.1, s * 0.72);
+  g.fillStyle(color, 1);
+  g.fillRoundedRect(-s * 0.18, -s * 0.95, s * 0.36, s * 0.22, s * 0.06);
+  g.lineBetween(0, s * 0.1, 0, -s * 0.38);
+  g.lineBetween(0, s * 0.1, s * 0.3, s * 0.3);
+};
 
 /** Radar sweep for the scan button. */
 const scanIcon: icons.IconDraw = (g, size, color) => {
