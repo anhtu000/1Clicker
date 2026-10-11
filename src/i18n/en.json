@@ -1,0 +1,12 @@
+{
+  "demo": {
+    "perSecond": "{n} per second",
+    "upgradeTap": "+1 per tap",
+    "upgradeAuto": "+1 per second",
+    "cost": "{n}",
+    "rewardDouble": "Double coins",
+    "away": "Welcome back! You earned {n} in {t}.",
+    "hint": "Tap!",
+    "speed": "Orbit test"
+  }
+}

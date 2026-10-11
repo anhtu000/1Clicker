@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="%GAME_BG%" />
+    <title>%GAME_TITLE%</title>
+    <!-- PORTAL_SDK -->
+    <style>
+      /* Shown before any script runs, so the first paint is never a white page. */
+      html, body { background: %GAME_BG%; }
+    </style>
+  </head>
+  <body>
+    <div id="game"></div>
+    <div id="boot-spinner"></div>
+    <div id="boot-error"></div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

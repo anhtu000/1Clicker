@@ -1,0 +1,96 @@
+import Phaser from 'phaser';
+
+// "Game feel" helpers (CLAUDE.md 4.3): numbers that fly up, small bounces, bursts, vibration.
+// All of them are time-based tweens, so they run the same at 60 and 144 Hz.
+
+export const DOT_TEXTURE = 'core-dot';
+
+/** Creates the small round texture used by burst(). Called once by the boot scene. */
+export function createFxTextures(scene: Phaser.Scene) {
+  if (scene.textures.exists(DOT_TEXTURE)) return;
+  const g = scene.make.graphics({}, false);
+  g.fillStyle(0xffffff, 1);
+  g.fillCircle(16, 16, 16);
+  g.generateTexture(DOT_TEXTURE, 32, 32);
+  g.destroy();
+}
+
+export interface FloatOptions {
+  color?: string;
+  /** Font size in design units. */
+  size?: number;
+  /** How far it rises, in design units. */
+  rise?: number;
+  durationMs?: number;
+  font?: string;
+}
+
+const floatPools = new WeakMap<Phaser.Scene, Phaser.GameObjects.Text[]>();
+
+/** "+12" that rises and fades. Reuses text objects, so fast clicking does not pile up garbage. */
+export function floatText(scene: Phaser.Scene, x: number, y: number, text: string, options: FloatOptions = {}) {
+  let pool = floatPools.get(scene);
+  if (!pool) {
+    pool = [];
+    floatPools.set(scene, pool);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => floatPools.delete(scene));
+  }
+  let label = pool.find((t) => !t.active);
+  if (!label) {
+    label = scene.add.text(0, 0, '', { fontFamily: options.font ?? 'Nunito, sans-serif', fontStyle: '900' });
+    label.setOrigin(0.5).setDepth(1000);
+    pool.push(label);
+  }
+  const size = options.size ?? 44;
+  label
+    .setActive(true)
+    .setVisible(true)
+    .setText(text)
+    .setFontSize(size)
+    .setColor(options.color ?? '#ffffff')
+    .setStroke('#00000088', Math.round(size / 7))
+    .setPosition(x + Phaser.Math.Between(-12, 12), y)
+    .setAlpha(1)
+    .setScale(0.6);
+  const target = label;
+  scene.tweens.add({ targets: target, scale: 1, duration: 120, ease: 'Back.Out' });
+  scene.tweens.add({
+    targets: target,
+    y: y - (options.rise ?? 120),
+    alpha: 0,
+    duration: options.durationMs ?? 800,
+    ease: 'Cubic.Out',
+    onComplete: () => target.setActive(false).setVisible(false),
+  });
+}
+
+/** Quick squash-and-stretch bounce. Calling it again restarts the bounce instead of stacking. */
+export function punch(scene: Phaser.Scene, target: Phaser.GameObjects.Components.Transform, amount = 0.1, durationMs = 140) {
+  const anyTarget = target as unknown as { __punch?: Phaser.Tweens.Tween; __baseScale?: number };
+  anyTarget.__punch?.stop();
+  const base = (anyTarget.__baseScale ??= target.scaleX);
+  target.setScale(base * (1 + amount));
+  anyTarget.__punch = scene.tweens.add({ targets: target, scale: base, duration: durationMs, ease: 'Back.Out' });
+}
+
+const burstEmitters = new WeakMap<Phaser.Scene, Phaser.GameObjects.Particles.ParticleEmitter>();
+
+/** Burst of round particles, for purchases and rare drops. */
+export function burst(scene: Phaser.Scene, x: number, y: number, color = 0xffffff, count = 14, speed = 420) {
+  let emitter = burstEmitters.get(scene);
+  if (!emitter) {
+    emitter = scene.add.particles(0, 0, DOT_TEXTURE, {
+      speed: { min: speed * 0.4, max: speed },
+      lifespan: { min: 350, max: 650 },
+      scale: { start: 0.55, end: 0 },
+      alpha: { start: 1, end: 0.2 },
+      gravityY: 600,
+      emitting: false,
+    });
+    emitter.setDepth(900);
+    burstEmitters.set(scene, emitter);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => burstEmitters.delete(scene));
+  }
+  emitter.setParticleTint(color);
+  emitter.explode(count, x, y);
+}

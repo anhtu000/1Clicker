@@ -1,0 +1,8 @@
+# Same line endings on Windows and in the cloud, so diffs stay clean.
+* text=auto eol=lf
+*.wav binary
+*.png binary
+*.jpg binary
+*.mp3 binary
+*.ogg binary
+*.woff2 binary

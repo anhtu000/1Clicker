@@ -1,0 +1,27 @@
+{
+  "name": "clicker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.12"
+  },
+  "scripts": {
+    "dev": "vite",
+    "dev:cg": "vite --mode crazygames",
+    "build": "tsc --noEmit && vite build --mode crazygames && node scripts/check-build.mjs dist/crazygames crazygames",
+    "build:web": "tsc --noEmit && vite build --mode web && node scripts/check-build.mjs dist/web web",
+    "preview": "vite preview --outDir dist/crazygames",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/core.test.ts",
+    "sync-core": "node scripts/sync-core.mjs"
+  },
+  "dependencies": {
+    "phaser": "4.2.1"
+  },
+  "devDependencies": {
+    "@fontsource/nunito": "5.3.0",
+    "typescript": "7.0.2",
+    "vite": "8.3.4"
+  }
+}

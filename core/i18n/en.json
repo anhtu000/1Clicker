@@ -1,0 +1,18 @@
+{
+  "lang": { "name": "English" },
+  "core": {
+    "loading": "Loading",
+    "play": "Play",
+    "continue": "Continue",
+    "resume": "Resume",
+    "paused": "Paused",
+    "menu": "Main menu",
+    "sound": "Sound",
+    "on": "On",
+    "off": "Off",
+    "language": "Language",
+    "adUnavailable": "No ad available right now. Try again later.",
+    "adBlocked": "Ads are blocked, so this reward is unavailable."
+  },
+  "unit": { "d": "d", "h": "h", "m": "m", "s": "s" }
+}
