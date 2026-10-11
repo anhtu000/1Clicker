@@ -55,6 +55,21 @@ test('merge needs the same tier and keeps the lower rarity of the pair', () => {
   assert.equal(run.s.highestTier, 4);
 });
 
+test('pair count: each body counted once, goal tier excluded', () => {
+  const run = fresh();
+  const goal = content.economy.goalTier;
+  assert.equal(run.pairCount(), 0);
+  run.s.board[0] = { t: 2, r: 0 };
+  run.s.board[1] = { t: 2, r: 1 };
+  run.s.board[2] = { t: 2, r: 0 };
+  run.s.board[3] = { t: 5, r: 0 };
+  run.s.board[4] = { t: goal, r: 0 };
+  run.s.board[5] = { t: goal, r: 0 };
+  assert.equal(run.pairCount(), 1);
+  run.s.board[6] = { t: 5, r: 3 };
+  assert.equal(run.pairCount(), 2);
+});
+
 test('merging into the goal tier finishes the run once', () => {
   const run = fresh('speedrun');
   const goal = content.economy.goalTier;

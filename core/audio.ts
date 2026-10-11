@@ -29,6 +29,14 @@ export class AudioManager extends Emitter<{ change: [muted: boolean] }> {
   attach(game: Phaser.Game) {
     this.game = game;
     this.apply();
+    // iOS suspends the audio context while the page is in the background (for example the CrazyGames app)
+    // and only lets it start again from a touch or key press. Without this, sound stays off after the
+    // player comes back. Checked on every touch, click or key while the context is not running.
+    const resume = () => {
+      const ctx = (game.sound as Partial<Phaser.Sound.WebAudioSoundManager>).context;
+      if (ctx && ctx.state !== 'running' && ctx.state !== 'closed' && !this.pauseMuted) ctx.resume().catch(() => {});
+    };
+    for (const type of ['pointerdown', 'touchend', 'keydown']) document.addEventListener(type, resume, { capture: true, passive: true });
   }
 
   /** What the mute button should show. */

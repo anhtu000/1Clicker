@@ -9,8 +9,6 @@ import {
   formatDuration,
   formatNumber,
   icons,
-  punch,
-  rewardButton,
   secondsAway,
   showOfflinePanel,
   soundButton,
@@ -24,7 +22,7 @@ import type { UpgradeDef } from '../logic/content.ts';
 import { newRunState, Run, type MergeResult, type NewBody } from '../logic/run.ts';
 import { SpaceBackground } from '../render/background';
 import { ensureBodyTexture } from '../render/bodies';
-import { energyIcon } from '../render/icons';
+import { energyIcon, UPGRADE_ICONS } from '../render/icons';
 import { RARITY_COLOR, RARITY_CSS } from '../render/palette';
 import { applyPreset } from '../game/presets';
 import { preset, save } from '../save';
@@ -32,9 +30,11 @@ import { Board } from '../ui/Board';
 import { Core } from '../ui/Core';
 import { showReveal } from '../ui/Reveal';
 import { ShootingStar } from '../ui/ShootingStar';
-import { UpgradeList } from '../ui/UpgradeList';
+import { BOOST_CARD, UpgradeList, type Boost } from '../ui/UpgradeList';
 
 const STEP_SEC = 0.1;
+/** Seconds the boost card offers a copy after a merge. Longer than a button on the board needed: the shop is further away. */
+const COPY_OFFER_SEC = 8;
 
 /** Main screen: core to tap, board to merge, shop, and the systems around them. */
 export class PlayScene extends BaseScene {
@@ -50,11 +50,10 @@ export class PlayScene extends BaseScene {
   private chain: Phaser.GameObjects.Image[] = [];
   private chainMarker!: Phaser.GameObjects.Graphics;
   private scanBtn!: Button;
-  private luckyBtn!: Button;
-  private mergeAllBtn!: Button;
   private pauseBtn!: Button;
   private soundBtn!: Button;
-  private copyBtn: Button | null = null;
+  /** Rewarded copy of the body just merged, offered on the boost card for a few seconds. */
+  private copyOffer: { slot: number; until: number } | null = null;
   private star: ShootingStar | null = null;
   private tutorial!: Tutorial;
   private step = new FixedStep(STEP_SEC * 1000, () => this.onStep());
@@ -106,37 +105,11 @@ export class PlayScene extends BaseScene {
         this.afterPurchase(id);
       },
       freeCooldown: () => this.run.rewardWait('freeUpgrade'),
+      boost: () => this.boost(),
     });
 
     this.scanBtn = new Button(this, 0, 0, { label: '', icon: scanIcon, width: 300, height: 108, fontSize: 36, sound: false, onClick: () => this.scan() });
     this.scanBtn.setDepth(30);
-    this.luckyBtn = rewardButton(this, 0, 0, {
-      label: app.t('scan.lucky'),
-      width: 176,
-      height: 96,
-      fontSize: 28,
-      cooldown: () => this.run.rewardWait('luckyScan'),
-      onReward: () => {
-        const result = this.run.luckyScan();
-        if (!result) return toast(this, app.t('scan.full'));
-        this.run.useReward('luckyScan', app.ads.rewardsAreFree);
-        this.board.sync([result.slot]);
-        this.announce(result, true);
-      },
-    }).setDepth(30);
-    this.mergeAllBtn = rewardButton(this, 0, 0, {
-      label: app.t('scan.mergeAll'),
-      width: 176,
-      height: 96,
-      fontSize: 24,
-      cooldown: () => this.run.rewardWait('mergeAll'),
-      onReward: () => {
-        const results = this.run.mergeAll();
-        this.run.useReward('mergeAll', app.ads.rewardsAreFree);
-        this.board.sync(results.flatMap((r) => [r.slot, ...(r.twin ? [r.twin.slot] : [])]));
-        results.forEach((r, i) => this.time.delayedCall(i * 90, () => this.mergeFx(r)));
-      },
-    }).setDepth(30);
 
     this.pauseBtn = new Button(this, 0, 0, {
       icon: icons.pauseIcon,
@@ -178,7 +151,7 @@ export class PlayScene extends BaseScene {
     const s = vp.safe;
     this.bg.layout();
     if (vp.portrait) {
-      // Phone, top to bottom: energy, core, goal chain, board, scan row, shop strip.
+      // Phone, top to bottom: energy, core, goal chain, board, scan button, shop strip.
       // Uses the full height: taller phones get a bigger board instead of empty bands.
       const cx = vp.width / 2;
       const top = Math.max(0, s.y - 60);
@@ -200,8 +173,6 @@ export class PlayScene extends BaseScene {
       const size = cell * 4 + 3 * Math.round(cell * 0.08);
       this.board.layout(cx, boardBottom - size / 2, cell);
       this.scanBtn.setPosition(cx, rowY);
-      this.luckyBtn.setPosition(cx - 254, rowY);
-      this.mergeAllBtn.setPosition(cx + 254, rowY);
       this.shop.layout(0, stripTop, vp.width, stripH, true);
       this.pauseBtn.setPosition(56, y0 + 56);
       this.soundBtn.setPosition(vp.width - 56, y0 + 56);
@@ -213,12 +184,11 @@ export class PlayScene extends BaseScene {
       this.core.setPosition(leftX, s.y + 272);
       this.core.setRadius(88);
       this.placeChain(leftX, s.y + 430, 360);
-      this.scanBtn.setPosition(leftX, s.y + 548);
-      this.luckyBtn.setPosition(leftX - 96, s.y + 660);
-      this.mergeAllBtn.setPosition(leftX + 96, s.y + 660);
+      this.scanBtn.setPosition(leftX, s.y + 560);
       const cell = 132;
       this.board.layout(s.x + 660, s.y + 372, cell);
-      this.shop.layout(s.x + s.width - 330, s.y + 110, 316, s.height - 120, false);
+      // The column runs to the bottom of the screen: frames taller than 16:9 show more cards.
+      this.shop.layout(s.x + s.width - 330, s.y + 110, 316, vp.height - s.y - 110 - 16, false);
       // Pause and sound sit together above the shop column, clear of the energy counter.
       this.soundBtn.setPosition(s.x + s.width - 56, s.y + 52);
       this.pauseBtn.setPosition(s.x + s.width - 160, s.y + 52);
@@ -285,6 +255,8 @@ export class PlayScene extends BaseScene {
       this.star.hold = true;
       this.run.s.starTimer = Math.min(this.run.s.starTimer, -2);
     }
+    // The copy offer waits while its tutorial step is being read.
+    if (this.copyOffer && this.tutorial.currentId === 'twin') this.copyOffer.until = Math.max(this.copyOffer.until, this.run.s.time + 2);
   }
 
   private onStep() {
@@ -312,11 +284,6 @@ export class PlayScene extends BaseScene {
     const full = run.freeSlot() < 0;
     this.scanBtn.setLabel(full ? app.t('scan.full') : `${app.t('scan.button')}  ${formatNumber(run.scanCost())}`);
     this.scanBtn.setEnabled(run.canScan());
-    // Reward buttons stay hidden until they are first ready, so the opening minutes stay uncluttered.
-    const ads = app.ads.rewardedAvailable && !app.clean;
-    const firstReady = (id: 'luckyScan' | 'mergeAll') => run.s.time >= content.economy.rewarded[id].firstAt;
-    this.luckyBtn.setVisible(ads && firstReady('luckyScan'));
-    this.mergeAllBtn.setVisible(ads && firstReady('mergeAll'));
     this.shop.refresh();
     this.checkTutorialTriggers();
   }
@@ -382,10 +349,10 @@ export class PlayScene extends BaseScene {
         this.refreshUi();
       });
     } else if (!run.s.board[to]) {
-      run.move(from, to);
-      this.board.moved(from, to);
+      if (run.move(from, to)) this.board.moved(from, to);
+      else this.board.sync();
     } else if (run.swap(from, to)) {
-      this.board.sync();
+      this.board.swapped(from, to);
     }
   }
 
@@ -437,13 +404,22 @@ export class PlayScene extends BaseScene {
     if (body.r >= 1) burst(this, p.x, p.y, RARITY_COLOR[body.r], 12 + body.r * 6, 320);
   }
 
+  /** Reveals wait for each other: one Merge All can make several Epic or rarer bodies at once. */
+  private revealQueue: NewBody[] = [];
+
   private reveal(result: NewBody) {
+    if (this.revealOpen) {
+      this.revealQueue.push(result);
+      return;
+    }
     const { body } = result;
     const odds = this.run.rarityOdds()[body.r];
     const name = `${app.t(`rarity.${content.rarities[body.r].id}`)} ${app.t(`tier.${content.tiers[body.t - 1].id}`)}`;
     this.revealOpen = true;
     showReveal(this, body, app.t(`rarity.${content.rarities[body.r].id}`), name, app.t('reveal.odds', { n: formatNumber(Math.round(1 / odds)) }), () => {
       this.revealOpen = false;
+      const next = this.revealQueue.shift();
+      if (next) return this.reveal(next);
       if (body.r >= 2 && !save.data.tutorial.includes('rarity')) {
         this.queueOnce('rarity', [{ id: 'rarity', text: app.t('tut.rarity'), ack: app.t('tut.ok') }]);
       }
@@ -454,8 +430,7 @@ export class PlayScene extends BaseScene {
     const p = this.board.slotPos(result.slot);
     const color = RARITY_COLOR[result.body.r];
     burst(this, p.x, p.y, color, 16 + result.body.t * 2, 300 + result.body.t * 20);
-    const sprite = this.board.sprite(result.slot);
-    if (sprite) punch(this, sprite, 0.25);
+    this.board.sprite(result.slot)?.bump(0.25);
     // Pitch rises with tier, so climbing the chain sounds like progress.
     app.audio.play('buy', { volume: 0.9, pitchJitter: 0 });
     app.haptic(12);
@@ -469,34 +444,107 @@ export class PlayScene extends BaseScene {
     if (result.finished) this.finish();
   }
 
-  /** After a merge: a rewarded button to copy the result, for a few seconds. */
+  // ---------- rewarded boosts (one card at the front of the shop, CLAUDE.md 4b) ----------
+
+  /** After a merge: the boost card offers a copy of the result for a few seconds. */
   private offerCopy(result: MergeResult) {
-    this.copyBtn?.destroy();
-    this.copyBtn = null;
+    this.copyOffer = null;
     if (!this.run.rewardReady('twin') || !this.run.canDuplicate(result.slot) || !app.ads.rewardedAvailable || app.clean) return;
-    const p = this.board.slotPos(result.slot);
-    const btn = rewardButton(this, p.x, p.y - this.board.cell * 0.62, {
-      label: app.t('reveal.copy'),
-      width: 150,
-      height: 64,
-      fontSize: 26,
-      onReward: () => {
-        const copy = this.run.duplicate(result.slot);
-        this.run.useReward('twin', app.ads.rewardsAreFree);
-        if (copy) {
-          this.board.sync([copy.slot]);
-          this.announce(copy, false);
-        }
-        btn.destroy();
-      },
-    }).setDepth(45);
-    this.copyBtn = btn;
-    btn.setScale(0);
-    this.tweens.add({ targets: btn, scale: 1, duration: 200, ease: 'Back.Out' });
-    this.time.delayedCall(5000, () => {
-      if (btn.active) this.tweens.add({ targets: btn, alpha: 0, duration: 200, onComplete: () => btn.destroy() });
+    this.copyOffer = { slot: result.slot, until: this.run.s.time + COPY_OFFER_SEC };
+    this.shop.refresh();
+    // Scroll the shop back to the front only the first time, so a player browsing upgrades is not interrupted.
+    if (!save.data.tutorial.includes('twin')) this.shop.reveal(BOOST_CARD);
+    this.queueOnce('twin', [{ id: 'twin', text: app.t('tut.twin'), target: () => this.shop.cardRect(BOOST_CARD), ack: app.t('tut.ok') }]);
+  }
+
+  /**
+   * Which boost the card shows. One card, so the shop strip on a phone keeps room for upgrades:
+   * the copy offer right after a merge, else merge all when it clears 2+ pairs, else lucky scan,
+   * else merge all for a single pair; when none is ready, a countdown to the next one.
+   */
+  private boost(): Boost | null {
+    const run = this.run;
+    if (!app.ads.rewardedAvailable || app.clean) return null;
+    const rw = content.economy.rewarded;
+
+    const offer = this.copyOffer;
+    if (offer && run.s.time < offer.until && run.rewardReady('twin') && run.canDuplicate(offer.slot)) {
+      const b = run.s.board[offer.slot]!;
+      const name = app.t(`tier.${content.tiers[b.t - 1].id}`);
+      return {
+        id: `twin.${offer.slot}`,
+        name: app.t('boost.copy'),
+        desc: app.t('boost.copyDesc', { name }),
+        icon: UPGRADE_ICONS.binary,
+        wait: 0,
+        onReward: () => this.useCopy(offer.slot),
+      };
+    }
+    this.copyOffer = null;
+
+    // Hidden until the first one is due, so the opening minutes are about tapping (economy.rewarded.firstAt).
+    const shown = (['luckyScan', 'mergeAll'] as const).filter((id) => run.s.time >= rw[id].firstAt);
+    if (!shown.length) return null;
+    const pairs = run.pairCount();
+    const room = run.freeSlot() >= 0;
+    const lucky = (): Boost => ({
+      id: 'luckyScan',
+      name: app.t('boost.lucky'),
+      desc: app.t('boost.luckyDesc'),
+      icon: UPGRADE_ICONS.luck,
+      wait: run.rewardWait('luckyScan'),
+      blocked: room ? undefined : app.t('scan.full'),
+      onReward: () => this.useLucky(),
     });
-    this.queueOnce('twin', [{ id: 'twin', text: app.t('tut.twin'), target: () => (btn.active ? { x: btn.x, y: btn.y, w: 150, h: 64 } : null), ack: app.t('tut.ok') }]);
+    const mergeAll = (): Boost => ({
+      id: 'mergeAll',
+      name: app.t('boost.mergeAll'),
+      desc: app.t('boost.mergeAllDesc'),
+      icon: UPGRADE_ICONS.autoMerge,
+      wait: run.rewardWait('mergeAll'),
+      blocked: pairs > 0 ? undefined : app.t('boost.noPairs'),
+      onReward: () => this.useMergeAll(),
+    });
+    const ready = (id: 'luckyScan' | 'mergeAll') => shown.includes(id) && run.rewardReady(id);
+    if (ready('mergeAll') && pairs >= 2) return mergeAll();
+    if (ready('luckyScan') && room) return lucky();
+    if (ready('mergeAll') && pairs >= 1) return mergeAll();
+    // Nothing usable now: show the ready one that is blocked, or count down to the next one.
+    if (ready('luckyScan')) return lucky();
+    if (ready('mergeAll')) return mergeAll();
+    const next = shown.reduce((a, b) => (run.rewardWait(a) <= run.rewardWait(b) ? a : b));
+    return next === 'luckyScan' ? lucky() : mergeAll();
+  }
+
+  private useLucky() {
+    const result = this.run.luckyScan();
+    if (!result) return toast(this, app.t('scan.full'));
+    this.run.useReward('luckyScan', app.ads.rewardsAreFree);
+    this.board.sync([result.slot]);
+    this.beam(result.slot);
+    this.announce(result, true);
+    this.refreshUi();
+  }
+
+  private useMergeAll() {
+    const results = this.run.mergeAll();
+    this.run.useReward('mergeAll', app.ads.rewardsAreFree);
+    this.board.sync(results.flatMap((r) => [r.slot, ...(r.twin ? [r.twin.slot] : [])]));
+    results.forEach((r, i) => this.time.delayedCall(i * 90, () => this.mergeFx(r)));
+    this.refreshUi();
+  }
+
+  private useCopy(slot: number) {
+    const copy = this.run.duplicate(slot);
+    this.run.useReward('twin', app.ads.rewardsAreFree);
+    this.copyOffer = null;
+    if (copy) {
+      this.board.sync([copy.slot]);
+      this.announce(copy, false);
+      const p = this.board.slotPos(copy.slot);
+      floatText(this, p.x, p.y - 40, app.t('reveal.twin'), { color: '#9fd8ff', size: 40 });
+    }
+    this.refreshUi();
   }
 
   private spawnStar(golden: boolean) {
@@ -637,8 +685,10 @@ export class PlayScene extends BaseScene {
       ]);
       return;
     }
-    if (this.luckyBtn.visible && this.run.rewardReady('luckyScan')) {
-      this.queueOnce('reward', [{ id: 'reward', text: app.t('tut.reward'), target: () => ({ x: this.luckyBtn.x, y: this.luckyBtn.y, w: 170, h: 96 }), ack: app.t('tut.ok') }]);
+    const boost = this.shop.currentBoost;
+    if (boost && boost.wait <= 0 && !boost.blocked && !boost.id.startsWith('twin') && !save.data.tutorial.includes('reward')) {
+      this.shop.reveal(BOOST_CARD);
+      this.queueOnce('reward', [{ id: 'reward', text: app.t('tut.reward'), target: () => this.shop.cardRect(BOOST_CARD), ack: app.t('tut.ok') }]);
     }
   }
 

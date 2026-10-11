@@ -48,12 +48,41 @@ export class BodySprite extends Phaser.GameObjects.Container {
     this.setSize(size, size);
   }
 
+  /**
+   * All size changes go through one tween that the sprite owns: a new one replaces the old one.
+   * Overlapping scale tweens (pop, merge punch, drag) used to leave a body stuck at size 0:
+   * still on the board, but invisible.
+   */
+  private scaleTween: Phaser.Tweens.Tween | null = null;
+
+  /** Tweens the size to `to` (1 = normal), from `from` when given. */
+  scaleTo(to: number, duration: number, ease = 'Quad.Out', from?: number, delay = 0) {
+    this.scaleTween?.stop();
+    if (from !== undefined) this.setScale(from);
+    this.scaleTween = this.scene.tweens.add({ targets: this, scale: to, duration, delay, ease });
+    return this;
+  }
+
   /** Grows in from nothing, with a small overshoot. */
   pop(delay = 0) {
-    const target = this.scaleX || 1;
-    this.setScale(0);
-    this.scene.tweens.add({ targets: this, scale: target, duration: 320, delay, ease: 'Back.Out' });
+    this.popping = true;
+    this.scaleTo(1, 320, 'Back.Out', 0, delay);
+    this.scaleTween!.once(Phaser.Tweens.Events.TWEEN_COMPLETE, () => (this.popping = false));
+    this.scaleTween!.once(Phaser.Tweens.Events.TWEEN_STOP, () => (this.popping = false));
     return this;
+  }
+
+  private popping = false;
+
+  /** Short bump for a merge. Skipped while popping in, which already animates. */
+  bump(amount = 0.25) {
+    if (this.popping) return this;
+    return this.scaleTo(1, 140, 'Back.Out', 1 + amount);
+  }
+
+  /** Back to normal size if no size tween is running. A safety net against any path that leaves it wrong. */
+  settle() {
+    if (!this.scaleTween?.isPlaying() && this.scaleX !== 1) this.setScale(1);
   }
 
   private tick(_time: number, delta: number) {

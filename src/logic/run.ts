@@ -425,6 +425,18 @@ export class Run {
     return best;
   }
 
+  /** Pairs on the board that can merge right now (each body counted once). */
+  pairCount(): number {
+    const perTier = new Map<number, number>();
+    for (let i = 0; i < this.slots; i++) {
+      const b = this.s.board[i];
+      if (b && b.t < this.content.economy.goalTier) perTier.set(b.t, (perTier.get(b.t) ?? 0) + 1);
+    }
+    let pairs = 0;
+    for (const n of perTier.values()) pairs += Math.floor(n / 2);
+    return pairs;
+  }
+
   // ---------- upgrades ----------
 
   level(id: string): number {

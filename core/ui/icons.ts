@@ -62,6 +62,15 @@ export const playIcon: IconDraw = (g, size, color) => {
   g.fillTriangle(-s * 0.45, -s * 0.65, -s * 0.45, s * 0.65, s * 0.7, 0);
 };
 
+/** Screen with a play triangle: marks anything that shows a rewarded ad (CrazyGames asks for a clear video icon). */
+export const videoIcon: IconDraw = (g, size, color) => {
+  const s = size / 2;
+  g.lineStyle(size * 0.1, color, 1);
+  g.strokeRoundedRect(-s * 0.9, -s * 0.68, s * 1.8, s * 1.36, s * 0.24);
+  g.fillStyle(color, 1);
+  g.fillTriangle(-s * 0.26, -s * 0.36, -s * 0.26, s * 0.36, s * 0.4, 0);
+};
+
 export const homeIcon: IconDraw = (g, size, color) => {
   const s = size / 2;
   g.fillStyle(color, 1);

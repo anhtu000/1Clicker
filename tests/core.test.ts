@@ -1,7 +1,7 @@
 // Unit tests for pure helpers. Run: npm test
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { formatClock, formatDuration, formatNumber } from '../core/format.ts';
+import { formatClock, formatCountdown, formatDuration, formatNumber } from '../core/format.ts';
 import { claimDaily, dailyStatus, FixedStep, secondsAway } from '../core/time.ts';
 import { contentChecker, indexById } from '../core/content.ts';
 import { pickWeighted, pityLeft, rarityOdds, Rng, rollRarity } from '../core/rng.ts';
@@ -25,13 +25,16 @@ test('formatNumber uses K/M/B/T with 3 significant digits', () => {
   assert.equal(formatNumber(2, 1), '2');
 });
 
-test('formatDuration and formatClock', () => {
+test('formatDuration, formatClock and formatCountdown', () => {
   assert.equal(formatDuration(45), '45s');
   assert.equal(formatDuration(200), '3m 20s');
   assert.equal(formatDuration(3900), '1h 05m');
   assert.equal(formatDuration(90000), '1d 1h');
   assert.equal(formatClock(75.4), '1:15.40');
   assert.equal(formatClock(3725), '1:02:05.00');
+  assert.equal(formatCountdown(151), '2:31');
+  assert.equal(formatCountdown(8.2), '0:09');
+  assert.equal(formatCountdown(-3), '0:00');
 });
 
 test('secondsAway is capped and ignores clock going backwards', () => {

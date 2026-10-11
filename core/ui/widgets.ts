@@ -1,8 +1,9 @@
 import Phaser from 'phaser';
 import { app } from '../app';
+import { formatCountdown } from '../format';
 import { toast } from './toast';
 import { Button } from './button';
-import { playIcon, soundOffIcon, soundOnIcon } from './icons';
+import { soundOffIcon, soundOnIcon, videoIcon } from './icons';
 
 /** Square mute toggle. Follows the portal's forced mute and greys out while it is on. */
 export function soundButton(scene: Phaser.Scene, x: number, y: number, size = 96) {
@@ -46,7 +47,7 @@ export interface RewardButtonOptions {
 export function rewardButton(scene: Phaser.Scene, x: number, y: number, options: RewardButtonOptions) {
   const button: Button = new Button(scene, x, y, {
     label: options.label,
-    icon: playIcon,
+    icon: videoIcon,
     width: options.width ?? 360,
     height: options.height ?? 96,
     fontSize: options.fontSize ?? 34,
@@ -74,7 +75,7 @@ export function rewardButton(scene: Phaser.Scene, x: number, y: number, options:
     const refresh = () => {
       if (!button.active || app.ads.isShowing) return;
       const wait = Math.ceil(cooldown());
-      const text = wait > 0 ? app.t('core.readyIn', { t: formatClockShort(wait) }) : options.label;
+      const text = wait > 0 ? app.t('core.readyIn', { t: formatCountdown(wait) }) : options.label;
       if (text !== shown) {
         shown = text;
         button.setLabel(text);
@@ -87,10 +88,4 @@ export function rewardButton(scene: Phaser.Scene, x: number, y: number, options:
     refresh();
   }
   return button;
-}
-
-/** 151 -> "2:31", 9 -> "0:09" */
-function formatClockShort(seconds: number) {
-  const s = Math.max(0, Math.ceil(seconds));
-  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }

@@ -88,9 +88,7 @@
   },
   "scan": {
     "button": "Scan",
-    "full": "Board full",
-    "lucky": "Lucky",
-    "mergeAll": "Merge all"
+    "full": "Board full"
   },
   "shop": {
     "title": "Upgrades",
@@ -98,6 +96,15 @@
     "max": "MAX",
     "free": "Free",
     "locked": "Reach {name} to unlock"
+  },
+  "boost": {
+    "lucky": "Lucky Scan",
+    "luckyDesc": "One tier higher, Rare or better",
+    "mergeAll": "Merge All",
+    "mergeAllDesc": "Merges every pair on the board",
+    "copy": "Copy",
+    "copyDesc": "One more {name}",
+    "noPairs": "No pairs"
   },
   "reveal": {
     "odds": "1 in {n}",

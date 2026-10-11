@@ -66,6 +66,12 @@ export function formatDuration(totalSeconds: number, units: DurationUnits = EN_U
   return `${s}${units.s}`;
 }
 
+/** Cooldown countdown, rounded up to whole seconds: 151 -> "2:31", 9 -> "0:09". */
+export function formatCountdown(totalSeconds: number): string {
+  const s = Math.max(0, Math.ceil(totalSeconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
 /** Stopwatch style for speedrun timers: 75.4 -> "1:15.40", 3725 -> "1:02:05.00". */
 export function formatClock(totalSeconds: number): string {
   const cs = Math.max(0, Math.floor(totalSeconds * 100));

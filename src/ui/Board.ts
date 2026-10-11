@@ -124,7 +124,10 @@ export class Board {
       } else if (popSlots.includes(i)) {
         s.pop();
       }
-      if (i !== this.dragFrom) s.setPosition(p.x, p.y);
+      if (i !== this.dragFrom) {
+        s.setPosition(p.x, p.y);
+        s.settle();
+      }
     }
     this.drawCells();
   }
@@ -137,6 +140,20 @@ export class Board {
     this.sprites[from] = null;
     const p = this.slotPos(to);
     this.scene.tweens.add({ targets: s, x: p.x, y: p.y, duration: 140, ease: 'Quad.Out' });
+  }
+
+  /** The run swapped two bodies: both sprites glide to their new slots (the dragged one keeps its look). */
+  swapped(a: number, b: number) {
+    const sa = this.sprites[a];
+    const sb = this.sprites[b];
+    this.sprites[a] = sb;
+    this.sprites[b] = sa;
+    for (const [s, slot] of [[sa, b], [sb, a]] as const) {
+      if (!s) continue;
+      const p = this.slotPos(slot);
+      this.scene.tweens.add({ targets: s, x: p.x, y: p.y, duration: 160, ease: 'Quad.Out' });
+    }
+    this.sync();
   }
 
   /** Slides the body in slot `from` onto slot `to`, then calls done. */
@@ -176,7 +193,7 @@ export class Board {
       this.dragFrom = i;
       s.bob = false;
       s.setDepth(40);
-      this.scene.tweens.add({ targets: s, scale: 1.18, duration: 100 });
+      s.scaleTo(1.18, 100);
       app.audio.play('ui-tap', { volume: 0.5, pitchJitter: 80 });
       this.cb.onDragStart?.(i);
     });
@@ -190,7 +207,7 @@ export class Board {
       s.setDepth(10);
       this.hints.clear();
       if (from < 0) return;
-      this.scene.tweens.add({ targets: s, scale: 1, duration: 100 });
+      s.scaleTo(1, 100);
       const to = this.slotAt(p.worldX, p.worldY);
       if (to >= 0 && to !== from && to < this.run.slots) {
         this.cb.onDrop(from, to);
