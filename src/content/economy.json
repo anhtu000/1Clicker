@@ -10,7 +10,7 @@
     "critMult": 6
   },
   "scan": {
-    "baseCost": 0.022,
+    "baseCost": 0.033,
     "exponent": 5.5,
     "spawnDiscount": 1,
     "doubleTierUpShare": 0.1,

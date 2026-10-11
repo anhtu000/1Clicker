@@ -6,7 +6,7 @@
     {"id": "probes", "stat": "autoTps", "op": "add", "value": 60, "max": 1, "show": {"tier": 5}, "noAd": true, "costs": [260000]},
     {"id": "crit", "stat": "critChance", "op": "add", "value": 0.04, "max": 5, "show": {"tier": 5}, "costs": [360000,5100000,39000000,280000000,1600000000]},
     {"id": "luck", "stat": "luck", "op": "add", "value": 0.3, "max": 5, "show": {"tier": 5}, "costs": [1200000,16000000,180000000,1200000000,7000000000]},
-    {"id": "fleet", "stat": "autoMult", "op": "mul", "value": 1.5, "max": 10, "show": {"upgrade": "probes"}, "costs": [350000,720000,1900000,5000000,14000000,37000000,91000000,380000000,890000000,3700000000]},
+    {"id": "fleet", "stat": "autoMult", "op": "mul", "value": 1.6, "max": 10, "show": {"upgrade": "probes"}, "costs": [350000,720000,1900000,5000000,14000000,37000000,91000000,380000000,890000000,3700000000]},
     {"id": "lens", "stat": "tierUpChance", "op": "add", "value": 0.04, "max": 5, "show": {"upgrade": "probes"}, "costs": [530000,11000000,84000000,730000000,2300000000]},
     {"id": "binary", "stat": "twinChance", "op": "add", "value": 0.03, "max": 5, "show": {"upgrade": "probes"}, "costs": [760000,14000000,120000000,910000000,5400000000]},
     {"id": "starMagnet", "stat": "starRate", "op": "mul", "value": 0.85, "max": 3, "show": {"upgrade": "probes"}, "costs": [2300000,54000000,840000000]},

@@ -28,7 +28,7 @@ const UPGRADE_VI: Record<string, [string, string]> = {
   probes: ['Probe Bay', 'Mở tự động hoá: tàu thu bắt đầu thu năng lượng. Không nhận bằng quảng cáo'],
   crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 (chỉ nhấp tay)'],
   luck: ['Stellar Luck', 'Trọng số Rare trở lên +30% mỗi cấp'],
-  fleet: ['Probe Fleet', 'Tàu thu ×1,5 mỗi cấp'],
+  fleet: ['Probe Fleet', 'Tàu thu ×1,6 mỗi cấp (nhân duy nhất cho tàu thu)'],
   binary: ['Binary Merge', 'Sau auto. +3% cơ hội ghép ra thêm 1 bản giống hệt (tới Khí khổng lồ)'],
   starMagnet: ['Star Magnet', 'Sau auto. Sao băng dày hơn 15% mỗi cấp'],
   deepScan: ['Deep Scanner', 'Quét ra thẳng cấp cao hơn: Thiên thạch, rồi Tiểu hành tinh, rồi Sao chổi'],
@@ -307,6 +307,11 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 <section>
   <h2>Cấp thiên thể</h2>
   <p class="muted">Ghép 2 thiên thể cùng cấp thành cấp sau. Sức mạnh mỗi cấp gấp 3 cấp trước, nhân thêm theo độ hiếm. Năng lượng mỗi lần nhấp = (1 + tổng sức mạnh trên bảng) × nâng cấp.</p>
+  <p class="muted">Thưởng khi ghép: mỗi lần ghép trả một phần giá Scan hiện tại, theo cấp của cặp và độ hiếm của mảnh hiếm hơn (cấp 1 Common 0%, cấp 8 Legendary 100%).</p>
+  <div class="scroll"><table>
+    <thead><tr><th>Cấp</th>${content.rarities.map((r) => `<th>${r.id[0].toUpperCase()}${r.id.slice(1)}</th>`).join('')}</tr></thead>
+    <tbody>${content.economy.mergeBonus.scanShare.map((row, i) => `<tr><td>${i + 1}</td>${row.map((v) => `<td>${Math.round(v * 100)}%</td>`).join('')}</tr>`).join('')}</tbody>
+  </table></div>
   <div class="scroll"><table>
     <thead><tr><th>Cấp</th><th>Thiên thể</th><th>Sức mạnh</th><th>Không QC</th><th>QC thật</th><th>Basic</th></tr></thead>
     <tbody>${tierRows}</tbody>
@@ -315,7 +320,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Độ hiếm và tỉ lệ</h2>
-  <p class="muted">Mỗi lần quét và mỗi lần ghép đều quay độ hiếm. Ghép hai thiên thể thì kết quả không thấp hơn độ hiếm thấp hơn của cặp, nên ghép hai Epic luôn giữ ít nhất Epic. 5 bậc × 10 cấp = 50 thiên thể để sưu tầm; mỗi thiên thể mới cộng năng lượng vĩnh viễn (không áp dụng ở chế độ chơi lại).</p>
+  <p class="muted">Mỗi lần quét và mỗi lần ghép đều quay độ hiếm. Ghép hai thiên thể thì kết quả không thấp hơn trung bình cộng độ hiếm của cặp (làm tròn xuống), rồi vẫn quay để có thể lên cao hơn: hai Epic giữ ít nhất Epic, Epic với Common giữ ít nhất Rare. 5 bậc × 10 cấp = 50 thiên thể để sưu tầm; mỗi thiên thể mới cộng năng lượng vĩnh viễn (không áp dụng ở chế độ chơi lại).</p>
   <div class="scroll"><table>
     <thead><tr><th>Độ hiếm</th><th>Tỉ lệ</th><th>Hiện trong game</th><th>Stellar Luck tối đa</th><th>Sức mạnh</th><th>Thưởng sưu tầm</th><th>Bảo hiểm</th></tr></thead>
     <tbody>${rarityRows}</tbody>
@@ -343,7 +348,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
     <ul class="plain">
       <li><b>Nâng cấp miễn phí</b>: gắn trên món đắt nhất chưa mua được, trong tầm ${vi(reward.freeUpgrade.maxIncomeSeconds / 60)} phút thu nhập. Hồi ${vi(reward.freeUpgrade.cooldown / 60)} phút.</li>
       <li><b>Lượt quét may mắn</b>: cao hơn ${reward.luckyScan.tierBonus} cấp so với máy quét, ít nhất Rare, không làm tăng giá quét. Hồi ${vi(reward.luckyScan.cooldown / 60)} phút.</li>
-      <li><b>Thêm 1 bản sau khi ghép</b>: nút hiện 5 giây cạnh thiên thể vừa ghép, tới cấp Khí khổng lồ. Hồi ${vi(reward.twin.cooldown / 60)} phút.</li>
+      <li><b>Thêm 1 bản sau khi ghép</b>: thẻ thưởng đầu bảng nâng cấp đổi thành "Copy" trong 8 giây sau mỗi lần ghép, tới cấp Khí khổng lồ. Hồi ${vi(reward.twin.cooldown / 60)} phút.</li>
       <li>Mọi nút thưởng chỉ xuất hiện sau vài phút đầu (quét may mắn từ phút ${vi(reward.luckyScan.firstAt / 60)}, nâng cấp miễn phí từ phút ${vi(reward.freeUpgrade.firstAt / 60)}).</li>
       <li><b>Khi portal tắt quảng cáo</b> (Basic Launch): thưởng vẫn trao, thời gian hồi ×${String(reward.freeCooldownMult).replace('.', ',')}.</li>
       <li>Ngoài màn chơi: x${reward.offlineMult} thu nhập khi vắng mặt, x${reward.dailyMult} quà ngày.</li>
