@@ -116,7 +116,7 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
   let rollN = 0;
   const maxGap = { first10: 0, to30: 0, after30: 0 };
   const longGaps: [number, number][] = [];
-  const rewards: Record<string, number> = { freeUpgrade: 0, luckyScan: 0, mergeAll: 0, twin: 0 };
+  const rewards: Record<string, number> = { freeUpgrade: 0, luckyScan: 0, twin: 0 };
   const milestones: Milestone[] = [];
   const seen = new Set<string>();
   const rarityCounts = content.rarities.map(() => 0);
@@ -191,20 +191,6 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
       if (result) {
         noteBody(result.body.r, result.body.t);
         watchAd('luckyScan');
-        return true;
-      }
-    }
-    if (adReady('mergeAll')) {
-      // Only worth an ad when it does real work.
-      const tiers: Record<number, number> = {};
-      for (let i = 0; i < run.slots; i++) {
-        const b = s.board[i];
-        if (b) tiers[b.t] = (tiers[b.t] ?? 0) + 1;
-      }
-      const pairs = Object.values(tiers).reduce((a, n) => a + Math.floor(n / 2), 0);
-      if (pairs >= 3) {
-        for (const r of run.mergeAll()) afterMerge(r);
-        watchAd('mergeAll');
         return true;
       }
     }

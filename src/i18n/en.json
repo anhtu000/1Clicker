@@ -67,10 +67,6 @@
       "name": "Deep Space Relay",
       "desc": "+{v}h of offline income"
     },
-    "thrusters": {
-      "name": "Ion Thrusters",
-      "desc": "Probes x{v}"
-    },
     "autoScan": {
       "name": "Auto Scanner",
       "desc": "Scans by itself every {v}s"
@@ -88,7 +84,9 @@
   },
   "scan": {
     "button": "Scan",
-    "full": "Board full"
+    "full": "Board full",
+    "autoOn": "Auto: On",
+    "autoOff": "Auto: Off"
   },
   "shop": {
     "title": "Upgrades",
@@ -100,11 +98,8 @@
   "boost": {
     "lucky": "Lucky Scan",
     "luckyDesc": "One tier higher, Rare or better",
-    "mergeAll": "Merge All",
-    "mergeAllDesc": "Merges every pair on the board",
     "copy": "Copy",
-    "copyDesc": "One more {name}",
-    "noPairs": "No pairs"
+    "copyDesc": "One more {name}"
   },
   "reveal": {
     "odds": "1 in {n}",
@@ -133,7 +128,8 @@
     "rarity": "Rarer bodies give more energy. Odds are in the scan panel",
     "keepRarity": "Merging two Epics always keeps at least Epic",
     "reward": "Free rewards come back every few minutes",
-    "twin": "Watch an ad to copy what you just merged"
+    "twin": "Watch an ad to copy what you just merged",
+    "autoScan": "Auto Scan buys scans for you. Turn it off to save up for an upgrade"
   },
   "finish": {
     "title": "Galaxy formed!",

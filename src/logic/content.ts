@@ -74,6 +74,11 @@ export interface EconomyDef {
     softCapExponent?: number;
   };
   absorbTaps: number;
+  /**
+   * Energy for each merge, as a share of the current scan price.
+   * scanShare[tier - 1][rarity]: tier of the pair, rarity of the rarer body (CLAUDE.md 4b).
+   */
+  mergeBonus: { scanShare: number[][] };
   /** Highest tier that can be copied (Binary Merge upgrade and the rewarded twin). */
   twinMaxTier: number;
   /** Shooting stars: tap one for a burst of energy. Fills the wait between purchases. */
@@ -99,7 +104,6 @@ export interface EconomyDef {
      */
     freeUpgrade: { cooldown: number; firstAt: number; maxIncomeSeconds: number };
     luckyScan: { cooldown: number; firstAt: number; tierBonus: number; rarityFloor: number };
-    mergeAll: { cooldown: number; firstAt: number };
     /** Rewarded copy of the body just merged. */
     twin: { cooldown: number; firstAt: number };
     /** Cooldown multiplier while the portal gives rewards without an ad (CrazyGames Basic Launch). */
@@ -161,6 +165,16 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   check.positive(economy?.scan?.baseCost, 'economy.scan.baseCost');
   check.positive(economy?.scan?.exponent, 'economy.scan.exponent');
   check.positive(economy?.stars?.everyMin, 'economy.stars.everyMin');
+  const share: unknown = economy?.mergeBonus?.scanShare;
+  check.need(Array.isArray(share) && share.length === tiers.length - 1, `economy.mergeBonus.scanShare needs ${tiers.length - 1} rows (one per tier that can merge)`);
+  if (Array.isArray(share)) {
+    share.forEach((row: unknown, i) =>
+      check.need(
+        Array.isArray(row) && row.length === rarities.length && row.every((v) => typeof v === 'number' && v >= 0),
+        `economy.mergeBonus.scanShare row ${i + 1}: needs ${rarities.length} numbers >= 0`,
+      ),
+    );
+  }
 
   check.uniqueIds(upgrades, 'upgrade');
   const ids = upgrades.map((u) => u.id);

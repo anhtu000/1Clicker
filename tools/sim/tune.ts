@@ -14,7 +14,7 @@ import type { Content } from '../../src/logic/content.ts';
 export const SCHEDULE: Record<string, number[]> = {
   focus: [0.25, 0.6, 1, 1.6, 2.3, 3.2, 4.3, 5.8, 8, 11, 15, 20, 27, 36, 48],
   slots: [2.6, 20],
-  discount: [3.6, 12, 24, 38, 56],
+  discount: [2, 6, 14, 26, 42], // cheaper than other lines on purpose (user request 11/10)
   probes: [4.5],
   crit: [5.2, 9.5, 17, 30, 46],
   luck: [7, 15, 28, 43, 60],
@@ -24,7 +24,6 @@ export const SCHEDULE: Record<string, number[]> = {
   starMagnet: [8, 20, 38],
   deepScan: [9, 28, 52],
   relay: [11, 33, 62],
-  thrusters: [14, 25, 39, 55],
   autoScan: [18, 26, 36, 48, 64],
   autoMerge: [44, 54, 64, 74],
 };
@@ -136,6 +135,13 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   }
 
   // Stage 2: move each upgrade level toward its planned minute, then re-solve the scan price.
+  // Passes can overshoot (5 seeds are noisy), so the best pass is kept, not the last one.
+  const snapshot = () => ({
+    costs: content.upgrades.map((u) => (u.costs ? [...u.costs] : undefined)),
+    exp: scan.exponent,
+    base: scan.baseCost,
+  });
+  let bestPass = { err: Infinity, pass: 0, state: snapshot() };
   for (let pass = 1; pass <= Number(process.env.PASSES ?? 5); pass++) {
     const m = measure(content);
     for (const u of content.upgrades) {
@@ -160,6 +166,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     scan.baseCost = bestFit.base;
     const after = bestFit.m;
     console.log(`pass ${pass}: exp ${scan.exponent} base ${scan.baseCost.toPrecision(2)} buyErr ${after.buyErr.toFixed(3)} tierErr ${after.tierErr.toFixed(3)} gap10 ${after.gap10.toFixed(1)} | ${showTiers(after.tiers)}`);
+    const err = after.tierErr + after.buyErr;
+    if (err < bestPass.err) bestPass = { err, pass, state: snapshot() };
+  }
+  if (bestPass.pass > 0) {
+    console.log(`keeping pass ${bestPass.pass}`);
+    content.upgrades.forEach((u, i) => {
+      const costs = bestPass.state.costs[i];
+      if (costs) u.costs = costs;
+    });
+    scan.exponent = bestPass.state.exp;
+    scan.baseCost = bestPass.state.base;
   }
 
   for (const u of content.upgrades) if (u.costs) u.costs = u.costs.map(nice);
@@ -175,6 +192,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   eco.scan.baseCost = scan.baseCost;
   eco.scan.exponent = scan.exponent;
   eco.scan.spawnDiscount = scan.spawnDiscount;
-  writeFileSync(economyPath, JSON.stringify(eco, null, 2) + '\n');
+  // Number arrays (the merge bonus table) stay on one line each.
+  const json = JSON.stringify(eco, null, 2).replace(/\[\s+([-0-9.,\s]+?)\s+\]/g, (_m, inner: string) => `[${inner.split(',').map((x) => x.trim()).join(', ')}]`);
+  writeFileSync(economyPath, json + '\n');
   console.log('Wrote', upgradesPath, economyPath);
 }

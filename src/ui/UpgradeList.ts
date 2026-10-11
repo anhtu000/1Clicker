@@ -54,14 +54,14 @@ const REWARD_TEXT = '#7ff0b8';
 /**
  * The shop, always on screen and never over the board (CLAUDE.md 4.2):
  * a horizontal strip under the board on phones, a column on the right on desktop.
- * Cards scroll with a drag. Cheapest first, so the next purchase is always at the front;
- * the rewarded boost, when there is one, comes before them.
+ * Cards scroll with a drag or the mouse wheel. Order is fixed, so a card stays put when bought;
+ * the rewarded boost, when there is one, comes first.
  */
 export class UpgradeList {
   private scene: Phaser.Scene;
   private opts: UpgradeListOptions;
   private cards = new Map<string, Card>();
-  /** Upgrade ids, cheapest first. */
+  /** Upgrade ids shown, in upgrades.json order. */
   private order: string[] = [];
   /** What is shown, in order: the boost card (if any), then the upgrades. */
   private list: string[] = [];
@@ -110,7 +110,6 @@ export class UpgradeList {
 
   /** Strip (horizontal) or column, inside this rectangle (top-left x, y). */
   layout(x: number, y: number, w: number, h: number, horizontal: boolean) {
-    this.area = { x, y, w, h };
     this.horizontal = horizontal;
     if (horizontal) {
       this.cardH = h;
@@ -118,7 +117,11 @@ export class UpgradeList {
     } else {
       this.cardW = w;
       this.cardH = 116;
+      // The column ends on a card edge, so at rest it shows whole cards only.
+      const n = Math.max(1, Math.floor((h - this.gap) / (this.cardH + this.gap)));
+      h = n * (this.cardH + this.gap) + this.gap;
     }
+    this.area = { x, y, w, h };
     this.zone.setPosition(x, y).setSize(w, h);
     (this.zone.input!.hitArea as Phaser.Geom.Rectangle).setSize(w, h);
     this.refresh(true);
@@ -191,9 +194,12 @@ export class UpgradeList {
   private wheel(p: Phaser.Input.Pointer, dx: number, dy: number) {
     const { x, y, w, h } = this.area;
     if (p.worldX < x || p.worldX > x + w || p.worldY < y || p.worldY > y + h) return;
+    // One card per notch, so the settle-on-card-edge below never undoes a small wheel step.
     const delta = this.horizontal ? dx || dy : dy;
+    if (!delta) return;
+    const step = this.span + this.gap;
     this.velocity = 0;
-    this.scroll = Phaser.Math.Clamp(this.scroll + delta, 0, this.maxScroll());
+    this.scroll = Phaser.Math.Clamp(this.scroll + Math.sign(delta) * step * Math.max(1, Math.round(Math.abs(delta) / 100)), 0, this.maxScroll());
   }
 
   private makeCard(id: string, label: string, onTap: (card: Card) => void): Card {
@@ -347,10 +353,9 @@ export class UpgradeList {
   /** Re-reads the run: new cards appear, order follows price, states follow energy. */
   refresh(force = false) {
     const run = this.opts.run;
-    const visible = run.content.upgrades.filter((u) => run.isVisible(u));
-    const price = (u: UpgradeDef) => (run.isMaxed(u) ? Infinity : run.upgradeCost(u));
-    visible.sort((a, b) => price(a) - price(b));
-    const ids = visible.map((u) => u.id);
+    // Fixed order (upgrades.json): buying only raises the level, the card never moves under the finger.
+    // New upgrades slot into their place as they unlock.
+    const ids = run.content.upgrades.filter((u) => run.isVisible(u)).map((u) => u.id);
     const changed = force || ids.join() !== this.order.join();
     this.order = ids;
     for (const id of ids) {
@@ -379,7 +384,14 @@ export class UpgradeList {
       this.velocity *= Math.pow(0.88, delta / 16.7);
       const max = this.maxScroll();
       if (this.scroll < 0) this.scroll += (0 - this.scroll) * 0.2;
-      if (this.scroll > max) this.scroll += (max - this.scroll) * 0.2;
+      else if (this.scroll > max) this.scroll += (max - this.scroll) * 0.2;
+      else if (Math.abs(this.velocity) < 1) {
+        // Settle on a card edge once the flick slows down.
+        const step = this.span + this.gap;
+        const target = Phaser.Math.Clamp(Math.round(this.scroll / step) * step, 0, max);
+        this.scroll += (target - this.scroll) * 0.2;
+        if (Math.abs(target - this.scroll) < 0.5) this.scroll = target;
+      }
     }
     const { x, y, w, h } = this.area;
     this.list.forEach((id, i) => {

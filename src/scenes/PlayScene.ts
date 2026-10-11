@@ -50,6 +50,9 @@ export class PlayScene extends BaseScene {
   private chain: Phaser.GameObjects.Image[] = [];
   private chainMarker!: Phaser.GameObjects.Graphics;
   private scanBtn!: Button;
+  /** Auto Scan on/off, shown once Auto Scan is bought (CLAUDE.md 4b). */
+  private autoBtn!: Button;
+  private autoShown = '';
   private pauseBtn!: Button;
   private soundBtn!: Button;
   /** Rewarded copy of the body just merged, offered on the boost card for a few seconds. */
@@ -110,6 +113,8 @@ export class PlayScene extends BaseScene {
 
     this.scanBtn = new Button(this, 0, 0, { label: '', icon: scanIcon, width: 300, height: 108, fontSize: 36, sound: false, onClick: () => this.scan() });
     this.scanBtn.setDepth(30);
+    this.autoBtn = new Button(this, 0, 0, { label: '', icon: UPGRADE_ICONS.autoScan, width: 176, height: 88, fontSize: 26, onClick: () => this.toggleAutoScan() });
+    this.autoBtn.setDepth(30).setVisible(false);
 
     this.pauseBtn = new Button(this, 0, 0, {
       icon: icons.pauseIcon,
@@ -172,33 +177,51 @@ export class PlayScene extends BaseScene {
       this.placeChain(cx, y0 + 404, 600);
       const size = cell * 4 + 3 * Math.round(cell * 0.08);
       this.board.layout(cx, boardBottom - size / 2, cell);
-      this.scanBtn.setPosition(cx, rowY);
+      // Scan alone is centered; with the Auto switch the pair is centered together.
+      const withAuto = this.run.level('autoScan') > 0;
+      this.scanBtn.setPosition(withAuto ? cx - 94 : cx, rowY);
+      this.autoBtn.setPosition(cx + 156, rowY);
       this.shop.layout(0, stripTop, vp.width, stripH, true);
-      this.pauseBtn.setPosition(56, y0 + 56);
-      this.soundBtn.setPosition(vp.width - 56, y0 + 56);
+      // Pause and sound together in the top-left corner, clear of the centered energy counter.
+      this.pauseBtn.setPosition(52, y0 + 52);
+      this.soundBtn.setPosition(150, y0 + 52);
     } else {
-      // Desktop 16:9: core and scan on the left, board in the middle, shop column on the right.
-      const leftX = s.x + 200;
-      this.placeEnergy(leftX, s.y + 66);
-      this.rateText.setPosition(leftX, s.y + 116);
-      this.core.setPosition(leftX, s.y + 272);
-      this.core.setRadius(88);
-      this.placeChain(leftX, s.y + 430, 360);
-      this.scanBtn.setPosition(leftX, s.y + 560);
-      const cell = 132;
-      this.board.layout(s.x + 660, s.y + 372, cell);
-      // The column runs to the bottom of the screen: frames taller than 16:9 show more cards.
-      this.shop.layout(s.x + s.width - 330, s.y + 110, 316, vp.height - s.y - 110 - 16, false);
-      // Pause and sound sit together above the shop column, clear of the energy counter.
-      this.soundBtn.setPosition(s.x + s.width - 56, s.y + 52);
-      this.pauseBtn.setPosition(s.x + s.width - 160, s.y + 52);
+      // Desktop: pause and sound in the top-left corner of the screen; the whole right side,
+      // top to bottom, is the upgrade column; core column and board share the rest, centered.
+      this.pauseBtn.setPosition(56, 56);
+      this.soundBtn.setPosition(156, 56);
+      const shopW = 320;
+      const shopX = vp.width - shopW - 16;
+      this.shop.layout(shopX, 16, shopW, vp.height - 32, false);
+
+      const colW = 380; // energy, core, goal chain, scan
+      const playRight = shopX - 20;
+      const boardMax = Math.min(561, s.height - 40);
+      const boardSize = Math.min(boardMax, playRight - colW - 24);
+      const cell = Math.floor(boardSize / (4 + 3 * 0.08));
+      const size = cell * 4 + 3 * Math.round(cell * 0.08);
+      const used = colW + 24 + size;
+      const x0 = Math.max(0, (playRight - used) / 2);
+      const leftX = x0 + colW / 2;
+      // Below the pause row on 16:9; centered with the board when the screen is taller.
+      const colTop = Math.max(s.y + 4, 100);
+      this.placeEnergy(leftX, colTop + 36);
+      this.rateText.setPosition(leftX, colTop + 82);
+      this.core.setPosition(leftX, colTop + 214);
+      this.core.setRadius(84);
+      this.placeChain(leftX, colTop + 336, 350);
+      this.scanBtn.setPosition(leftX, colTop + 456);
+      this.autoBtn.setPosition(leftX, colTop + 560);
+      this.board.layout(x0 + colW + 24 + size / 2, Math.max(s.y + s.height / 2, colTop + size / 2 - 40), cell);
     }
     this.energyY = this.energyText.y;
+    this.energyX = vp.portrait ? vp.width / 2 : this.core.x;
     this.goalLabel.setPosition(this.chainCenter.x, this.chainCenter.y + 42);
   }
 
   private chainCenter = { x: 0, y: 0, w: 0 };
   private energyY = 0;
+  private energyX = 0;
 
   private placeEnergy(cx: number, y: number) {
     const w = this.energyText.width + 56;
@@ -243,7 +266,7 @@ export class PlayScene extends BaseScene {
     this.shownEnergy += (target - this.shownEnergy) * Math.min(1, delta / 90);
     if (Math.abs(target - this.shownEnergy) < 1) this.shownEnergy = target;
     this.energyText.setText(formatNumber(this.shownEnergy));
-    this.placeEnergy(this.vp.portrait ? this.vp.width / 2 : this.vp.safe.x + 200, this.energyY);
+    this.placeEnergy(this.energyX, this.energyY);
 
     this.refreshTimer -= delta;
     if (this.refreshTimer <= 0) {
@@ -284,6 +307,7 @@ export class PlayScene extends BaseScene {
     const full = run.freeSlot() < 0;
     this.scanBtn.setLabel(full ? app.t('scan.full') : `${app.t('scan.button')}  ${formatNumber(run.scanCost())}`);
     this.scanBtn.setEnabled(run.canScan());
+    this.refreshAutoButton();
     this.shop.refresh();
     this.checkTutorialTriggers();
   }
@@ -404,7 +428,7 @@ export class PlayScene extends BaseScene {
     if (body.r >= 1) burst(this, p.x, p.y, RARITY_COLOR[body.r], 12 + body.r * 6, 320);
   }
 
-  /** Reveals wait for each other: one Merge All can make several Epic or rarer bodies at once. */
+  /** Reveals wait for each other: auto merge, twins and scans can make several Epic or rarer bodies close together. */
   private revealQueue: NewBody[] = [];
 
   private reveal(result: NewBody) {
@@ -431,6 +455,10 @@ export class PlayScene extends BaseScene {
     const color = RARITY_COLOR[result.body.r];
     burst(this, p.x, p.y, color, 16 + result.body.t * 2, 300 + result.body.t * 20);
     this.board.sprite(result.slot)?.bump(0.25);
+    // Merge bonus: energy rising from the new body, below the rarity label.
+    if (result.bonus > 0) {
+      floatText(this, p.x, p.y + this.board.cell * 0.15, `+${formatNumber(result.bonus)}`, { color: '#ffd166', size: 34 + Math.min(16, result.body.r * 4), rise: 90 });
+    }
     // Pitch rises with tier, so climbing the chain sounds like progress.
     app.audio.play('buy', { volume: 0.9, pitchJitter: 0 });
     app.haptic(12);
@@ -457,11 +485,7 @@ export class PlayScene extends BaseScene {
     this.queueOnce('twin', [{ id: 'twin', text: app.t('tut.twin'), target: () => this.shop.cardRect(BOOST_CARD), ack: app.t('tut.ok') }]);
   }
 
-  /**
-   * Which boost the card shows. One card, so the shop strip on a phone keeps room for upgrades:
-   * the copy offer right after a merge, else merge all when it clears 2+ pairs, else lucky scan,
-   * else merge all for a single pair; when none is ready, a countdown to the next one.
-   */
+  /** Which boost the card shows: the copy offer right after a merge, else Lucky Scan. */
   private boost(): Boost | null {
     const run = this.run;
     if (!app.ads.rewardedAvailable || app.clean) return null;
@@ -482,38 +506,38 @@ export class PlayScene extends BaseScene {
     }
     this.copyOffer = null;
 
-    // Hidden until the first one is due, so the opening minutes are about tapping (economy.rewarded.firstAt).
-    const shown = (['luckyScan', 'mergeAll'] as const).filter((id) => run.s.time >= rw[id].firstAt);
-    if (!shown.length) return null;
-    const pairs = run.pairCount();
-    const room = run.freeSlot() >= 0;
-    const lucky = (): Boost => ({
+    // Hidden until it is first due, so the opening minutes are about tapping (economy.rewarded.firstAt).
+    // After that the card stays, with a countdown while the reward recharges.
+    if (run.s.time < rw.luckyScan.firstAt) return null;
+    return {
       id: 'luckyScan',
       name: app.t('boost.lucky'),
       desc: app.t('boost.luckyDesc'),
       icon: UPGRADE_ICONS.luck,
       wait: run.rewardWait('luckyScan'),
-      blocked: room ? undefined : app.t('scan.full'),
+      blocked: run.freeSlot() >= 0 ? undefined : app.t('scan.full'),
       onReward: () => this.useLucky(),
-    });
-    const mergeAll = (): Boost => ({
-      id: 'mergeAll',
-      name: app.t('boost.mergeAll'),
-      desc: app.t('boost.mergeAllDesc'),
-      icon: UPGRADE_ICONS.autoMerge,
-      wait: run.rewardWait('mergeAll'),
-      blocked: pairs > 0 ? undefined : app.t('boost.noPairs'),
-      onReward: () => this.useMergeAll(),
-    });
-    const ready = (id: 'luckyScan' | 'mergeAll') => shown.includes(id) && run.rewardReady(id);
-    if (ready('mergeAll') && pairs >= 2) return mergeAll();
-    if (ready('luckyScan') && room) return lucky();
-    if (ready('mergeAll') && pairs >= 1) return mergeAll();
-    // Nothing usable now: show the ready one that is blocked, or count down to the next one.
-    if (ready('luckyScan')) return lucky();
-    if (ready('mergeAll')) return mergeAll();
-    const next = shown.reduce((a, b) => (run.rewardWait(a) <= run.rewardWait(b) ? a : b));
-    return next === 'luckyScan' ? lucky() : mergeAll();
+    };
+  }
+
+  private toggleAutoScan() {
+    this.run.s.autoScanOff = !this.run.s.autoScanOff;
+    this.run.s.autoScanAcc = 0;
+    this.refreshAutoButton();
+  }
+
+  private refreshAutoButton() {
+    const has = this.run.level('autoScan') > 0;
+    const on = !this.run.s.autoScanOff;
+    const state = `${has}|${on}`;
+    if (state === this.autoShown) return;
+    const appeared = has && !this.autoBtn.visible;
+    this.autoShown = state;
+    this.autoBtn.setVisible(has);
+    if (appeared && this.vp.portrait) this.layout(this.vp);
+    this.autoBtn.setLabel(app.t(on ? 'scan.autoOn' : 'scan.autoOff'));
+    // Green while it spends energy on its own; plain when off.
+    this.autoBtn.setColor(on ? app.theme.reward : app.theme.surface, on ? app.theme.rewardText : app.theme.surfaceText);
   }
 
   private useLucky() {
@@ -523,14 +547,6 @@ export class PlayScene extends BaseScene {
     this.board.sync([result.slot]);
     this.beam(result.slot);
     this.announce(result, true);
-    this.refreshUi();
-  }
-
-  private useMergeAll() {
-    const results = this.run.mergeAll();
-    this.run.useReward('mergeAll', app.ads.rewardsAreFree);
-    this.board.sync(results.flatMap((r) => [r.slot, ...(r.twin ? [r.twin.slot] : [])]));
-    results.forEach((r, i) => this.time.delayedCall(i * 90, () => this.mergeFx(r)));
     this.refreshUi();
   }
 
@@ -682,6 +698,12 @@ export class PlayScene extends BaseScene {
       this.queueOnce('probes', [
         { id: 'probes', text: app.t('tut.probes'), target: () => this.shop.cardRect('probes'), done: () => run.level('probes') > 0 },
         { id: 'tapStill', text: app.t('tut.tapStill'), target: () => ({ x: this.core.x, y: this.core.y, w: this.core.radius * 2.2, h: this.core.radius * 2.2 }), ack: app.t('tut.ok') },
+      ]);
+      return;
+    }
+    if (run.level('autoScan') > 0 && !save.data.tutorial.includes('autoScan')) {
+      this.queueOnce('autoScan', [
+        { id: 'autoScan', text: app.t('tut.autoScan'), target: () => ({ x: this.autoBtn.x, y: this.autoBtn.y, w: 176, h: 88 }), ack: app.t('tut.ok') },
       ]);
       return;
     }

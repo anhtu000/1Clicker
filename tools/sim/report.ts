@@ -33,7 +33,6 @@ const UPGRADE_VI: Record<string, [string, string]> = {
   starMagnet: ['Star Magnet', 'Sau auto. Sao băng dày hơn 15% mỗi cấp'],
   deepScan: ['Deep Scanner', 'Quét ra thẳng cấp cao hơn: Thiên thạch, rồi Tiểu hành tinh, rồi Sao chổi'],
   relay: ['Deep Space Relay', '+2 giờ trần thu nhập khi vắng mặt (gốc 2 giờ)'],
-  thrusters: ['Ion Thrusters', 'Tàu thu ×1,15 mỗi cấp'],
   autoScan: ['Auto Scanner', 'Tự quét mỗi 6 / 4 / 3 / 2 / 1,5 giây'],
   autoMerge: ['Gravity Well', 'Tự ghép một cặp mỗi 5 / 3,5 / 2,5 / 1,5 giây'],
 };
@@ -346,7 +345,6 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
       <li><b>Lượt quét may mắn</b>: cao hơn ${reward.luckyScan.tierBonus} cấp so với máy quét, ít nhất Rare, không làm tăng giá quét. Hồi ${vi(reward.luckyScan.cooldown / 60)} phút.</li>
       <li><b>Thêm 1 bản sau khi ghép</b>: nút hiện 5 giây cạnh thiên thể vừa ghép, tới cấp Khí khổng lồ. Hồi ${vi(reward.twin.cooldown / 60)} phút.</li>
       <li>Mọi nút thưởng chỉ xuất hiện sau vài phút đầu (quét may mắn từ phút ${vi(reward.luckyScan.firstAt / 60)}, nâng cấp miễn phí từ phút ${vi(reward.freeUpgrade.firstAt / 60)}).</li>
-      <li><b>Ghép tất cả</b>: hồi ${vi(reward.mergeAll.cooldown / 60)} phút. Chỉ để đỡ thao tác khi bảng rối; mô phỏng gần như không dùng.</li>
       <li><b>Khi portal tắt quảng cáo</b> (Basic Launch): thưởng vẫn trao, thời gian hồi ×${String(reward.freeCooldownMult).replace('.', ',')}.</li>
       <li>Ngoài màn chơi: x${reward.offlineMult} thu nhập khi vắng mặt, x${reward.dailyMult} quà ngày.</li>
     </ul>

@@ -66,7 +66,6 @@ for (const profile of Object.values(PROFILES)) {
       rewardsP50: {
         freeUpgrade: pct(runs.map((r) => r.rewards.freeUpgrade), 50),
         luckyScan: pct(runs.map((r) => r.rewards.luckyScan), 50),
-        mergeAll: pct(runs.map((r) => r.rewards.mergeAll), 50),
       },
       codexP50: pct(runs.map((r) => r.codexFound), 50),
       starsP50: pct(runs.map((r) => r.stars), 50),

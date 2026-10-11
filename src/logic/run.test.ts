@@ -29,9 +29,11 @@ test('scan places a body, costs energy and raises the price', () => {
   assert.equal(result.slot, 0);
   assert.equal(result.body.t, 1);
   assert.ok(result.isNew);
-  assert.ok(run.scanCost() > before);
+  // The first prices round up to 1, so the rise shows from the third scan.
+  assert.ok(run.scanCost() >= before);
   // The second paid scan is scripted to be Rare or better.
   assert.ok(run.scan()!.body.r >= 1);
+  assert.ok(run.scanCost() > before);
 });
 
 test('board fills up, then scanning stops', () => {
@@ -42,7 +44,7 @@ test('board fills up, then scanning stops', () => {
   assert.equal(run.canScan(), false);
 });
 
-test('merge needs the same tier and keeps the lower rarity of the pair', () => {
+test('merge needs the same tier; two Epics stay at least Epic', () => {
   const run = fresh();
   run.s.board[0] = { t: 3, r: 2 };
   run.s.board[1] = { t: 3, r: 2 };
@@ -55,19 +57,37 @@ test('merge needs the same tier and keeps the lower rarity of the pair', () => {
   assert.equal(run.s.highestTier, 4);
 });
 
-test('pair count: each body counted once, goal tier excluded', () => {
+test('merge keeps at least the average rarity of the pair, rounded down', () => {
+  for (let seed = 1; seed <= 40; seed++) {
+    const run = fresh('main', seed);
+    run.s.merges = 5; // past the scripted Rare merge
+    run.s.board[0] = { t: 3, r: 2 };
+    run.s.board[1] = { t: 3, r: 0 };
+    assert.ok(run.merge(0, 1)!.body.r >= 1, 'Epic + Common gives at least Rare');
+    run.s.board[2] = { t: 2, r: 4 };
+    run.s.board[3] = { t: 2, r: 1 };
+    assert.ok(run.merge(2, 3)!.body.r >= 2, 'Mythic + Rare gives at least Epic');
+  }
+});
+
+test('merge bonus: share of the scan price by tier and rarer rarity', () => {
   const run = fresh();
-  const goal = content.economy.goalTier;
-  assert.equal(run.pairCount(), 0);
-  run.s.board[0] = { t: 2, r: 0 };
-  run.s.board[1] = { t: 2, r: 1 };
-  run.s.board[2] = { t: 2, r: 0 };
-  run.s.board[3] = { t: 5, r: 0 };
-  run.s.board[4] = { t: goal, r: 0 };
-  run.s.board[5] = { t: goal, r: 0 };
-  assert.equal(run.pairCount(), 1);
-  run.s.board[6] = { t: 5, r: 3 };
-  assert.equal(run.pairCount(), 2);
+  const table = content.economy.mergeBonus.scanShare;
+  assert.equal(table[0][0], 0, 'tier 1 Common pays nothing');
+  assert.equal(table[7][3], 1, 'tier 8 Legendary pays a full scan');
+  // grows along both directions
+  for (let t = 0; t < table.length; t++) for (let r = 1; r < table[t].length; r++) assert.ok(table[t][r] > table[t][r - 1]);
+  for (let t = 1; t < table.length; t++) for (let r = 0; r < table[t].length; r++) assert.ok(table[t][r] > table[t - 1][r]);
+  run.s.energy = 0;
+  run.s.board[0] = { t: 8, r: 3 };
+  run.s.board[1] = { t: 8, r: 0 };
+  const price = run.scanCost();
+  const result = run.merge(0, 1)!;
+  assert.equal(result.bonus, price);
+  assert.equal(run.s.energy, price);
+  run.s.board[2] = { t: 1, r: 0 };
+  run.s.board[3] = { t: 1, r: 0 };
+  assert.equal(run.merge(2, 3)!.bonus, 0);
 });
 
 test('merging into the goal tier finishes the run once', () => {

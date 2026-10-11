@@ -63,12 +63,6 @@ export const UPGRADE_ICONS: Record<string, GlyphDraw> = {
     sat(g, -size * 0.18, -size * 0.18, size * 0.7, c);
     sat(g, size * 0.2, size * 0.2, size * 0.7, c);
   },
-  thrusters: (g, size, c) => {
-    const s = size / 2;
-    g.fillStyle(c, 1);
-    g.fillTriangle(-s * 0.35, -s * 0.2, s * 0.35, -s * 0.2, 0, s * 0.85);
-    g.fillRoundedRect(-s * 0.45, -s * 0.8, s * 0.9, s * 0.6, s * 0.15);
-  },
   crit: (g, size, c) => {
     const s = size / 2;
     g.fillStyle(c, 1);

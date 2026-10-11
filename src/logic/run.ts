@@ -11,7 +11,7 @@ export interface Body {
 }
 
 export type RunMode = 'main' | 'speedrun';
-export type RewardId = 'freeUpgrade' | 'luckyScan' | 'mergeAll' | 'twin';
+export type RewardId = 'freeUpgrade' | 'luckyScan' | 'twin';
 
 /** Everything about a run, as plain data so it can be saved as JSON. */
 export interface RunState {
@@ -32,6 +32,8 @@ export interface RunState {
   /** Run time when the goal tier was made. null until then. */
   finishedAt: number | null;
   autoScanAcc: number;
+  /** The player switched Auto Scan off (to save up). Missing in older saves: on. */
+  autoScanOff?: boolean;
   autoMergeAcc: number;
   /** Seconds until the next shooting star. While a star is up: negative, counting the seconds it has left. */
   starTimer: number;
@@ -60,6 +62,8 @@ export interface MergeResult extends NewBody {
   finished: boolean;
   /** Binary Merge upgrade: an identical copy that appeared in another slot. */
   twin: NewBody | null;
+  /** Energy the merge paid (already added to the run). */
+  bonus: number;
 }
 
 export type RunEvent =
@@ -109,7 +113,7 @@ export function newRunState(content: Content, mode: RunMode, seed = Date.now()):
     starTimer: content.economy.stars.everyMin,
     starGolden: false,
     rewardReadyAt: Object.fromEntries(
-      (['freeUpgrade', 'luckyScan', 'mergeAll', 'twin'] as const).map((id) => [id, content.economy.rewarded[id].firstAt]),
+      (['freeUpgrade', 'luckyScan', 'twin'] as const).map((id) => [id, content.economy.rewarded[id].firstAt]),
     ),
     totalEarned: 0,
   };
@@ -333,18 +337,28 @@ export class Run {
     return a !== b && !!x && !!y && x.t === y.t && x.t < this.content.economy.goalTier;
   }
 
+  /** Energy a merge of this pair gives: a share of the current scan price (CLAUDE.md 4b). */
+  mergeBonus(tier: number, rarerRarity: number): number {
+    const row = this.content.economy.mergeBonus.scanShare[tier - 1];
+    const share = row?.[Math.min(rarerRarity, row.length - 1)] ?? 0;
+    return share > 0 ? Math.round(share * this.scanCost()) : 0;
+  }
+
   /**
    * Merges body a into body b. The result is one tier higher, in b's slot.
-   * Its rarity is rolled, and is never below the lower rarity of the pair,
-   * so merging two Epics always keeps at least Epic.
+   * Its rarity is rolled, and is never below the average rarity of the pair rounded down,
+   * so merging two Epics always keeps at least Epic, and Epic + Common keeps at least Rare.
+   * Every merge also pays a bonus that grows with tier and with the rarer body's rarity.
    */
   merge(a: number, b: number): MergeResult | null {
     if (!this.canMerge(a, b)) return null;
     const x = this.s.board[a]!;
     const y = this.s.board[b]!;
+    const bonus = this.mergeBonus(x.t, Math.max(x.r, y.r));
     this.s.board[a] = null;
     this.s.merges += 1;
-    let floor = Math.min(x.r, y.r);
+    if (bonus > 0) this.gain(bonus);
+    let floor = Math.floor((x.r + y.r) / 2);
     if (this.s.merges === this.content.economy.script.rareMerge) floor = Math.max(floor, 1);
     const result = this.place(b, { t: x.t + 1, r: this.rollRarity(floor) });
     const finished = result.body.t === this.content.economy.goalTier && this.s.finishedAt === null;
@@ -352,7 +366,7 @@ export class Run {
     let twin: NewBody | null = null;
     if (this.canDuplicate(b) && this.rng.chance(this.stat('twinChance'))) twin = this.duplicate(b);
     this.syncRng();
-    return { ...result, from: a, finished, twin };
+    return { ...result, from: a, finished, twin, bonus };
   }
 
   /** Adds energy from outside the run (offline earnings, daily gift). */
@@ -425,17 +439,6 @@ export class Run {
     return best;
   }
 
-  /** Pairs on the board that can merge right now (each body counted once). */
-  pairCount(): number {
-    const perTier = new Map<number, number>();
-    for (let i = 0; i < this.slots; i++) {
-      const b = this.s.board[i];
-      if (b && b.t < this.content.economy.goalTier) perTier.set(b.t, (perTier.get(b.t) ?? 0) + 1);
-    }
-    let pairs = 0;
-    for (const n of perTier.values()) pairs += Math.floor(n / 2);
-    return pairs;
-  }
 
   // ---------- upgrades ----------
 
@@ -536,16 +539,6 @@ export class Run {
     return this.place(slot, { t, r: this.rollRarity(cfg.rarityFloor) });
   }
 
-  /** Rewarded: merges every pair on the board. */
-  mergeAll(): MergeResult[] {
-    const out: MergeResult[] = [];
-    for (let pair = this.findPair(); pair; pair = this.findPair()) {
-      const result = this.merge(pair[0], pair[1]);
-      if (!result) break;
-      out.push(result);
-    }
-    return out;
-  }
 
   // ---------- time ----------
 
@@ -573,7 +566,8 @@ export class Run {
       }
     }
 
-    const scanEvery = this.stat('autoScanEvery');
+    // Auto Scan can be switched off, so the player can save up for an upgrade (CLAUDE.md 4b).
+    const scanEvery = this.s.autoScanOff ? 0 : this.stat('autoScanEvery');
     if (scanEvery > 0) {
       this.s.autoScanAcc += dt;
       while (this.s.autoScanAcc >= scanEvery) {
