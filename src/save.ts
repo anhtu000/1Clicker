@@ -1,4 +1,5 @@
 import { SaveStore, type DailyState } from '@core';
+import type { RunRecord } from './logic/records.ts';
 import type { Codex, RunState } from './logic/run.ts';
 
 // Progress of this game. Everything here is saved automatically (core/save.ts).
@@ -9,6 +10,8 @@ export interface SaveData {
   speedrun: RunState | null;
   /** Which run is on screen. The main run is never touched by a timed run. */
   mode: 'main' | 'speedrun';
+  /** When the player left the main run for a timed run (ms), 0 = not away. Probes keep earning meanwhile. */
+  mainLeftAt: number;
   /** Bodies discovered, shared by all runs. */
   codex: Codex;
   /** Tutorial steps already done. */
@@ -16,6 +19,8 @@ export interface SaveData {
   daily: DailyState;
   /** Best replay time in ms, 0 = none yet. Lower is better. Leaderboard metric for later (CLAUDE.md 4b). */
   bestRunMs: number;
+  /** Fastest timed runs on this device, fastest first (personal records board). */
+  records: RunRecord[];
   /** Main-run time to the goal, kept for the finish screen. */
   firstFinishMs: number;
 }
@@ -37,10 +42,12 @@ export const save = new SaveStore<SaveData>({
     run: null,
     speedrun: null,
     mode: 'main',
+    mainLeftAt: 0,
     codex: { found: {} },
     tutorial: [],
     daily: { lastClaim: null, streak: 0 },
     bestRunMs: 0,
+    records: [],
     firstFinishMs: 0,
   }),
   // Version 1 was the framework demo: nothing to keep.
@@ -48,10 +55,12 @@ export const save = new SaveStore<SaveData>({
     run: null,
     speedrun: null,
     mode: 'main',
+    mainLeftAt: 0,
     codex: { found: {} },
     tutorial: [],
     daily: { lastClaim: null, streak: 0 },
     bestRunMs: 0,
+    records: [],
     firstFinishMs: 0,
   }),
 });

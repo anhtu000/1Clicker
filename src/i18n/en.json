@@ -125,8 +125,7 @@
     "full": "Board full. Merge, or drag a body onto the core for energy",
     "probes": "Probes collect energy while you merge",
     "tapStill": "Tapping still adds a lot on top of probes",
-    "rarity": "Rarer bodies give more energy. Odds are in the scan panel",
-    "keepRarity": "Merging two Epics always keeps at least Epic",
+    "rarity": "Rarer bodies give more energy. Merge two of the same rarity to keep it",
     "reward": "Free rewards come back every few minutes",
     "twin": "Watch an ad to copy what you just merged",
     "autoScan": "Auto Scan buys scans for you. Turn it off to save up for an upgrade"
@@ -152,6 +151,10 @@
     "leaveText": "This run will not be kept. Your own galaxy is waiting.",
     "leave": "Leave",
     "stay": "Stay",
-    "endless": "Galaxy complete · Collection {n}/{total}"
+    "endless": "Galaxy complete · Collection {n}/{total}",
+    "rank": "#{n} in your top 5",
+    "records": "Your records",
+    "noRecords": "No timed runs yet. Your fastest five will show here.",
+    "viewRecords": "Your records ›"
   }
 }

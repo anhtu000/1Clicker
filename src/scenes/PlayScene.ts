@@ -21,6 +21,7 @@ import {
 } from '@core';
 import { content } from '../game/content';
 import type { UpgradeDef } from '../logic/content.ts';
+import { addRecord } from '../logic/records.ts';
 import { newRunState, Run, type MergeResult, type NewBody } from '../logic/run.ts';
 import { SpaceBackground } from '../render/background';
 import { ensureAuraTexture, ensureBodyTexture } from '../render/bodies';
@@ -62,8 +63,11 @@ export class PlayScene extends BaseScene {
   private timerText!: Phaser.GameObjects.Text;
   private bestText!: Phaser.GameObjects.Text;
   /** The Galaxy was made: show the finish panel once nothing else is on screen. */
-  private finishPending: { runMs: number; record: boolean; rarity: number } | null = null;
-  private panelOpen = false;
+  private finishPending: { runMs: number; rank: number | null; rarity: number } | null = null;
+  /** Panels on screen (they can stack: records over the finish panel). */
+  private openPanels = 0;
+  /** A scene switch is under way (timed run start or leave): ignore further button presses. */
+  private switching = false;
   /** Rewarded copy of the body just merged, offered on the boost card for a few seconds. */
   private copyOffer: { slot: number; until: number } | null = null;
   private star: ShootingStar | null = null;
@@ -94,12 +98,15 @@ export class PlayScene extends BaseScene {
     this.revealQueue = [];
     this.queued = new Set();
     this.finishPending = null;
-    this.panelOpen = false;
+    this.openPanels = 0;
+    this.switching = false;
 
     if (preset) applyPreset(preset, save.data);
     if (!save.data.run) save.data.run = newRunState(content, 'main', app.rng.int(1, 2 ** 31 - 1));
     if (save.data.mode === 'speedrun' && !save.data.speedrun) save.data.mode = 'main';
     const state = save.data.mode === 'speedrun' ? save.data.speedrun! : save.data.run;
+    // Saves from before the records board had only the best time.
+    if (!save.data.records.length && save.data.bestRunMs) save.data.records = [{ ms: save.data.bestRunMs, at: 0, merges: 0, scans: 0, rarity: 0 }];
     this.run = new Run(content, state, save.data.codex);
 
     this.bg = new SpaceBackground(this);
@@ -184,6 +191,12 @@ export class PlayScene extends BaseScene {
     this.shownEnergy = this.run.s.energy;
     this.startIntro();
     this.welcomeBack();
+    if (this.run.s.mode === 'speedrun' && this.run.s.finishedAt !== null) {
+      const runMs = Math.round(this.run.s.finishedAt * 1000);
+      const i = save.data.records.findIndex((r) => r.ms === runMs);
+      const galaxy = this.run.s.board.find((b) => b?.t === content.economy.goalTier);
+      this.finishPending = { runMs, rank: i >= 0 ? i + 1 : null, rarity: galaxy?.r ?? 0 };
+    }
 
     const offResume = app.pause.on('resume', (ms) => this.creditAway(ms / 1000));
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, offResume);
@@ -306,10 +319,11 @@ export class PlayScene extends BaseScene {
 
   update(_time: number, delta: number) {
     if (this.timerText.visible) this.timerText.setText(formatClock(this.run.s.finishedAt ?? this.run.s.time));
-    if (this.finishPending && !this.revealOpen && !this.panelOpen && !this.tutorial.active) {
+    if (!this.revealOpen && this.revealQueue.length && !this.panelsOnScreen()) this.reveal(this.revealQueue.shift()!);
+    if (this.finishPending && !this.revealOpen && !this.panelsOnScreen() && !this.tutorial.active) {
       const done = this.finishPending;
       this.finishPending = null;
-      this.showFinishPanel(done.runMs, done.record, done.rarity);
+      this.showFinishPanel(done.runMs, done.rank, done.rarity);
     }
     this.bg.update(delta);
     if (!this.revealOpen) this.step.update(delta);
@@ -369,7 +383,12 @@ export class PlayScene extends BaseScene {
 
   private spaceAllowed() {
     const id = this.tutorial.currentId;
-    return !this.revealOpen && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
+    return !this.revealOpen && !this.panelsOnScreen() && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
+  }
+
+  /** Any modal panel open: ours, or the framework's (welcome back, daily gift). */
+  private panelsOnScreen() {
+    return this.openPanels > 0 || this.children.list.some((o) => o instanceof Panel && o.active);
   }
 
   private tapCore(x: number, y: number) {
@@ -417,19 +436,19 @@ export class PlayScene extends BaseScene {
   private dropOnSlot(from: number, to: number) {
     const run = this.run;
     if (run.canMerge(from, to)) {
-      this.board.slide(from, to, () => {
-        const result = run.merge(from, to);
-        if (!result) return this.board.sync();
-        this.board.sync([result.slot, ...(result.twin ? [result.twin.slot] : [])]);
-        this.mergeFx(result);
-        this.offerCopy(result);
-        this.refreshUi();
-      });
-    } else if (!run.s.board[to]) {
-      if (run.move(from, to)) this.board.moved(from, to);
-      else this.board.sync();
+      const result = run.merge(from, to)!;
+      this.board.mergeInto(from, to);
+      this.board.sync([result.slot, ...(result.twin ? [result.twin.slot] : [])]);
+      this.mergeFx(result);
+      this.offerCopy(result);
+      this.refreshUi();
+    } else if (!run.s.board[to] && run.move(from, to)) {
+      this.board.moved(from, to);
     } else if (run.swap(from, to)) {
       this.board.swapped(from, to);
+    } else {
+      // Nothing changed (for example the body was merged away by Auto Merge while being dragged).
+      this.board.sync();
     }
   }
 
@@ -485,7 +504,8 @@ export class PlayScene extends BaseScene {
   private revealQueue: NewBody[] = [];
 
   private reveal(result: NewBody) {
-    if (this.revealOpen) {
+    // One at a time, and never over a panel (welcome back, finish): queued until the screen is clear.
+    if (this.revealOpen || this.panelsOnScreen()) {
       this.revealQueue.push(result);
       return;
     }
@@ -513,7 +533,7 @@ export class PlayScene extends BaseScene {
       floatText(this, p.x, p.y + this.board.cell * 0.15, `+${formatNumber(result.bonus)}`, { color: '#ffd166', size: 34 + Math.min(16, result.body.r * 4), rise: 90 });
     }
     // Pitch rises with tier, so climbing the chain sounds like progress.
-    app.audio.play('buy', { volume: 0.9, pitchJitter: 0 });
+    app.audio.play('buy', { volume: 0.9, detune: (result.body.t - 5) * 90 });
     app.haptic(12);
     app.moments.emit('merge', { level: result.body.t });
     if (result.twin) {
@@ -662,17 +682,67 @@ export class PlayScene extends BaseScene {
     app.moments.emit('finish', { runMs });
     app.platform.happyTime();
     if (this.run.s.mode === 'main' && !save.data.firstFinishMs) save.data.firstFinishMs = runMs;
-    const record = this.run.s.mode === 'speedrun' && (!save.data.bestRunMs || runMs < save.data.bestRunMs);
-    if (record) save.data.bestRunMs = runMs;
+    let rank: number | null = null;
+    if (this.run.s.mode === 'speedrun') {
+      const entry = { ms: runMs, at: Date.now(), merges: this.run.s.merges, scans: this.run.s.scans, rarity };
+      const result = addRecord(save.data.records, entry);
+      save.data.records = result.list;
+      rank = result.rank;
+      save.data.bestRunMs = result.list[0]?.ms ?? runMs;
+    }
     save.flush();
     // Shown once the Galaxy reveal (and any tutorial step) is gone.
-    this.finishPending = { runMs, record, rarity };
+    this.finishPending = { runMs, rank, rarity };
   }
 
   // ---------- end of a run: finish panel, timed runs (CLAUDE.md 4b, item 7) ----------
 
   private collectionCount() {
     return { n: Object.keys(save.data.codex.found).length, total: content.tiers.length * content.rarities.length };
+  }
+
+  /** A modal panel that keeps count of what is open. */
+  private openPanel(options: { title: string; width: number; height: number; closable?: boolean }) {
+    this.openPanels += 1;
+    return new Panel(this, { ...options, onClose: () => (this.openPanels = Math.max(0, this.openPanels - 1)) });
+  }
+
+  /** Rows of the records board, from y (relative to the panel center). Returns the height used. */
+  private drawRecords(panel: Panel, y: number, highlight: number | null): number {
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    const list = save.data.records;
+    const W = panel.panelWidth - 72;
+    const rowH = 52;
+    if (!list.length) {
+      const empty = this.add
+        .text(0, y + 30, app.t('finish.noRecords'), { ...font, fontStyle: '700', fontSize: 26, color: app.theme.textDim, align: 'center', wordWrap: { width: W } })
+        .setOrigin(0.5);
+      panel.content.add(empty);
+      return 70;
+    }
+    list.forEach((r, i) => {
+      const cy = y + rowH / 2 + i * rowH;
+      const mine = highlight === i + 1;
+      const bg = this.add.graphics();
+      bg.fillStyle(mine ? 0xffc23d : 0x000000, mine ? 0.2 : i % 2 ? 0.12 : 0.22);
+      bg.fillRoundedRect(-W / 2, cy - rowH / 2 + 3, W, rowH - 6, 12);
+      const color = mine ? '#ffd166' : '#ffffff';
+      const rank = this.add.text(-W / 2 + 18, cy, `#${i + 1}`, { ...font, fontStyle: '900', fontSize: 26, color: app.theme.textDim }).setOrigin(0, 0.5);
+      const time = this.add.text(-W / 2 + 82, cy, formatClock(r.ms / 1000), { ...font, fontStyle: '900', fontSize: 28, color }).setOrigin(0, 0.5);
+      const rarity = this.add
+        .text(W * 0.06, cy, app.t(`rarity.${content.rarities[r.rarity]?.id ?? 'common'}`), { ...font, fontStyle: '700', fontSize: 24, color: RARITY_CSS[r.rarity] ?? '#ffffff' })
+        .setOrigin(0, 0.5);
+      const date = r.at ? new Date(r.at).toLocaleDateString('en', { day: 'numeric', month: 'short' }) : '';
+      const when = this.add.text(W / 2 - 18, cy, date, { ...font, fontStyle: '700', fontSize: 22, color: app.theme.textDim }).setOrigin(1, 0.5);
+      panel.content.add([bg, rank, time, rarity, when]);
+    });
+    return list.length * rowH;
+  }
+
+  private showRecordsPanel(highlight: number | null) {
+    const rows = Math.max(1, save.data.records.length);
+    const panel = this.openPanel({ title: app.t('finish.records'), width: 600, height: 120 + rows * 52 + 80 });
+    this.drawRecords(panel, panel.top - 10, highlight);
   }
 
   /** Two buttons of the same size side by side, for the bottom of a panel. */
@@ -687,13 +757,14 @@ export class PlayScene extends BaseScene {
     panel.content.add([ring, a, b]);
   }
 
-  private showFinishPanel(runMs: number, record: boolean, rarity: number) {
+  private showFinishPanel(runMs: number, rank: number | null, rarity: number) {
     const run = this.run;
     const timed = run.s.mode === 'speedrun';
-    this.panelOpen = true;
+    const record = timed && rank === 1;
+    const hasRecords = save.data.records.length > 0;
     // Wide screens get the stats in one row, so everything fits in a 16:9 frame.
     const wide = !this.vp.portrait;
-    const panel = new Panel(this, { title: app.t('finish.title'), width: wide ? 900 : 640, height: wide ? 680 : 880, closable: false, onClose: () => (this.panelOpen = false) });
+    const panel = this.openPanel({ title: app.t('finish.title'), width: wide ? 900 : 640, height: wide ? 680 : 880, closable: false });
     const font = { fontFamily: app.theme.font, resolution: app.textResolution };
     const W = panel.panelWidth;
     const H = panel.panelHeight;
@@ -703,7 +774,7 @@ export class PlayScene extends BaseScene {
     const statsH = rows * statH + (rows - 1) * 12;
     // Space between the title and the buttons, shared out; the Galaxy takes what is left.
     const avail = H - 120 - 150;
-    const fixed = 8 + 36 + 22 + statsH + 22 + 48;
+    const fixed = 8 + 36 + 22 + statsH + 22 + 48 + (hasRecords ? 36 : 0);
     const size = Phaser.Math.Clamp(avail - fixed, 90, 220);
     let y = panel.top - 14 + size / 2;
 
@@ -748,8 +819,11 @@ export class PlayScene extends BaseScene {
     // Record line.
     let recordText: string;
     let recordColor = app.theme.textDim;
-    if (timed && record) {
+    if (record) {
       recordText = app.t('finish.record');
+      recordColor = '#ffd166';
+    } else if (timed && rank) {
+      recordText = app.t('finish.rank', { n: rank });
       recordColor = '#ffd166';
     } else if (save.data.bestRunMs) {
       recordText = app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) });
@@ -759,6 +833,15 @@ export class PlayScene extends BaseScene {
     const rec = this.add.text(0, recordY, recordText, { ...font, fontStyle: '900', fontSize: record ? 40 : 26, color: recordColor, align: 'center', wordWrap: { width: panel.panelWidth - 80 } }).setOrigin(0.5);
     panel.content.add(rec);
     if (record) this.tweens.add({ targets: rec, scale: 1.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
+    if (hasRecords) {
+      const link = this.add
+        .text(0, recordY + 38, app.t('finish.viewRecords'), { ...font, fontStyle: '900', fontSize: 24, color: '#9fd8ff' })
+        .setOrigin(0.5)
+        .setPadding(16, 8, 16, 8)
+        .setInteractive({ useHandCursor: true });
+      link.on('pointerup', () => this.showRecordsPanel(timed ? rank : null));
+      panel.content.add(link);
+    }
 
     const buttonsY = panel.bottom - 80;
     if (timed) {
@@ -788,24 +871,22 @@ export class PlayScene extends BaseScene {
 
   /** Explains the timed run, then starts it. Opened from the stopwatch button. */
   private showTimedPanel() {
-    if (this.panelOpen) return;
-    this.panelOpen = true;
-    const panel = new Panel(this, { title: app.t('finish.timed'), width: 600, height: 520, onClose: () => (this.panelOpen = false) });
+    if (this.openPanels > 0) return;
+    const rows = Math.max(1, save.data.records.length);
+    const panel = this.openPanel({ title: app.t('finish.timed'), width: 620, height: 120 + 100 + 44 + rows * 52 + 170 });
     const font = { fontFamily: app.theme.font, resolution: app.textResolution };
     const text = this.add
-      .text(0, panel.top + 70, app.t('finish.timedText'), { ...font, fontStyle: '700', fontSize: 30, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
+      .text(0, panel.top + 34, app.t('finish.timedText'), { ...font, fontStyle: '700', fontSize: 28, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
       .setOrigin(0.5);
-    const best = this.add
-      .text(0, panel.top + 190, save.data.bestRunMs ? app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) }) : app.t('finish.noBest'), { ...font, fontStyle: '900', fontSize: 28, color: '#ffd166', align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
-      .setOrigin(0.5);
-    panel.content.add([text, best]);
+    const head = this.add.text(0, panel.top + 112, app.t('finish.records'), { ...font, fontStyle: '900', fontSize: 26, color: '#ffd166' }).setOrigin(0.5);
+    panel.content.add([text, head]);
+    this.drawRecords(panel, panel.top + 136, null);
     this.panelButtons(panel, panel.bottom - 80, { label: app.t('finish.cancel'), onClick: () => panel.close() }, { label: app.t('finish.start'), onClick: () => void this.startTimedRun() });
   }
 
   private showLeavePanel() {
-    if (this.panelOpen) return;
-    this.panelOpen = true;
-    const panel = new Panel(this, { title: app.t('finish.leaveTitle'), width: 600, height: 440, onClose: () => (this.panelOpen = false) });
+    if (this.openPanels > 0) return;
+    const panel = this.openPanel({ title: app.t('finish.leaveTitle'), width: 600, height: 440 });
     const font = { fontFamily: app.theme.font, resolution: app.textResolution };
     const text = this.add
       .text(0, panel.top + 70, app.t('finish.leaveText'), { ...font, fontStyle: '700', fontSize: 30, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
@@ -816,6 +897,9 @@ export class PlayScene extends BaseScene {
 
   /** New timed run from stardust. A natural break, so a midgame ad may show first (CLAUDE.md 4.5). */
   private async startTimedRun() {
+    if (this.switching) return;
+    this.switching = true;
+    if (save.data.mode === 'main') save.data.mainLeftAt = Date.now();
     save.data.speedrun = newRunState(content, 'speedrun', app.rng.int(1, 2 ** 31 - 1));
     save.data.mode = 'speedrun';
     save.flush();
@@ -824,6 +908,8 @@ export class PlayScene extends BaseScene {
   }
 
   private leaveTimedRun() {
+    if (this.switching) return;
+    this.switching = true;
     save.data.mode = 'main';
     save.data.speedrun = null;
     save.flush();
@@ -846,8 +932,12 @@ export class PlayScene extends BaseScene {
   // ---------- coming back ----------
 
   private welcomeBack() {
-    if (save.isNewPlayer || !save.lastSavedAt) return;
-    const seconds = secondsAway(save.lastSavedAt, Date.now(), this.run.stat('offlineCapHours') * 3600);
+    // Back from a timed run: the main run's probes kept working while the player raced.
+    const back = this.run.s.mode === 'main' && save.data.mainLeftAt > 0;
+    const since = back ? save.data.mainLeftAt : save.lastSavedAt;
+    if (back) save.data.mainLeftAt = 0;
+    if (!back && (save.isNewPlayer || !save.lastSavedAt)) return;
+    const seconds = secondsAway(since, Date.now(), this.run.stat('offlineCapHours') * 3600);
     const amount = this.run.offlineEarnings(seconds);
     if (amount <= 0) return;
     showOfflinePanel(this, {

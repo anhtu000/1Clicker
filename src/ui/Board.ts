@@ -34,6 +34,8 @@ export class Board {
   private bg: Phaser.GameObjects.Graphics;
   private hints: Phaser.GameObjects.Graphics;
   private sprites: (BodySprite | null)[] = [];
+  /** Every live sprite the board made, so sync() can remove any that lost its slot. */
+  private all = new Set<BodySprite>();
   private dragFrom = -1;
   private time = 0;
 
@@ -107,6 +109,8 @@ export class Board {
     for (let i = 0; i < board.length; i++) {
       const b = board[i];
       let s = this.sprites[i] ?? null;
+      // A destroyed sprite left in a slot counts as empty, so the body gets drawn again.
+      if (s && !s.active) s = this.sprites[i] = null;
       if (!b) {
         if (s && i !== this.dragFrom) s.destroy();
         if (i !== this.dragFrom) this.sprites[i] = null;
@@ -117,6 +121,9 @@ export class Board {
         s = new BodySprite(this.scene, p.x, p.y, b, this.cell).setDepth(10);
         this.makeDraggable(s);
         this.sprites[i] = s;
+        const made = s;
+        this.all.add(made);
+        made.once(Phaser.GameObjects.Events.DESTROY, () => this.all.delete(made));
         s.pop();
       } else if (s.celestial.t !== b.t || s.celestial.r !== b.r) {
         s.setBody(b);
@@ -129,13 +136,16 @@ export class Board {
         s.settle();
       }
     }
+    // Safety net: a sprite that is in no slot (and not being dragged) is a ghost of an old state.
+    for (const s of this.all) if (!this.sprites.includes(s)) s.destroy();
     this.drawCells();
   }
 
   /** The run moved a body to an empty slot: keep the same sprite and glide it there. */
   moved(from: number, to: number) {
     const s = this.sprites[from];
-    if (!s) return;
+    if (!s) return this.sync();
+    this.sprites[to]?.destroy();
     this.sprites[to] = s;
     this.sprites[from] = null;
     const p = this.slotPos(to);
@@ -156,25 +166,20 @@ export class Board {
     this.sync();
   }
 
-  /** Slides the body in slot `from` onto slot `to`, then calls done. */
-  slide(from: number, to: number, done: () => void) {
+  /**
+   * The run already merged `from` into `to`: the sprite of `from` leaves its slot now and slides
+   * into `to` as an effect only. The state never waits on an animation, so a second drag or an
+   * auto merge during the slide cannot leave the board and the run out of step.
+   */
+  mergeInto(from: number, to: number) {
     const s = this.sprites[from];
-    if (!s) return done();
-    const p = this.slotPos(to);
+    if (!s) return;
+    this.sprites[from] = null;
+    this.all.delete(s);
+    s.disableInteractive();
     s.setDepth(30);
-    this.scene.tweens.add({
-      targets: s,
-      x: p.x,
-      y: p.y,
-      scale: 0.6,
-      duration: 140,
-      ease: 'Quad.In',
-      onComplete: () => {
-        s.destroy();
-        if (this.sprites[from] === s) this.sprites[from] = null;
-        done();
-      },
-    });
+    const p = this.slotPos(to);
+    this.scene.tweens.add({ targets: s, x: p.x, y: p.y, scale: 0.6, alpha: 0.6, duration: 140, ease: 'Quad.In', onComplete: () => s.destroy() });
   }
 
   private makeDraggable(s: BodySprite) {

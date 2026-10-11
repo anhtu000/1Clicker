@@ -53,6 +53,22 @@ export function applyPreset(name: string, data: SaveData) {
     data.tutorial = [...ALL_STEPS];
     for (const b of data.run.board) if (b) data.codex.found[`${b.t}.${b.r}`] = 1;
   }
+  if (name === 'almosttimed') {
+    // A timed run one merge from the Galaxy, with a few earlier records (checks the records board).
+    data.run = showcase();
+    data.speedrun = { ...almost(), mode: 'speedrun' };
+    data.mode = 'speedrun';
+    data.firstFinishMs = 52 * 60 * 1000;
+    const day = 24 * 3600 * 1000;
+    data.records = [
+      { ms: 38 * 60e3 + 12_340, at: Date.now() - 3 * day, merges: 96, scans: 88, rarity: 1 },
+      { ms: 40 * 60e3 + 5_000, at: Date.now() - 2 * day, merges: 101, scans: 90, rarity: 0 },
+      { ms: 44 * 60e3 + 51_200, at: Date.now() - day, merges: 110, scans: 97, rarity: 2 },
+      { ms: 47 * 60e3 + 2_800, at: Date.now() - day, merges: 104, scans: 99, rarity: 0 },
+    ];
+    data.bestRunMs = data.records[0].ms;
+    data.tutorial = [...ALL_STEPS];
+  }
   if (name === 'showcase') {
     data.run = showcase();
     data.tutorial = [...ALL_STEPS];

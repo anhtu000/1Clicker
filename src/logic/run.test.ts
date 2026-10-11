@@ -211,3 +211,21 @@ test('auto scan and auto merge work on their own', () => {
   assert.ok(run.s.scans > 10);
   assert.ok(run.s.merges > 5);
 });
+
+test('personal records: fastest first, top 5, rank of the new run', async () => {
+  const { addRecord } = await import('./records.ts');
+  const rec = (ms: number) => ({ ms, at: ms, merges: 0, scans: 0, rarity: 0 });
+  let list = [] as ReturnType<typeof addRecord>['list'];
+  for (const ms of [50, 30, 40]) list = addRecord(list, rec(ms)).list;
+  assert.deepEqual(list.map((r) => r.ms), [30, 40, 50]);
+  const first = addRecord(list, rec(20));
+  assert.equal(first.rank, 1);
+  list = first.list;
+  list = addRecord(list, rec(45)).list; // 20 30 40 45 50
+  const slow = addRecord(list, rec(60));
+  assert.equal(slow.rank, null, 'slower than all five: not on the list');
+  assert.equal(slow.list.length, 5);
+  const tie = addRecord(list, rec(40));
+  assert.equal(tie.rank, 4, 'a tie goes behind the run that set it first');
+  assert.deepEqual(tie.list.map((r) => r.ms), [20, 30, 40, 40, 45]);
+});
