@@ -171,7 +171,10 @@ export class PlayScene extends BaseScene {
     this.bestText = this.add.text(0, 0, '', { ...font, fontStyle: '700', fontSize: 22, color: '#b9b4d9' }).setDepth(30);
     this.timerText.setVisible(timed);
     this.bestText.setVisible(timed).setText(save.data.bestRunMs ? app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) }) : '');
-    this.input.keyboard?.on('keydown-ESC', () => app.openPause(this));
+    // Esc closes an open panel (the panel handles it); otherwise it pauses.
+    this.input.keyboard?.on('keydown-ESC', () => {
+      if (!this.panelsOnScreen()) app.openPause(this);
+    });
     // Space taps the core on a computer (CLAUDE.md 4.2). Holding the key does not repeat.
     this.input.keyboard?.addCapture('SPACE');
     this.input.keyboard?.on('keydown-SPACE', (e: KeyboardEvent) => {
