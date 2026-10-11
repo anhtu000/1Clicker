@@ -41,6 +41,15 @@ export class AdManager {
     return this.busy;
   }
 
+  /**
+   * True once the portal has said ads are off and rewards are granted without one
+   * (CrazyGames Basic Launch with whenAdsDisabled "grant"). Games use it to slow
+   * reward cooldowns to the pace of a player who watches ads.
+   */
+  get rewardsAreFree() {
+    return this.adsDisabled && this.options.whenAdsDisabled === 'grant';
+  }
+
   /** Resolves true when the player has earned the reward. Give the reward only then. */
   async rewarded(): Promise<boolean> {
     if (this.busy) return false;

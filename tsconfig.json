@@ -15,10 +15,12 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "noEmit": true,
+    "allowImportingTsExtensions": true,
     "paths": {
       "@core": ["./core/index.ts"],
       "@core/*": ["./core/*"]
     }
   },
-  "include": ["core", "src"]
+  "include": ["core", "src"],
+  "exclude": ["**/*.test.ts"]
 }

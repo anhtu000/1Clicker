@@ -1,5 +1,7 @@
 {
-  "lang": { "name": "English" },
+  "lang": {
+    "name": "English"
+  },
   "core": {
     "loading": "Loading",
     "play": "Play",
@@ -12,7 +14,23 @@
     "off": "Off",
     "language": "Language",
     "adUnavailable": "No ad available right now. Try again later.",
-    "adBlocked": "Ads are blocked, so this reward is unavailable."
+    "adBlocked": "Ads are blocked, so this reward is unavailable.",
+    "readyIn": "Ready in {t}",
+    "welcomeBack": "Welcome back!",
+    "awayFor": "You were away for {t}",
+    "collect": "Collect",
+    "collectDouble": "Collect x{n}",
+    "dailyTitle": "Daily gift",
+    "dayN": "Day {n}",
+    "claim": "Claim",
+    "claimDouble": "Claim x{n}",
+    "comeBack": "Come back tomorrow for day {n}",
+    "close": "Close"
   },
-  "unit": { "d": "d", "h": "h", "m": "m", "s": "s" }
+  "unit": {
+    "d": "d",
+    "h": "h",
+    "m": "m",
+    "s": "s"
+  }
 }

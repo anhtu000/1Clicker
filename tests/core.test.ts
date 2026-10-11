@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { formatClock, formatDuration, formatNumber } from '../core/format.ts';
 import { claimDaily, dailyStatus, FixedStep, secondsAway } from '../core/time.ts';
+import { contentChecker, indexById } from '../core/content.ts';
+import { pickWeighted, pityLeft, rarityOdds, Rng, rollRarity } from '../core/rng.ts';
 
 test('formatNumber uses K/M/B/T with 3 significant digits', () => {
   assert.equal(formatNumber(0), '0');
@@ -61,4 +63,67 @@ test('FixedStep gives the same total at any frame rate', () => {
     // At most one 0.1 s step can still be waiting in the accumulator.
     assert.ok(Math.abs(total - 10) < 0.11, `${frameMs.toFixed(2)} ms frames gave ${total}`);
   }
+});
+
+test('Rng is repeatable from a saved state', () => {
+  const a = new Rng(42);
+  a.next();
+  a.next();
+  const saved = a.state;
+  const first = [a.next(), a.next(), a.next()];
+  const b = new Rng(1);
+  b.state = saved;
+  assert.deepEqual([b.next(), b.next(), b.next()], first);
+  for (let i = 0; i < 1000; i++) {
+    const n = a.int(3, 7);
+    assert.ok(n >= 3 && n <= 7 && Number.isInteger(n));
+  }
+});
+
+test('pickWeighted follows the weights', () => {
+  const rng = new Rng(7);
+  const counts = [0, 0, 0];
+  for (let i = 0; i < 30_000; i++) counts[pickWeighted(rng, [6, 3, 1])] += 1;
+  assert.ok(Math.abs(counts[0] / 30_000 - 0.6) < 0.02);
+  assert.ok(Math.abs(counts[2] / 30_000 - 0.1) < 0.01);
+  assert.equal(pickWeighted(rng, [0, 0, 5]), 2);
+});
+
+test('rarity odds, floor and pity', () => {
+  const weights = [720, 200, 60, 18, 2];
+  const odds = rarityOdds(weights);
+  assert.ok(Math.abs(odds[0] - 0.72) < 1e-9);
+  // Luck on rare tiers lowers common.
+  assert.ok(rarityOdds(weights, { weightMult: (t) => (t > 0 ? 2 : 1) })[0] < 0.72);
+
+  const rng = new Rng(3);
+  const rules = [{ minTier: 2, within: 25 }];
+  const state = [0];
+  let sinceEpic = 0;
+  let worst = 0;
+  for (let i = 0; i < 5000; i++) {
+    const r = rollRarity(rng, weights, rules, state);
+    sinceEpic = r >= 2 ? 0 : sinceEpic + 1;
+    worst = Math.max(worst, sinceEpic);
+  }
+  // Never more than 24 rolls in a row without Epic or better.
+  assert.ok(worst <= 24, `went ${worst} rolls without epic`);
+  assert.equal(pityLeft(rules, [10], 0), 15);
+  // Floor keeps at least the given tier.
+  for (let i = 0; i < 200; i++) assert.ok(rollRarity(rng, weights, [], [], { floor: 3 }) >= 3);
+});
+
+test('contentChecker lists every problem at once', () => {
+  const check = contentChecker('test.json');
+  check.uniqueIds([{ id: 'a' }, { id: 'a' }, {}], 'item');
+  check.positive(0, 'item a: cost');
+  check.ref('b', ['a'], 'item a: unlock');
+  assert.equal(check.errors.length, 4);
+  assert.throws(() => check.done(), /item id "a" is used twice[\s\S]*cost must be a number above 0/);
+  const ok = contentChecker('ok.json');
+  ok.uniqueIds([{ id: 'x' }], 'item');
+  ok.done();
+  const get = indexById([{ id: 'x', n: 1 }], 'item');
+  assert.equal(get('x').n, 1);
+  assert.throws(() => get('y'), /Unknown item "y"/);
 });

@@ -1,0 +1,17 @@
+{
+  "upgrades": [
+    {"id": "focus", "stat": "tapMult", "op": "mul", "value": 1.4, "max": 12, "show": {}, "costs": [270,5600,17000,46000,82000,240000,890000,2400000,7500000,33000000,87000000,270000000]},
+    {"id": "lens", "stat": "tierUpChance", "op": "add", "value": 0.06, "max": 5, "show": {"tier": 3}, "costs": [16000,120000,1500000,11000000,120000000]},
+    {"id": "slots", "stat": "slots", "op": "add", "value": 4, "max": 2, "costs": [38000,6200000], "show": {"tier": 4}},
+    {"id": "discount", "stat": "scanCostMult", "op": "mul", "value": 0.88, "max": 5, "show": {"tier": 4}, "costs": [85000,1300000,9100000,76000000,850000000]},
+    {"id": "probes", "stat": "autoTps", "op": "add", "value": 2, "max": 1, "show": {"tier": 5}, "costs": [140000], "noAd": true},
+    {"id": "crit", "stat": "critChance", "op": "add", "value": 0.04, "max": 5, "show": {"tier": 5}, "costs": [110000,880000,4100000,28000000,190000000]},
+    {"id": "luck", "stat": "luck", "op": "add", "value": 0.3, "max": 5, "show": {"tier": 5}, "costs": [170000,2300000,17000000,120000000,1200000000]},
+    {"id": "fleet", "stat": "autoTps", "op": "add", "value": 1, "max": 10, "show": {"upgrade": "probes"}, "costs": [160000,460000,940000,1500000,3500000,7500000,17000000,57000000,120000000,430000000]},
+    {"id": "deepScan", "stat": "spawnTier", "op": "add", "value": 1, "max": 3, "costs": [580000,21000000,470000000], "show": {"tier": 6}},
+    {"id": "relay", "stat": "offlineCapHours", "op": "add", "value": 2, "max": 3, "show": {"tier": 6}, "costs": [830000,44000000,790000000]},
+    {"id": "thrusters", "stat": "autoMult", "op": "mul", "value": 1.25, "max": 4, "show": {"upgrade": "fleet", "level": 3}, "costs": [1700000,9900000,75000000,490000000]},
+    {"id": "autoScan", "stat": "autoScanEvery", "op": "set", "values": [6,4,3,2,1.5], "max": 5, "show": {"tier": 7}, "costs": [1900000,15000000,83000000,230000000,2000000000]},
+    {"id": "autoMerge", "stat": "autoMergeEvery", "op": "set", "values": [5,3.5,2.5,1.5], "max": 4, "show": {"tier": 8}, "costs": [180000000,500000000,1600000000,2500000000]}
+  ]
+}

@@ -48,7 +48,7 @@ export class BootScene extends Phaser.Scene {
     createFxTextures(this);
     app.platform.loadingStop();
     // A short beat so a fast load does not flash.
-    this.time.delayedCall(120, () => this.scene.start(app.config.menu === false ? app.config.playScene : 'Menu'));
+    this.time.delayedCall(120, () => this.scene.start(app.startScene()));
   }
 
   private place() {

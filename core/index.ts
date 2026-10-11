@@ -6,6 +6,8 @@ export type { ViewportInfo } from './viewport';
 export { Button, type ButtonOptions } from './ui/button';
 export { soundButton, rewardButton } from './ui/widgets';
 export { toast } from './ui/toast';
+export { Panel, type PanelOptions } from './ui/panel';
+export { showOfflinePanel, showDailyPanel, dailyDayIndex, type DailyRewardView } from './ui/rewardPanels';
 export * as icons from './ui/icons';
 export { floatText, punch, burst } from './fx';
 export { formatNumber, formatDuration, formatClock } from './format';
@@ -13,3 +15,5 @@ export { secondsAway, dayKey, dailyStatus, claimDaily, FixedStep, type DailyStat
 export { DebugOverlay } from './debug';
 export type { Theme } from './theme';
 export type { LangFile } from './i18n';
+export { Rng, pickWeighted, rollRarity, rarityOdds, pityLeft, type PityRule, type PityState } from './rng';
+export { contentChecker, indexById, type ContentChecker } from './content';

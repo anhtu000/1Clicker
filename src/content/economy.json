@@ -1,0 +1,54 @@
+{
+  "goalTier": 10,
+  "tierValueGrowth": 3,
+  "board": {
+    "maxSlots": 16,
+    "startSlots": 8
+  },
+  "tap": {
+    "base": 1,
+    "critMult": 6
+  },
+  "scan": {
+    "baseCost": 0.17,
+    "exponent": 4.5,
+    "spawnDiscount": 1,
+    "doubleTierUpShare": 0.1
+  },
+  "absorbTaps": 15,
+  "script": {
+    "rareScan": 2,
+    "rareMerge": 1
+  },
+  "offline": {
+    "efficiency": 0.5,
+    "capHours": 2,
+    "minSeconds": 60
+  },
+  "rewarded": {
+    "freeUpgrade": {
+      "cooldown": 300,
+      "maxIncomeSeconds": 150
+    },
+    "luckyScan": {
+      "cooldown": 300,
+      "tierBonus": 1,
+      "rarityFloor": 1
+    },
+    "mergeAll": {
+      "cooldown": 300
+    },
+    "offlineMult": 2,
+    "dailyMult": 2,
+    "freeCooldownMult": 1.5
+  },
+  "stars": {
+    "everyMin": 30,
+    "everyMax": 50,
+    "lifetime": 7,
+    "seconds": 10,
+    "activeTps": 5,
+    "goldenChance": 0.1,
+    "goldenMult": 5
+  }
+}

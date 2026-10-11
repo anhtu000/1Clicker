@@ -68,3 +68,32 @@ export const homeIcon: IconDraw = (g, size, color) => {
   g.fillTriangle(-s * 0.85, -s * 0.05, s * 0.85, -s * 0.05, 0, -s * 0.8);
   g.fillRect(-s * 0.55, -s * 0.1, s * 1.1, s * 0.85);
 };
+
+export const closeIcon: IconDraw = (g, size, color) => {
+  const s = size / 2;
+  g.lineStyle(size * 0.13, color, 1);
+  g.lineBetween(-s * 0.5, -s * 0.5, s * 0.5, s * 0.5);
+  g.lineBetween(-s * 0.5, s * 0.5, s * 0.5, -s * 0.5);
+};
+
+export const checkIcon: IconDraw = (g, size, color) => {
+  const s = size / 2;
+  g.lineStyle(size * 0.14, color, 1);
+  g.beginPath();
+  g.moveTo(-s * 0.6, 0);
+  g.lineTo(-s * 0.15, s * 0.45);
+  g.lineTo(s * 0.65, -s * 0.45);
+  g.strokePath();
+};
+
+export const giftIcon: IconDraw = (g, size, color) => {
+  const s = size / 2;
+  g.fillStyle(color, 1);
+  g.fillRoundedRect(-s * 0.75, -s * 0.2, s * 1.5, s * 0.95, s * 0.1);
+  g.fillRoundedRect(-s * 0.85, -s * 0.5, s * 1.7, s * 0.35, s * 0.08);
+  g.fillStyle(0x000000, 0.25);
+  g.fillRect(-s * 0.1, -s * 0.5, s * 0.2, s * 1.25);
+  g.lineStyle(size * 0.09, color, 1);
+  g.strokeEllipse(-s * 0.28, -s * 0.68, s * 0.5, s * 0.3);
+  g.strokeEllipse(s * 0.28, -s * 0.68, s * 0.5, s * 0.3);
+};

@@ -36,7 +36,7 @@ export class PauseScene extends BaseScene {
       fontSize: 44,
       onClick: () => this.close(),
     });
-    if (app.config.menu !== false) {
+    if (app.menuKey) {
       this.menu = new Button(this, 0, 0, {
         label: app.t('core.menu'),
         icon: homeIcon,

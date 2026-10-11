@@ -31,6 +31,11 @@ export interface RewardButtonOptions {
   fontSize?: number;
   /** Runs only when the player has earned the reward. */
   onReward: () => void;
+  /**
+   * Seconds until the reward can be used again (0 = ready). While it is above 0
+   * the button is greyed out and shows a countdown instead of its label.
+   */
+  cooldown?: () => number;
 }
 
 /**
@@ -62,5 +67,30 @@ export function rewardButton(scene: Phaser.Scene, x: number, y: number, options:
     },
   });
   button.setVisible(app.ads.rewardedAvailable);
+
+  if (options.cooldown) {
+    const cooldown = options.cooldown;
+    let shown = '';
+    const refresh = () => {
+      if (!button.active || app.ads.isShowing) return;
+      const wait = Math.ceil(cooldown());
+      const text = wait > 0 ? app.t('core.readyIn', { t: formatClockShort(wait) }) : options.label;
+      if (text !== shown) {
+        shown = text;
+        button.setLabel(text);
+      }
+      const ready = wait <= 0;
+      if (button.isEnabled !== ready) button.setEnabled(ready);
+    };
+    scene.events.on(Phaser.Scenes.Events.UPDATE, refresh);
+    button.once(Phaser.GameObjects.Events.DESTROY, () => scene.events.off(Phaser.Scenes.Events.UPDATE, refresh));
+    refresh();
+  }
   return button;
+}
+
+/** 151 -> "2:31", 9 -> "0:09" */
+function formatClockShort(seconds: number) {
+  const s = Math.max(0, Math.ceil(seconds));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 }

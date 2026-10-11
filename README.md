@@ -21,6 +21,8 @@ Hiện repo chứa bộ khung chung (`core/`) và một màn demo (`src/`) để
 | `npm test` | Test các hàm định dạng số, thời gian, quà hằng ngày |
 | `npm run typecheck` | Kiểm tra lỗi TypeScript |
 | `npm run sync-core` | Chép bộ khung sang repo game kia (xem mục Bộ khung dùng chung) |
+| `npm run sim` | Mô phỏng kinh tế (200 lượt mỗi trường hợp, khoảng 5 phút), ghi `tools/sim/out/report.json` |
+| `npm run sim:report` | Dựng trang báo cáo `tools/sim/out/report.html` từ kết quả mô phỏng |
 
 Nộp lên CrazyGames: tải lên nội dung của `dist/crazygames`, với `index.html` nằm ở gốc. Cách tải lên cụ thể (zip hay thư mục) kiểm tra lại trên trang developer lúc nộp.
 
@@ -100,6 +102,16 @@ Các dịch vụ dùng qua `app`:
 - `app.ads.midgame()` quảng cáo giữa chừng, chỉ gọi ở điểm nghỉ (bộ khung đã gọi khi quay về menu).
 - `app.openPause(scene)`, `app.toMenu()` mở màn tạm dừng, về menu.
 - `app.platform.happyTime()` khi người chơi đạt thành tích lớn, dùng ít.
+
+## Kinh tế và mô phỏng
+
+- Nội dung và số liệu cân bằng nằm trong `src/content/*.json` (cấp thiên thể, độ hiếm, nâng cấp, giá quét, quảng cáo có thưởng, sao băng).
+- `src/logic/` là kinh tế viết bằng TypeScript thuần, không dùng Phaser. Màn chơi và script mô phỏng gọi cùng code này, nên số mô phỏng khớp với game.
+- `tools/sim/`:
+  - `player.ts`: người chơi giả lập. Giả định về tốc độ nhấp và cách mua ghi ở đầu file.
+  - `quick.ts`: kiểm tra nhanh các mốc (`node --experimental-strip-types tools/sim/quick.ts 12`).
+  - `tune.ts`: tự định giá nâng cấp theo lịch mục tiêu và khớp đường giá quét. Chạy `--refine` để chỉnh từ số hiện có. Lệnh này ghi đè giá trong `src/content`.
+- Sửa số trong JSON xong thì chạy lại `npm run sim` và `npm run sim:report` để xem hệ quả.
 
 ## Bộ khung dùng chung
 
