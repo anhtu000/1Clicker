@@ -178,8 +178,9 @@ export class Tutorial {
     this.blocker.setSize(vp.width, vp.height);
     (this.blocker.input!.hitArea as Phaser.Geom.Rectangle).setSize(vp.width, vp.height);
 
-    const target = step.target?.() ?? null;
-    const dragTo = step.dragTo?.() ?? null;
+    // Targets are kept to the visible part of the screen, so the frame and the hand never sit off the edge.
+    const target = onScreen(step.target?.() ?? null, vp.width, vp.height);
+    const dragTo = onScreen(step.dragTo?.() ?? null, vp.width, vp.height);
     // The hole covers the target, and the drop point for drag steps.
     this.hole = target && dragTo ? union(target, dragTo) : target;
 
@@ -246,6 +247,18 @@ export class Tutorial {
       this.hand.setVisible(false);
     }
   }
+}
+
+/** The part of a target inside the screen (minus the frame's padding), or null when none of it is. */
+function onScreen(t: TutorialTarget | null, width: number, height: number): TutorialTarget | null {
+  if (!t) return null;
+  const m = PAD + 6;
+  const left = Math.max(m, t.x - t.w / 2);
+  const right = Math.min(width - m, t.x + t.w / 2);
+  const top = Math.max(m, t.y - t.h / 2);
+  const bottom = Math.min(height - m, t.y + t.h / 2);
+  if (right - left < 20 || bottom - top < 20) return null;
+  return { x: (left + right) / 2, y: (top + bottom) / 2, w: right - left, h: bottom - top };
 }
 
 function union(a: TutorialTarget, b: TutorialTarget): TutorialTarget {

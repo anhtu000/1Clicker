@@ -502,15 +502,15 @@ export class PlayScene extends BaseScene {
   private spawnStar(golden: boolean) {
     this.removeStar(false);
     const vp = this.vp;
-    const area = vp.portrait ? { x: 0, y: vp.safe.y + 160, w: vp.width, h: 700 } : { x: 0, y: vp.safe.y + 80, w: vp.width, h: 520 };
+    const area = vp.portrait ? { x: 0, y: vp.safe.y + 160, w: vp.width, h: 700 } : { x: 0, y: vp.safe.y + 120, w: vp.width, h: 480 };
     this.star = new ShootingStar(this, area, content.economy.stars.lifetime, golden, () => this.catchStar());
     if (!save.data.tutorial.includes('star') && save.data.tutorial.includes('goal')) {
-      const star = this.star;
+      // Points at whichever star is up: if this one leaves before the step starts, the next one is used.
       this.queueOnce('star', [
         {
           id: 'star',
           text: app.t('tut.star'),
-          target: () => (star.active ? { x: star.x, y: star.y, w: 110, h: 110 } : null),
+          target: () => (this.star?.active ? { x: this.star.x, y: this.star.y, w: 110, h: 110 } : null),
           done: () => this.starsCaught > 0,
         },
       ]);

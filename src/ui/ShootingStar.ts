@@ -1,6 +1,10 @@
 import Phaser from 'phaser';
 import { ensureSparkTexture } from '../render/bodies';
 
+/** Share of the path where a held star waits: away from both screen edges. */
+const PARK_FROM = 0.35;
+const PARK_TO = 0.65;
+
 /**
  * A shooting star crossing the screen. Big hit area so it is easy to catch on a phone.
  * The run decides when stars appear and how long they last; this only draws and reports taps.
@@ -14,7 +18,10 @@ export class ShootingStar extends Phaser.GameObjects.Container {
   private age = 0;
   private points: { x: number; y: number }[] = [];
   private golden: boolean;
-  /** Freeze in place (tutorial step waiting for the catch). */
+  /**
+   * Tutorial step waiting for the catch: the star moves to a point well inside the screen and waits there.
+   * The path starts and ends off screen, so freezing it where it is could leave it half hidden.
+   */
   hold = false;
 
   constructor(scene: Phaser.Scene, area: { x: number; y: number; w: number; h: number }, lifetime: number, golden: boolean, onCatch: () => void) {
@@ -44,7 +51,14 @@ export class ShootingStar extends Phaser.GameObjects.Container {
   }
 
   private tick(_t: number, delta: number) {
-    if (!this.hold) this.age += delta / 1000;
+    const dt = delta / 1000;
+    if (!this.hold) {
+      this.age += dt;
+    } else {
+      // Park between 35% and 65% of the path, moving there at normal speed.
+      const park = Phaser.Math.Clamp(this.age, this.life * PARK_FROM, this.life * PARK_TO);
+      this.age = this.age < park ? Math.min(park, this.age + dt) : Math.max(park, this.age - dt);
+    }
     const k = Math.min(1, this.age / this.life);
     this.x = Phaser.Math.Linear(this.from.x, this.to.x, k);
     this.y = Phaser.Math.Linear(this.from.y, this.to.y, k) - Math.sin(k * Math.PI) * 60;

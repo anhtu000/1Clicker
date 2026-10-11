@@ -19,8 +19,24 @@ function showcase(): RunState {
   return run;
 }
 
+/** Right after the opening tutorial, with the first shooting star two seconds away (checks the star step). */
+function starStep(): RunState {
+  const run = newRunState(content, 'main', 7);
+  run.board[0] = { t: 2, r: 1 };
+  run.highestTier = 2;
+  run.energy = 60;
+  run.time = 40;
+  run.starTimer = 2;
+  return run;
+}
+
 export function applyPreset(name: string, data: SaveData) {
   if (data.run) return; // keep what the preset session did since
+  if (name === 'starstep') {
+    data.run = starStep();
+    data.tutorial = ['tap', 'scan', 'scan2', 'merge', 'tapPower', 'goal'];
+    data.codex.found['2.1'] = 1;
+  }
   if (name === 'showcase') {
     data.run = showcase();
     data.tutorial = ['tap', 'scan', 'scan2', 'merge', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin'];
