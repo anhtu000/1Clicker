@@ -239,9 +239,20 @@ export class Run {
   scanCost(): number {
     const sc = this.content.economy.scan;
     const u = this.s.units;
-    const add = this.unitsPerScan();
-    const raw = sc.baseCost * ((u + add) ** sc.exponent - u ** sc.exponent);
+    const raw = this.unitsTotalCost(u + this.unitsPerScan()) - this.unitsTotalCost(u);
     return Math.ceil(raw * sc.spawnDiscount ** (this.stat('spawnTier') - 1) * this.stat('scanCostMult'));
+  }
+
+  /**
+   * Price of the first `u` units together: baseCost * u^exponent, then past softCapUnits the price
+   * per unit keeps rising, but only as (u / cap)^softCapExponent.
+   */
+  private unitsTotalCost(u: number): number {
+    const { baseCost: b, exponent: k, softCapUnits: cap, softCapExponent: m = 1 } = this.content.economy.scan;
+    if (!cap || u <= cap) return b * u ** k;
+    // Price per unit at the cap, then integrate (u / cap)^m from the cap to u.
+    const perUnitAtCap = b * k * cap ** (k - 1);
+    return b * cap ** k + perUnitAtCap * (cap / (m + 1)) * ((u / cap) ** (m + 1) - 1);
   }
 
   freeSlot(): number {

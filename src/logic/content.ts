@@ -64,7 +64,15 @@ export interface EconomyDef {
   tierValueGrowth: number;
   board: { maxSlots: number; startSlots: number };
   tap: { base: number; critMult: number };
-  scan: { baseCost: number; exponent: number; spawnDiscount: number; doubleTierUpShare: number };
+  scan: {
+    baseCost: number;
+    exponent: number;
+    spawnDiscount: number;
+    doubleTierUpShare: number;
+    /** Past this many units the price per unit grows slowly (softCapExponent), so the last tiers are not a wall. */
+    softCapUnits?: number;
+    softCapExponent?: number;
+  };
   absorbTaps: number;
   /** Highest tier that can be copied (Binary Merge upgrade and the rewarded twin). */
   twinMaxTier: number;

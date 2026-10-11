@@ -10,10 +10,12 @@
     "critMult": 6
   },
   "scan": {
-    "baseCost": 0.035,
-    "exponent": 5.3,
+    "baseCost": 0.0513,
+    "exponent": 5.2,
     "spawnDiscount": 1,
-    "doubleTierUpShare": 0.1
+    "doubleTierUpShare": 0.1,
+    "softCapUnits": 200,
+    "softCapExponent": 1.5
   },
   "absorbTaps": 15,
   "twinMaxTier": 7,

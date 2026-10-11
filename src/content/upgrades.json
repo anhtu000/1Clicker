@@ -1,19 +1,19 @@
 {
   "upgrades": [
-    {"id": "focus", "stat": "tapMult", "op": "mul", "value": 1.5, "max": 15, "show": {}, "costs": [1100,3000,8800,24000,43000,110000,250000,480000,1900000,8600000,18000000,46000000,160000000,830000000,3000000000]},
-    {"id": "slots", "stat": "slots", "op": "add", "value": 4, "max": 2, "show": {"tier": 4}, "costs": [79000,56000000]},
-    {"id": "discount", "stat": "scanCostMult", "op": "mul", "value": 0.88, "max": 5, "show": {"tier": 4}, "costs": [160000,9600000,99000000,960000000,7900000000]},
-    {"id": "probes", "stat": "autoTps", "op": "add", "value": 60, "max": 1, "show": {"tier": 5}, "noAd": true, "costs": [280000]},
-    {"id": "crit", "stat": "critChance", "op": "add", "value": 0.04, "max": 5, "show": {"tier": 5}, "costs": [390000,4800000,35000000,370000000,2300000000]},
-    {"id": "luck", "stat": "luck", "op": "add", "value": 0.3, "max": 5, "show": {"tier": 5}, "costs": [1300000,17000000,230000000,1400000000,12000000000]},
-    {"id": "fleet", "stat": "autoMult", "op": "mul", "value": 1.5, "max": 10, "show": {"upgrade": "probes"}, "costs": [340000,680000,1600000,4900000,11000000,35000000,71000000,470000000,1100000000,5600000000]},
-    {"id": "lens", "stat": "tierUpChance", "op": "add", "value": 0.06, "max": 5, "show": {"upgrade": "probes"}, "costs": [480000,11000000,66000000,840000000,3600000000]},
-    {"id": "binary", "stat": "twinChance", "op": "add", "value": 0.03, "max": 5, "show": {"upgrade": "probes"}, "costs": [880000,15000000,130000000,1000000000,8000000000]},
-    {"id": "starMagnet", "stat": "starRate", "op": "mul", "value": 0.85, "max": 3, "show": {"upgrade": "probes"}, "costs": [1900000,46000000,990000000]},
-    {"id": "deepScan", "stat": "spawnTier", "op": "add", "value": 1, "max": 3, "show": {"tier": 6}, "costs": [4800000,360000000,5700000000]},
-    {"id": "relay", "stat": "offlineCapHours", "op": "add", "value": 2, "max": 3, "show": {"tier": 6}, "costs": [8900000,690000000,12000000000]},
-    {"id": "thrusters", "stat": "autoMult", "op": "mul", "value": 1.15, "max": 4, "show": {"upgrade": "fleet", "level": 3}, "costs": [15000000,120000000,970000000,7100000000]},
-    {"id": "autoScan", "stat": "autoScanEvery", "op": "set", "values": [6,4,3,2,1.5], "max": 5, "show": {"tier": 7}, "costs": [49000000,210000000,1200000000,3300000000,14000000000]},
-    {"id": "autoMerge", "stat": "autoMergeEvery", "op": "set", "values": [5,3.5,2.5,1.5], "max": 4, "show": {"tier": 8}, "costs": [2100000000,6900000000,16000000000,22000000000]}
+    {"id": "focus", "stat": "tapMult", "op": "mul", "value": 1.5, "max": 15, "show": {}, "costs": [920,2700,9100,27000,70000,120000,180000,560000,2300000,12000000,19000000,69000000,230000000,1100000000,3000000000]},
+    {"id": "slots", "stat": "slots", "op": "add", "value": 4, "max": 2, "show": {"tier": 4}, "costs": [97000,98000000]},
+    {"id": "discount", "stat": "scanCostMult", "op": "mul", "value": 0.88, "max": 5, "show": {"tier": 4}, "costs": [150000,13000000,150000000,1200000000,5600000000]},
+    {"id": "probes", "stat": "autoTps", "op": "add", "value": 60, "max": 1, "show": {"tier": 5}, "noAd": true, "costs": [320000]},
+    {"id": "crit", "stat": "critChance", "op": "add", "value": 0.04, "max": 5, "show": {"tier": 5}, "costs": [380000,5500000,46000000,460000000,2600000000]},
+    {"id": "luck", "stat": "luck", "op": "add", "value": 0.3, "max": 5, "show": {"tier": 5}, "costs": [1300000,18000000,320000000,1700000000,5800000000]},
+    {"id": "fleet", "stat": "autoMult", "op": "mul", "value": 1.5, "max": 10, "show": {"upgrade": "probes"}, "costs": [360000,780000,1800000,5500000,15000000,45000000,110000000,580000000,1300000000,4500000000]},
+    {"id": "lens", "stat": "tierUpChance", "op": "add", "value": 0.04, "max": 5, "show": {"upgrade": "probes"}, "costs": [520000,14000000,100000000,1000000000,3000000000]},
+    {"id": "binary", "stat": "twinChance", "op": "add", "value": 0.03, "max": 5, "show": {"upgrade": "probes"}, "costs": [900000,17000000,190000000,1300000000,5600000000]},
+    {"id": "starMagnet", "stat": "starRate", "op": "mul", "value": 0.85, "max": 3, "show": {"upgrade": "probes"}, "costs": [2300000,71000000,1200000000]},
+    {"id": "deepScan", "stat": "spawnTier", "op": "add", "value": 1, "max": 3, "show": {"tier": 6}, "costs": [5200000,460000000,4500000000]},
+    {"id": "relay", "stat": "offlineCapHours", "op": "add", "value": 2, "max": 3, "show": {"tier": 6}, "costs": [12000000,850000000,6300000000]},
+    {"id": "thrusters", "stat": "autoMult", "op": "mul", "value": 1.15, "max": 4, "show": {"upgrade": "fleet", "level": 3}, "costs": [16000000,170000000,1300000000,5300000000]},
+    {"id": "autoScan", "stat": "autoScanEvery", "op": "set", "values": [6,4,3,2,1.5], "max": 5, "show": {"tier": 7}, "costs": [59000000,260000000,1100000000,3200000000,9900000000]},
+    {"id": "autoMerge", "stat": "autoMergeEvery", "op": "set", "values": [5,3.5,2.5,1.5], "max": 4, "show": {"tier": 8}, "costs": [2300000000,5200000000,9400000000,14000000000]}
   ]
 }
