@@ -35,7 +35,7 @@ Tham số URL để thử (thêm vào cuối link, ví dụ `?debug&fps=144`):
 
 | Tham số | Tác dụng |
 | --- | --- |
-| `?debug` | Bảng thông số ở góc dưới: fps, kích thước, độ phân giải, trạng thái tạm dừng, kết quả quảng cáo, dung lượng save. Không sửa được URL (ví dụ trong artifact) thì chạm 5 lần liên tiếp vào tên game ở menu |
+| `?debug` hoặc `#debug` | Bảng thông số ở góc dưới: fps, kích thước, độ phân giải, trạng thái tạm dừng, kết quả quảng cáo, dung lượng save. Trong artifact dùng `#debug` (đi kèm preset được: `#showcase+debug`), hoặc chạm 5 lần liên tiếp vào tên game ở màn Home. Dòng `game X ms/frame  raf Y/s` để tìm nguyên nhân fps thấp: `game` gần hoặc trên 16 ms là game nặng với máy đó; `game` nhỏ mà `raf` khoảng 30 là trình duyệt hoặc trang nhúng đang giới hạn khung hình; `game` nhỏ, `raf` 60 mà fps thấp là phần vẽ (GPU) |
 | `?fps=144` | Giả lập màn hình 144 Hz để kiểm tra tốc độ không phụ thuộc fps (cũng thử `30`) |
 | `?ads=fail` | Quảng cáo luôn báo không có quảng cáo |
 | `?ads=none` | Không có SDK quảng cáo, nút quảng cáo tự ẩn |

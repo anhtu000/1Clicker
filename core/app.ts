@@ -229,12 +229,14 @@ class App extends Emitter<{ language: [lang: string] }> {
     this.wirePause();
     this.startAutosave(config.autosaveSec ?? 5);
 
-    if (params.has('debug') && !this.clean) this.toggleDebug();
+    // #debug works where a query string is dropped (artifact pages); it can follow a preset: #showcase+debug.
+    const hashDebug = /^#(?:[a-z]+\+)*debug(?:\+|$)/.test(location.hash);
+    if ((params.has('debug') || hashDebug) && !this.clean) this.toggleDebug();
   }
 
   private debug: DebugOverlay | null = null;
 
-  /** Shows or hides the debug box. Also: ?debug in the URL, or tap the menu title 5 times. */
+  /** Shows or hides the debug box. Also: ?debug or #debug in the URL, or tap the menu title 5 times. */
   toggleDebug() {
     if (this.clean) return;
     if (this.debug) {

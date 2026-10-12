@@ -39,7 +39,9 @@ export interface SaveData {
 export const preset =
   __TARGET__ === 'web'
     ? // A link can carry #showcase where a query string is dropped (artifact pages).
-      (new URLSearchParams(location.search).get('preset') ?? (/^#[a-z]+$/.test(location.hash) ? location.hash.slice(1) : null))
+      // #debug is not a preset; #showcase+debug is the showcase with the debug box.
+      (new URLSearchParams(location.search).get('preset') ??
+        (/^#[a-z+]+$/.test(location.hash) ? (location.hash.slice(1).split('+').find((p) => p && p !== 'debug') ?? null) : null))
     : null;
 
 export const save = new SaveStore<SaveData>({
