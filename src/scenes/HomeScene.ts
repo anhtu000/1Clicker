@@ -57,9 +57,10 @@ export class HomeScene extends BaseScene {
 
     this.title = this.add.text(0, 0, game.title, { ...font, fontStyle: '900', fontSize: 84, color: '#ffffff', align: 'center' }).setOrigin(0.5);
     this.title.setShadow(0, 6, '#00000088', 10, false, true);
-    // Hidden switch for phone testing: 5 quick taps on the title show the debug box.
+    // Hidden switch for phone testing (web build only): 5 quick taps on the title show the debug box.
+    // Not in the portal build, where a player tapping the title could open it by accident.
     let taps: number[] = [];
-    this.title.setInteractive().on('pointerdown', () => {
+    if (__TARGET__ === 'web') this.title.setInteractive().on('pointerdown', () => {
       const now = performance.now();
       taps = [...taps.filter((t) => now - t < 2000), now];
       if (taps.length >= 5) {

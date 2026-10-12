@@ -207,12 +207,7 @@ export class PlayScene extends BaseScene {
       textColor: app.theme.surfaceText,
       onClick: () => this.showMenu(),
     }).setDepth(30);
-    this.menuDot = shapeImage(this, 0, 0, 'menu-dot', 22, 22, (g) => {
-      g.fillStyle(0xff5a6e, 1);
-      g.fillCircle(0, 0, 11);
-      g.lineStyle(3, 0xffffff, 1);
-      g.strokeCircle(0, 0, 11);
-    }).setDepth(31);
+    this.menuDot = shapeImage(this, 0, 0, 'menu-dot', 22, 22, drawMenuDot).setDepth(31);
     this.decorLayer = new DecorLayer(
       this,
       () => this.decorBlocked(),
@@ -353,6 +348,9 @@ export class PlayScene extends BaseScene {
     this.energyX = vp.portrait ? vp.width / 2 : this.core.x;
     this.goalLabel.setPosition(this.chainCenter.x, this.chainCenter.y + this.chainCenter.h / 2 + 16);
     this.menuDot.setPosition(this.menuBtn.x + 34, this.menuBtn.y - 34);
+    // Small baked icons follow the screen's sharpness after a resize.
+    setShape(this.energyIconG, 'hud-energy', 44, 44, (g) => energyIcon(g, 44, 0xffc23d));
+    setShape(this.menuDot, 'menu-dot', 22, 22, drawMenuDot);
     this.decorLayer?.layout();
     this.closeInfo();
   }
@@ -635,7 +633,10 @@ export class PlayScene extends BaseScene {
       this.revealOpen = false;
       const next = this.revealQueue.shift();
       if (next) return this.reveal(next);
-      if (body.r >= 2 && !save.data.tutorial.includes('rarity')) {
+      // Not before the "First merge!" panel, which introduces rarity (the first merge can roll an Epic).
+      // Saves from before that panel existed have the opening done ('goal') and keep the old behaviour.
+      const introDone = save.data.tutorial.includes('rarities') || save.data.tutorial.includes('goal');
+      if (body.r >= 2 && !save.data.tutorial.includes('rarity') && introDone) {
         this.queueOnce('rarity', [{ id: 'rarity', text: app.t('tut.rarity'), ack: app.t('tut.ok') }]);
       }
     });
@@ -1135,8 +1136,8 @@ export class PlayScene extends BaseScene {
       box(this.core.x, this.core.y, this.core.radius * 2.5, this.core.radius * 2.5),
       box(this.energyX, this.energyY, 420, 92),
       box(this.rateText.x, this.rateText.y, Math.max(380, this.rateText.displayWidth), 44),
-      // both rows of the chain and the goal line under them
-      box(this.chainCenter.x, this.chainCenter.y + 18, this.chainCenter.w + 20, this.chainCenter.h + 36),
+      // both rows of the chain (as drawn: the outer stages are narrower than their slots) and the goal line under them
+      box(this.chainCenter.x, this.chainCenter.y + 18, this.chainCenter.w * 0.8 + this.chainCenter.art + 10, this.chainCenter.h + 36),
       box(this.scanBtn.x, this.scanBtn.y, 300, 108),
       { ...this.shopRect },
       box(this.pauseBtn.x, this.pauseBtn.y, 88, 88),
@@ -1582,6 +1583,14 @@ export class PlayScene extends BaseScene {
     if (level === 0 && app.i18n.has(`${key}.descStart`)) return app.t(`${key}.descStart`);
     return app.t(`${key}.desc`);
   }
+}
+
+/** Red dot on the menu button while the daily gift waits. */
+function drawMenuDot(g: Phaser.GameObjects.Graphics) {
+  g.fillStyle(0xff5a6e, 1);
+  g.fillCircle(0, 0, 11);
+  g.lineStyle(3, 0xffffff, 1);
+  g.strokeCircle(0, 0, 11);
 }
 
 /** "Epic" -> "an Epic", "Rare" -> "a Rare" (English string only). */

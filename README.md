@@ -114,7 +114,7 @@ Các dịch vụ dùng qua `app`:
 - `app.openPause(scene)`, `app.toMenu()` mở màn tạm dừng, về menu.
 - `app.platform.happyTime()` khi người chơi đạt thành tích lớn, dùng ít.
 - `setShape(image, key, w, h, (g) => ...)`, `shapeImage(...)` vẽ hình tĩnh (nút, thẻ, khung) một lần thành texture rồi hiện bằng Image. Đừng để Graphics tĩnh trên màn hình: Phaser dựng lại Graphics mỗi khung, trên điện thoại tầm trung chỉ còn khoảng 20 fps (đo 12/10).
-- Trên điện thoại, `core/quality.ts` tự hạ độ phân giải canvas khi khung hình chậm hơn khoảng 50 fps, và màn 120 Hz được vẽ ở 60 khung/giây. Hộp debug: chạm vào để tự hạ mức, dòng `render` và `gpu` cho biết mức đang dùng và chip đồ hoạ. `?fixedres` tắt bộ tự hạ.
+- Trên điện thoại, `core/quality.ts` tự hạ độ phân giải canvas khi khung hình chậm hơn khoảng 50 fps, và màn 120 Hz được vẽ ở 60 khung/giây. Hộp debug (`?debug`, hoặc chạm tiêu đề màn Home 5 lần ở bản web): chạm vào để tự hạ mức, dòng `render` và `gpu` cho biết mức đang dùng và chip đồ hoạ. `?fixedres` tắt bộ tự hạ.
 
 ## Kinh tế và mô phỏng
 

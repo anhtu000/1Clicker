@@ -91,6 +91,9 @@ export class Button extends Phaser.GameObjects.Container {
       if (fire) this.opts.onClick();
     });
     scene.add.existing(this);
+    // The baked shapes follow the screen's sharpness: redraw when the scale changes (resize, rotation).
+    const off = app.viewport.on('change', () => this.redraw());
+    this.once(Phaser.GameObjects.Events.DESTROY, off);
   }
 
   setLabel(text: string) {

@@ -28,20 +28,10 @@ export class Core extends Phaser.GameObjects.Container {
     ensureCoreTexture(scene);
     this.halo = scene.add.image(0, 0, ensureSparkTexture(scene)).setBlendMode(Phaser.BlendModes.ADD).setTint(0x8f6bff).setAlpha(0.5);
     for (let i = 0; i < 2; i++) {
-      const { rx, ry } = ringAxes(i, RING_BASE);
-      const ring = shapeTexture(scene, `core-ring|${i}`, rx * 2, ry * 2, (g) => {
-        g.lineStyle(2, RING_COLORS[i], 0.35);
-        g.strokeEllipse(0, 0, rx * 2, ry * 2, 72);
-      });
-      const mr = 5 + i * 2;
-      const moon = shapeTexture(scene, `core-moon|${i}`, mr * 2, mr * 2, (g) => {
-        g.fillStyle(MOON_COLORS[i], 0.9);
-        g.fillCircle(0, 0, mr);
-      }, 1);
-      this.ringRes = ring.res;
-      this.rings.push(scene.add.image(0, 0, ring.key));
-      this.moons.push(scene.add.image(0, 0, moon.key).setScale(1 / moon.res));
+      this.rings.push(scene.add.image(0, 0, '__DEFAULT'));
+      this.moons.push(scene.add.image(0, 0, '__DEFAULT'));
     }
+    this.bakeRings();
     this.orb = scene.add.image(0, 0, CORE_KEY);
     this.add([this.halo, ...this.rings, ...this.moons, this.orb]);
     this.setInteractive(new Phaser.Geom.Circle(0, 0, 150), Phaser.Geom.Circle.Contains);
@@ -51,7 +41,27 @@ export class Core extends Phaser.GameObjects.Container {
     this.once(Phaser.GameObjects.Events.DESTROY, () => scene.events.off(Phaser.Scenes.Events.UPDATE, this.tick, this));
   }
 
+  /** Ring and moon textures at the screen's current sharpness (called again on each layout). */
+  private bakeRings() {
+    for (let i = 0; i < 2; i++) {
+      const { rx, ry } = ringAxes(i, RING_BASE);
+      const ring = shapeTexture(this.scene, `core-ring|${i}`, rx * 2, ry * 2, (g) => {
+        g.lineStyle(2, RING_COLORS[i], 0.35);
+        g.strokeEllipse(0, 0, rx * 2, ry * 2, 72);
+      });
+      const mr = 5 + i * 2;
+      const moon = shapeTexture(this.scene, `core-moon|${i}`, mr * 2, mr * 2, (g) => {
+        g.fillStyle(MOON_COLORS[i], 0.9);
+        g.fillCircle(0, 0, mr);
+      }, 1);
+      this.ringRes = ring.res;
+      this.rings[i].setTexture(ring.key);
+      this.moons[i].setTexture(moon.key).setScale(1 / moon.res);
+    }
+  }
+
   setRadius(r: number) {
+    this.bakeRings();
     this.radius = r;
     const hit = this.input?.hitArea as Phaser.Geom.Circle | undefined;
     hit?.setTo(0, 0, r * 1.35);
