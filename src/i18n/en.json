@@ -151,10 +151,122 @@
     "leaveText": "This run will not be kept. Your own galaxy is waiting.",
     "leave": "Leave",
     "stay": "Stay",
-    "endless": "Galaxy complete · Collection {n}/{total}",
+    "endless": "Collection {n}/{total}",
     "rank": "#{n} in your top 5",
     "records": "Your records",
     "noRecords": "No timed runs yet. Your fastest five will show here.",
     "viewRecords": "Your records ›"
+  },
+  "special": {
+    "cradleWorld": {
+      "name": "Cradle World",
+      "hint": "It loves oceans"
+    },
+    "haloGiant": {
+      "name": "Halo Giant",
+      "hint": "It wears storms"
+    },
+    "starburstCore": {
+      "name": "Starburst Core",
+      "hint": "It burns bright"
+    },
+    "quasar": {
+      "name": "Quasar",
+      "hint": "It swallows light"
+    },
+    "title": "Hidden discovery!",
+    "joins": "{name} joins your collection",
+    "only": "Only for the collection: it does not merge. Tap it to sell it for crystals.",
+    "ok": "Nice!",
+    "rowHint": "Galaxies are not the end. Some hide a secret when they meet another world.",
+    "hidden": "Hidden"
+  },
+  "crystal": {
+    "name": "Crystals",
+    "got": "+{n} crystals"
+  },
+  "collection": {
+    "title": "Collection",
+    "bodies": "Bodies {n}/{total}",
+    "hidden": "Hidden {n}/{total}",
+    "bonus": "Discoveries: +{n}% energy",
+    "odds": "1 in {n}",
+    "pity": "{rarity} guaranteed within {n} rolls",
+    "pityNote": "Odds per scan or merge, with your luck upgrades"
+  },
+  "menu": {
+    "title": "Menu",
+    "daily": "Daily gift",
+    "collection": "Collection",
+    "decor": "Decor shop",
+    "arrange": "Arrange decor",
+    "timed": "Timed run",
+    "leave": "Leave timed run",
+    "records": "Records",
+    "continue": "Continue",
+    "crystals": "{n} crystals",
+    "giftReady": "Your daily gift is ready"
+  },
+  "decor": {
+    "title": "Decor shop",
+    "backgrounds": "Backgrounds",
+    "planets": "Planets",
+    "ships": "Spacecraft",
+    "use": "Use",
+    "inUse": "In use",
+    "show": "Show",
+    "shown": "Shown",
+    "free": "Free",
+    "full": "Up to {n} decorations at once. Hide one first",
+    "noRoom": "No free space on screen. Move or hide one first",
+    "watch": "+{n}",
+    "arrange": "Arrange",
+    "arrangeHint": "Drag decorations to move them. They stay off the red game areas",
+    "done": "Done",
+    "arrangeInGame": "Place them from the menu during play",
+    "bought": "{name} is yours",
+    "name": {
+      "nebula": "Violet nebula",
+      "aurora": "Aurora",
+      "ember": "Ember",
+      "abyss": "Deep blue",
+      "rose": "Rose cloud",
+      "moon": "Moon",
+      "mars": "Mars",
+      "venus": "Venus",
+      "earth": "Earth",
+      "neptune": "Neptune",
+      "uranus": "Uranus",
+      "jupiter": "Jupiter",
+      "saturn": "Saturn",
+      "comet": "Comet",
+      "satellite": "Satellite",
+      "rocket": "Rocket",
+      "astronaut": "Astronaut",
+      "shuttle": "Shuttle",
+      "ufo": "UFO",
+      "station": "Space station"
+    }
+  },
+  "info": {
+    "tier": "Tier {n} of {total}",
+    "makes": "Two of them make a {name}",
+    "goal": "The end of the chain. Or is it?",
+    "special": "Collectible. It does not merge",
+    "sell": "Sell"
+  },
+  "full": {
+    "title": "Board full",
+    "text": "Nothing left to merge. Feed a body to the core to free a slot.",
+    "feed": "Feed the {name}",
+    "ad": "Energy x{n}",
+    "sell": "Sell for {n}",
+    "menu": "Main menu",
+    "tip": "You can drag any body onto the core at any time."
+  },
+  "daily": {
+    "energy": "{n} min",
+    "crystals": "+{n}",
+    "crystalsLabel": "{n} crystals"
   }
 }

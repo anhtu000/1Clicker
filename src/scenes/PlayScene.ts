@@ -13,6 +13,7 @@ import {
   Panel,
   secondsAway,
   showOfflinePanel,
+  rewardButton,
   soundButton,
   toast,
   Tutorial,
@@ -20,12 +21,12 @@ import {
   type ViewportInfo,
 } from '@core';
 import { content } from '../game/content';
-import type { UpgradeDef } from '../logic/content.ts';
 import { addRecord } from '../logic/records.ts';
-import { newRunState, Run, type MergeResult, type NewBody } from '../logic/run.ts';
+import { isSpecialKey, newRunState, Run, type Body, type MergeResult, type NewBody } from '../logic/run.ts';
+import type { SpecialDef, UpgradeDef } from '../logic/content.ts';
 import { SpaceBackground } from '../render/background';
-import { ensureAuraTexture, ensureBodyTexture } from '../render/bodies';
-import { energyIcon, UPGRADE_ICONS } from '../render/icons';
+import { ensureAnyBodyTexture, ensureAuraTexture, ensureBodyTexture, ensureSpecialTexture } from '../render/bodies';
+import { arrangeIcon, collectionIcon, crystalIcon, decorIcon, energyIcon, menuIcon, stopwatchIcon, trophyIcon, UPGRADE_ICONS } from '../render/icons';
 import { RARITY_COLOR, RARITY_CSS } from '../render/palette';
 import { applyPreset } from '../game/presets';
 import { preset, save } from '../save';
@@ -34,6 +35,14 @@ import { Core } from '../ui/Core';
 import { showReveal } from '../ui/Reveal';
 import { ShootingStar } from '../ui/ShootingStar';
 import { BOOST_CARD, UpgradeList, type Boost } from '../ui/UpgradeList';
+import { showCollection } from '../ui/CollectionPanel';
+import { BodyInfo } from '../ui/BodyInfo';
+import { DecorLayer } from '../ui/DecorLayer';
+import { showDecorShop } from '../ui/DecorShop';
+import { showGameMenu, type MenuEntry } from '../ui/GameMenu';
+import { drawRecords, showRecords } from '../ui/RecordsPanel';
+import { addCrystals, dailyClaimable, openDaily, takeDailyOffer } from '../game/meta';
+import type { Rect } from '../logic/decor.ts';
 
 const STEP_SEC = 0.1;
 /** Seconds the boost card offers a copy after a merge. Longer than a button on the board needed: the shop is further away. */
@@ -58,8 +67,22 @@ export class PlayScene extends BaseScene {
   private autoShown = '';
   private pauseBtn!: Button;
   private soundBtn!: Button;
-  /** Main run: start a timed run (after the first Galaxy). Timed run: back to the main run. */
-  private modeBtn!: Button;
+  /** Menu: collection, decor, daily gift, timed runs, records (CLAUDE.md 4b). */
+  private menuBtn!: Button;
+  /** Red dot on the menu button while the daily gift waits. */
+  private menuDot!: Phaser.GameObjects.Graphics;
+  private decorLayer!: DecorLayer;
+  /** Card of the body last tapped. */
+  private info: BodyInfo | null = null;
+  private infoSlot = -1;
+  private infoBody: Body | null = null;
+  /** The card a tap just closed: tapping the same body again closes its card instead of reopening it. */
+  private infoClosed = { slot: -1, at: 0 };
+  /** Board stuck (full, nothing to merge, no slot to buy) since this run time, and whether its panel showed. */
+  private stuckSince: number | null = null;
+  private stuckShown = false;
+  /** The shop's area, kept clear of decorations. */
+  private shopRect: Rect = { x: 0, y: 0, w: 0, h: 0 };
   private timerText!: Phaser.GameObjects.Text;
   private bestText!: Phaser.GameObjects.Text;
   /** The Galaxy was made: show the finish panel once nothing else is on screen. */
@@ -96,10 +119,15 @@ export class PlayScene extends BaseScene {
     this.starsCaught = 0;
     this.revealOpen = false;
     this.revealQueue = [];
+    this.discoveryQueue = [];
     this.queued = new Set();
     this.finishPending = null;
     this.openPanels = 0;
     this.switching = false;
+    this.info = null;
+    this.infoSlot = -1;
+    this.stuckSince = null;
+    this.stuckShown = false;
 
     if (preset) applyPreset(preset, save.data);
     if (!save.data.run) save.data.run = newRunState(content, 'main', app.rng.int(1, 2 ** 31 - 1));
@@ -109,7 +137,7 @@ export class PlayScene extends BaseScene {
     if (!save.data.records.length && save.data.bestRunMs) save.data.records = [{ ms: save.data.bestRunMs, at: 0, merges: 0, scans: 0, rarity: 0 }];
     this.run = new Run(content, state, save.data.codex);
 
-    this.bg = new SpaceBackground(this);
+    this.bg = new SpaceBackground(this, save.data.decor.bg);
     this.core = new Core(this, (x, y) => this.tapCore(x, y));
     this.core.setDepth(8);
 
@@ -128,6 +156,8 @@ export class PlayScene extends BaseScene {
     this.board = new Board(this, this.run, {
       onDrop: (from, to) => this.dropOnSlot(from, to),
       onDropOutside: (from, x, y) => this.dropOutside(from, x, y),
+      onTap: (slot) => this.showBodyInfo(slot),
+      onDragStart: () => this.closeInfo(),
       dropZone: () => ({ x: this.core.x, y: this.core.y, r: this.core.radius * 1.25 }),
     });
 
@@ -159,20 +189,32 @@ export class PlayScene extends BaseScene {
     }).setDepth(30);
     this.soundBtn = soundButton(this, 0, 0, 88).setDepth(30);
     const timed = this.run.s.mode === 'speedrun';
-    this.modeBtn = new Button(this, 0, 0, {
-      icon: timed ? icons.homeIcon : stopwatchIcon,
+    this.menuBtn = new Button(this, 0, 0, {
+      icon: menuIcon,
       width: 88,
       height: 88,
       color: app.theme.surface,
       textColor: app.theme.surfaceText,
-      onClick: () => (timed ? this.showLeavePanel() : this.showTimedPanel()),
+      onClick: () => this.showMenu(),
     }).setDepth(30);
+    this.menuDot = this.add.graphics().setDepth(31);
+    this.menuDot.fillStyle(0xff5a6e, 1);
+    this.menuDot.fillCircle(0, 0, 11);
+    this.menuDot.lineStyle(3, 0xffffff, 1);
+    this.menuDot.strokeCircle(0, 0, 11);
+    this.decorLayer = new DecorLayer(
+      this,
+      () => this.decorBlocked(),
+      () => ({ x: this.shopRect.x + this.shopRect.w / 2, y: this.shopRect.y + this.shopRect.h / 2, w: this.shopRect.w }),
+    );
     this.timerText = this.add.text(0, 0, '', { ...font, fontStyle: '900', fontSize: 34, color: '#ffffff' }).setDepth(30);
     this.bestText = this.add.text(0, 0, '', { ...font, fontStyle: '700', fontSize: 22, color: '#b9b4d9' }).setDepth(30);
     this.timerText.setVisible(timed);
     this.bestText.setVisible(timed).setText(save.data.bestRunMs ? app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) }) : '');
-    // Esc closes an open panel (the panel handles it); otherwise it pauses.
+    // Esc closes an open panel (the panel handles it) or ends arranging; otherwise it pauses.
     this.input.keyboard?.on('keydown-ESC', () => {
+      if (this.decorLayer.arranging) return this.decorLayer.endArrange();
+      if (this.info?.isOpen) return this.closeInfo();
       if (!this.panelsOnScreen()) app.openPause(this);
     });
     // Space taps the core on a computer (CLAUDE.md 4.2). Holding the key does not repeat.
@@ -191,6 +233,7 @@ export class PlayScene extends BaseScene {
 
     this.board.sync();
     this.shop.refresh(true);
+    this.decorLayer.sync();
     this.shownEnergy = this.run.s.energy;
     this.startIntro();
     this.welcomeBack();
@@ -237,11 +280,12 @@ export class PlayScene extends BaseScene {
       this.scanBtn.setPosition(withAuto ? cx - 94 : cx, rowY);
       this.autoBtn.setPosition(cx + 156, rowY);
       this.shop.layout(0, stripTop, vp.width, stripH, true);
+      this.shopRect = { x: 0, y: stripTop, w: vp.width, h: vp.height - stripTop };
       // Pause and sound together in the top-left corner, clear of the centered energy counter.
       this.pauseBtn.setPosition(52, y0 + 52);
       this.soundBtn.setPosition(150, y0 + 52);
-      // Timed run controls on the right, clear of the centered energy counter.
-      this.modeBtn.setPosition(vp.width - 52, y0 + 52);
+      // Menu and the timed run's clock on the right, clear of the centered energy counter.
+      this.menuBtn.setPosition(vp.width - 52, y0 + 52);
       this.timerText.setOrigin(1, 0.5).setPosition(vp.width - 16, y0 + 122);
       this.bestText.setOrigin(1, 0.5).setPosition(vp.width - 16, y0 + 156);
     } else {
@@ -249,12 +293,13 @@ export class PlayScene extends BaseScene {
       // top to bottom, is the upgrade column; core column and board share the rest, centered.
       this.pauseBtn.setPosition(56, 56);
       this.soundBtn.setPosition(156, 56);
-      this.modeBtn.setPosition(256, 56);
+      this.menuBtn.setPosition(256, 56);
       this.timerText.setOrigin(0, 0.5).setPosition(316, 40);
       this.bestText.setOrigin(0, 0.5).setPosition(316, 76);
       const shopW = 320;
       const shopX = vp.width - shopW - 16;
       this.shop.layout(shopX, 16, shopW, vp.height - 32, false);
+      this.shopRect = { x: shopX, y: 0, w: vp.width - shopX, h: vp.height };
 
       const colW = 380; // energy, core, goal chain, scan
       const playRight = shopX - 20;
@@ -279,6 +324,9 @@ export class PlayScene extends BaseScene {
     this.energyY = this.energyText.y;
     this.energyX = vp.portrait ? vp.width / 2 : this.core.x;
     this.goalLabel.setPosition(this.chainCenter.x, this.chainCenter.y + 42);
+    this.menuDot.setPosition(this.menuBtn.x + 34, this.menuBtn.y - 34);
+    this.decorLayer?.layout();
+    this.closeInfo();
   }
 
   private chainCenter = { x: 0, y: 0, w: 0 };
@@ -323,6 +371,10 @@ export class PlayScene extends BaseScene {
   update(_time: number, delta: number) {
     if (this.timerText.visible) this.timerText.setText(formatClock(this.run.s.finishedAt ?? this.run.s.time));
     if (!this.revealOpen && this.revealQueue.length && !this.panelsOnScreen()) this.reveal(this.revealQueue.shift()!);
+    if (!this.revealOpen && this.discoveryQueue.length && !this.panelsOnScreen()) {
+      const next = this.discoveryQueue.shift()!;
+      this.showDiscoveryPanel(next.special, next.rarity);
+    }
     if (this.finishPending && !this.revealOpen && !this.panelsOnScreen() && !this.tutorial.active) {
       const done = this.finishPending;
       this.finishPending = null;
@@ -380,13 +432,23 @@ export class PlayScene extends BaseScene {
     this.refreshGoal();
     this.shop.refresh();
     this.checkTutorialTriggers();
+    this.checkStuck();
+    // The card of a body that merged, moved or left closes.
+    if (this.info?.isOpen && this.run.s.board[this.infoSlot] !== this.infoBody) this.closeInfo();
+    // A new player gets the gift once the first purchase is done, not in the middle of the opening steps.
+    if (this.calm() && save.data.tutorial.includes('buy') && takeDailyOffer()) this.showDaily();
+  }
+
+  /** Nothing else on screen: no panel, reveal, tutorial step, arranging or switch. */
+  private calm() {
+    return !this.revealOpen && !this.panelsOnScreen() && !this.tutorial.active && !this.decorLayer.arranging && !this.switching;
   }
 
   // ---------- actions ----------
 
   private spaceAllowed() {
     const id = this.tutorial.currentId;
-    return !this.revealOpen && !this.panelsOnScreen() && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
+    return !this.revealOpen && !this.panelsOnScreen() && !this.decorLayer.arranging && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
   }
 
   /** Any modal panel open: ours, or the framework's (welcome back, daily gift). */
@@ -438,7 +500,14 @@ export class PlayScene extends BaseScene {
 
   private dropOnSlot(from: number, to: number) {
     const run = this.run;
-    if (run.canMerge(from, to)) {
+    if (run.fusionOf(from, to)) {
+      // A Galaxy meets a planet, gas giant, star or black hole: a hidden body (CLAUDE.md 4b item 8).
+      const made = run.fuse(from, to)!;
+      this.board.mergeInto(from, to);
+      this.board.sync([made.slot]);
+      this.fusionFx(made);
+      this.refreshUi();
+    } else if (run.canMerge(from, to)) {
       const result = run.merge(from, to)!;
       this.board.mergeInto(from, to);
       this.board.sync([result.slot, ...(result.twin ? [result.twin.slot] : [])]);
@@ -548,6 +617,64 @@ export class PlayScene extends BaseScene {
     if (result.finished) this.finish(result.body.r);
   }
 
+  /** Collection screen: odds and pity follow the run on screen; the bonus is the collection's. */
+  private showCollectionPanel() {
+    const found = save.data.codex.found;
+    let bonus = 0;
+    for (const key of Object.keys(found)) if (!isSpecialKey(key)) bonus += content.rarities[Number(key.split('.')[1])]?.codexBonus ?? 0;
+    this.openPanels += 1;
+    showCollection(
+      this,
+      {
+        content,
+        found,
+        odds: this.run.rarityOdds(),
+        pity: content.pity.map((rule, i) => ({ rarity: rule.minTier, left: this.run.pityLeft(i) })),
+        bonus,
+      },
+      () => (this.openPanels = Math.max(0, this.openPanels - 1)),
+    );
+  }
+
+  /** A hidden body was made: gold burst, and the discovery panel the first time. */
+  private fusionFx(made: NewBody & { special: SpecialDef }) {
+    const p = this.board.slotPos(made.slot);
+    burst(this, p.x, p.y, 0xffd166, 40, 520);
+    burst(this, p.x, p.y, 0x9fd8ff, 24, 380);
+    this.board.sprite(made.slot)?.bump(0.4);
+    app.audio.play('reward');
+    app.haptic(30);
+    app.moments.emit('collectionNew', { id: `s.${made.special.id}.${made.body.r}` });
+    const name = `${app.t(`rarity.${content.rarities[made.body.r].id}`)} ${app.t(`special.${made.special.id}.name`)}`;
+    if (!made.isNew) {
+      floatText(this, p.x, p.y - 50, name, { color: RARITY_CSS[made.body.r], size: 36 });
+      return;
+    }
+    // Shown once the screen is clear, like the Galaxy panel.
+    this.discoveryQueue.push({ special: made.special, rarity: made.body.r });
+  }
+
+  private discoveryQueue: { special: SpecialDef; rarity: number }[] = [];
+
+  private showDiscoveryPanel(special: SpecialDef, rarity: number) {
+    const panel = this.openPanel({ title: app.t('special.title'), width: 600, height: 640, closable: false });
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    const y0 = panel.top + 100;
+    const glow = this.add.image(0, y0, ensureAuraTexture(this, Math.max(1, rarity))).setScale(1.6).setBlendMode(Phaser.BlendModes.ADD).setAlpha(0.8);
+    const img = this.add.image(0, y0, ensureSpecialTexture(this, special.id, special.tier, rarity)).setScale(1.25);
+    this.tweens.add({ targets: [glow, img], angle: 360, duration: 30000, repeat: -1 });
+    const label = `${app.t(`rarity.${content.rarities[rarity].id}`)} ${app.t(`special.${special.id}.name`)}`;
+    const name = this.add.text(0, y0 + 140, label, { ...font, fontStyle: '900', fontSize: 40, color: RARITY_CSS[rarity] }).setOrigin(0.5);
+    if (name.width > panel.panelWidth - 60) name.setScale((panel.panelWidth - 60) / name.width);
+    const text = this.add
+      .text(0, y0 + 220, app.t('special.only'), { ...font, fontStyle: '700', fontSize: 26, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
+      .setOrigin(0.5);
+    const ok = new Button(this, 0, panel.bottom - 80, { label: app.t('special.ok'), width: 260, height: 96, fontSize: 34, onClick: () => panel.close() });
+    panel.content.add([glow, img, name, text, ok]);
+    const vp = this.vp;
+    for (let i = 0; i < 5; i++) this.time.delayedCall(i * 160, () => burst(this, vp.width * (0.25 + Math.random() * 0.5), vp.height * (0.2 + Math.random() * 0.3), [0xffd166, 0x9fd8ff, 0xff7ad9][i % 3], 24, 480));
+  }
+
   // ---------- rewarded boosts (one card at the front of the shop, CLAUDE.md 4b) ----------
 
   /** After a merge: the boost card offers a copy of the result for a few seconds. */
@@ -611,6 +738,7 @@ export class PlayScene extends BaseScene {
     this.autoShown = state;
     this.autoBtn.setVisible(has);
     if (appeared && this.vp.portrait) this.layout(this.vp);
+    else if (appeared) this.decorLayer.layout();
     this.autoBtn.setLabel(app.t(on ? 'scan.autoOn' : 'scan.autoOff'));
     // Green while it spends energy on its own; plain when off.
     this.autoBtn.setColor(on ? app.theme.reward : app.theme.surface, on ? app.theme.rewardText : app.theme.surfaceText);
@@ -701,7 +829,9 @@ export class PlayScene extends BaseScene {
   // ---------- end of a run: finish panel, timed runs (CLAUDE.md 4b, item 7) ----------
 
   private collectionCount() {
-    return { n: Object.keys(save.data.codex.found).length, total: content.tiers.length * content.rarities.length };
+    const keys = Object.keys(save.data.codex.found);
+    const hidden = keys.filter(isSpecialKey).length;
+    return { n: keys.length - hidden, total: content.tiers.length * content.rarities.length, hidden, hiddenTotal: content.specials.length * content.rarities.length };
   }
 
   /** A modal panel that keeps count of what is open. */
@@ -710,42 +840,9 @@ export class PlayScene extends BaseScene {
     return new Panel(this, { ...options, onClose: () => (this.openPanels = Math.max(0, this.openPanels - 1)) });
   }
 
-  /** Rows of the records board, from y (relative to the panel center). Returns the height used. */
-  private drawRecords(panel: Panel, y: number, highlight: number | null): number {
-    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
-    const list = save.data.records;
-    const W = panel.panelWidth - 72;
-    const rowH = 52;
-    if (!list.length) {
-      const empty = this.add
-        .text(0, y + 30, app.t('finish.noRecords'), { ...font, fontStyle: '700', fontSize: 26, color: app.theme.textDim, align: 'center', wordWrap: { width: W } })
-        .setOrigin(0.5);
-      panel.content.add(empty);
-      return 70;
-    }
-    list.forEach((r, i) => {
-      const cy = y + rowH / 2 + i * rowH;
-      const mine = highlight === i + 1;
-      const bg = this.add.graphics();
-      bg.fillStyle(mine ? 0xffc23d : 0x000000, mine ? 0.2 : i % 2 ? 0.12 : 0.22);
-      bg.fillRoundedRect(-W / 2, cy - rowH / 2 + 3, W, rowH - 6, 12);
-      const color = mine ? '#ffd166' : '#ffffff';
-      const rank = this.add.text(-W / 2 + 18, cy, `#${i + 1}`, { ...font, fontStyle: '900', fontSize: 26, color: app.theme.textDim }).setOrigin(0, 0.5);
-      const time = this.add.text(-W / 2 + 82, cy, formatClock(r.ms / 1000), { ...font, fontStyle: '900', fontSize: 28, color }).setOrigin(0, 0.5);
-      const rarity = this.add
-        .text(W * 0.06, cy, app.t(`rarity.${content.rarities[r.rarity]?.id ?? 'common'}`), { ...font, fontStyle: '700', fontSize: 24, color: RARITY_CSS[r.rarity] ?? '#ffffff' })
-        .setOrigin(0, 0.5);
-      const date = r.at ? new Date(r.at).toLocaleDateString('en', { day: 'numeric', month: 'short' }) : '';
-      const when = this.add.text(W / 2 - 18, cy, date, { ...font, fontStyle: '700', fontSize: 22, color: app.theme.textDim }).setOrigin(1, 0.5);
-      panel.content.add([bg, rank, time, rarity, when]);
-    });
-    return list.length * rowH;
-  }
-
   private showRecordsPanel(highlight: number | null) {
-    const rows = Math.max(1, save.data.records.length);
-    const panel = this.openPanel({ title: app.t('finish.records'), width: 600, height: 120 + rows * 52 + 80 });
-    this.drawRecords(panel, panel.top - 10, highlight);
+    this.openPanels += 1;
+    showRecords(this, highlight, () => (this.openPanels = Math.max(0, this.openPanels - 1)));
   }
 
   /** Two buttons of the same size side by side, for the bottom of a panel. */
@@ -883,7 +980,7 @@ export class PlayScene extends BaseScene {
       .setOrigin(0.5);
     const head = this.add.text(0, panel.top + 112, app.t('finish.records'), { ...font, fontStyle: '900', fontSize: 26, color: '#ffd166' }).setOrigin(0.5);
     panel.content.add([text, head]);
-    this.drawRecords(panel, panel.top + 136, null);
+    drawRecords(this, panel, panel.top + 136, null);
     this.panelButtons(panel, panel.bottom - 80, { label: app.t('finish.cancel'), onClick: () => panel.close() }, { label: app.t('finish.start'), onClick: () => void this.startTimedRun() });
   }
 
@@ -925,11 +1022,282 @@ export class PlayScene extends BaseScene {
     if (done) {
       const { n, total } = this.collectionCount();
       this.goalLabel.setText(app.t('finish.endless', { n, total }));
+      // Keep it inside its column.
+      const room = this.chainCenter.w + 20;
+      this.goalLabel.setScale(this.goalLabel.width > room ? room / this.goalLabel.width : 1);
     } else {
-      this.goalLabel.setText(app.t('hud.goal', { name: app.t('tier.galaxy') }));
+      this.goalLabel.setText(app.t('hud.goal', { name: app.t('tier.galaxy') })).setScale(1);
     }
-    // The stopwatch shows once a Galaxy has been made; in a timed run the button leads home.
-    this.modeBtn.setVisible(this.run.s.mode === 'speedrun' || save.data.firstFinishMs > 0);
+    // The menu shows once the opening steps are done, so it does not pull a new player away from the core.
+    const menuOn = this.run.s.mode === 'speedrun' || save.data.tutorial.includes('goal');
+    this.menuBtn.setVisible(menuOn);
+    this.menuDot.setVisible(menuOn && dailyClaimable());
+  }
+
+  // ---------- menu, body card, decorations, stuck board (CLAUDE.md 4b items 8-10) ----------
+
+  private showMenu() {
+    if (this.panelsOnScreen() || this.switching || this.decorLayer.arranging) return;
+    this.closeInfo();
+    const timed = this.run.s.mode === 'speedrun';
+    const entries: MenuEntry[] = [
+      { label: app.t('menu.daily'), icon: icons.giftIcon, badge: dailyClaimable(), onClick: () => this.showDaily() },
+      { label: app.t('menu.collection'), icon: collectionIcon, onClick: () => this.showCollectionPanel() },
+      { label: app.t('menu.decor'), icon: decorIcon, onClick: () => this.openDecorShop() },
+    ];
+    if (save.data.decor.shown.length) entries.push({ label: app.t('menu.arrange'), icon: arrangeIcon, onClick: () => this.arrangeDecor() });
+    if (timed) entries.push({ label: app.t('menu.leave'), icon: icons.homeIcon, onClick: () => this.showLeavePanel() });
+    else if (save.data.firstFinishMs > 0) entries.push({ label: app.t('menu.timed'), icon: stopwatchIcon, onClick: () => this.showTimedPanel() });
+    if (save.data.records.length) entries.push({ label: app.t('menu.records'), icon: trophyIcon, onClick: () => this.showRecordsPanel(null) });
+    this.openPanels += 1;
+    showGameMenu(this, entries, () => (this.openPanels = Math.max(0, this.openPanels - 1)));
+  }
+
+  private showDaily() {
+    this.openPanels += 1;
+    openDaily(
+      this,
+      this.run,
+      () => this.refreshUi(),
+      () => (this.openPanels = Math.max(0, this.openPanels - 1)),
+    );
+  }
+
+  private openDecorShop() {
+    this.openPanels += 1;
+    showDecorShop(this, {
+      onBackground: (id) => this.bg.setTheme(id),
+      showItem: (id) => this.decorLayer.show(id),
+      hideItem: (id) => this.decorLayer.hide(id),
+      onArrange: () => this.arrangeDecor(),
+      onClose: () => (this.openPanels = Math.max(0, this.openPanels - 1)),
+    });
+  }
+
+  private arrangeDecor() {
+    this.closeInfo();
+    this.decorLayer.arrange(() => save.flush());
+  }
+
+  /** Areas decorations keep off: the board, the core column, the shop and every button, with a margin. */
+  private decorBlocked(): Rect[] {
+    const pad = 10;
+    const box = (x: number, y: number, w: number, h: number): Rect => ({ x: x - w / 2 - pad, y: y - h / 2 - pad, w: w + pad * 2, h: h + pad * 2 });
+    const vp = this.vp;
+    const list: Rect[] = [
+      box(this.board.x, this.board.y, this.board.size, this.board.size),
+      box(this.core.x, this.core.y, this.core.radius * 2.5, this.core.radius * 2.5),
+      box(this.energyX, this.energyY, 420, 92),
+      box(this.rateText.x, this.rateText.y, 380, 44),
+      box(this.chainCenter.x, this.chainCenter.y + 14, this.chainCenter.w + 20, 104),
+      box(this.scanBtn.x, this.scanBtn.y, 300, 108),
+      { ...this.shopRect },
+      box(this.pauseBtn.x, this.pauseBtn.y, 88, 88),
+      box(this.soundBtn.x, this.soundBtn.y, 88, 88),
+      box(this.menuBtn.x, this.menuBtn.y, 88, 88),
+    ];
+    // Shown only in some runs: items there move aside for that run and come back after (saved spots stay).
+    if (this.autoBtn.visible) list.push(box(this.autoBtn.x, this.autoBtn.y, 176, 88));
+    if (this.timerText.visible) {
+      if (vp.portrait) list.push({ x: vp.width - 240, y: this.timerText.y - 30, w: 240, h: 96 });
+      else list.push({ x: this.timerText.x - pad, y: 10, w: 230, h: 96 });
+    }
+    return list;
+  }
+
+  private closeInfo() {
+    this.info?.close();
+    this.info = null;
+    this.infoSlot = -1;
+    this.infoBody = null;
+  }
+
+  /** Tapping a body shows its name, rarity and what it makes; a hidden body can be sold here. */
+  private showBodyInfo(slot: number) {
+    const body = this.run.s.board[slot];
+    const same = (this.infoSlot === slot && this.info?.isOpen) || (this.infoClosed.slot === slot && performance.now() - this.infoClosed.at < 400);
+    this.closeInfo();
+    this.infoClosed.slot = -1;
+    if (!body || same || this.revealOpen || this.panelsOnScreen() || this.decorLayer.arranging) return;
+    const tid = this.tutorial.currentId;
+    if (tid && tid !== 'tap' && tid !== 'tapPower') return;
+    const rarity = app.t(`rarity.${content.rarities[body.r].id}`);
+    const goal = content.economy.goalTier;
+    const p = this.board.slotPos(slot);
+    const lines: string[] = [];
+    let title: string;
+    let action: { label: string; icon?: icons.IconDraw; onClick: () => void } | undefined;
+    if (body.s) {
+      title = `${rarity} ${app.t(`special.${body.s}.name`)}`;
+      lines.push(app.t('info.special'));
+      const value = this.run.sellValue(body);
+      action = { label: `${app.t('info.sell')}  ${value}`, icon: crystalIcon, onClick: () => this.sellBody(slot) };
+    } else {
+      title = `${rarity} ${app.t(`tier.${content.tiers[body.t - 1].id}`)}`;
+      lines.push(app.t('info.tier', { n: body.t, total: goal }));
+      if (body.t < goal) lines.push(app.t('info.makes', { name: app.t(`tier.${content.tiers[body.t].id}`) }));
+      else lines.push(app.t('info.goal'));
+    }
+    this.info = new BodyInfo(this, {
+      x: p.x,
+      y: p.y,
+      radius: this.board.cell / 2,
+      texture: ensureAnyBodyTexture(this, body),
+      title,
+      titleColor: RARITY_CSS[body.r],
+      lines,
+      action,
+      onClose: () => (this.infoClosed = { slot, at: performance.now() }),
+    });
+    this.infoSlot = slot;
+    this.infoBody = body;
+  }
+
+  /** Hidden body sold for crystals (CLAUDE.md 4b item 9). It stays in the collection. */
+  private sellBody(slot: number) {
+    const body = this.run.s.board[slot];
+    if (!body?.s) return;
+    const value = this.run.sellValue(body);
+    const p = this.board.slotPos(slot);
+    this.closeInfo();
+    this.run.removeBody(slot);
+    this.board.sync();
+    addCrystals(this, value, true);
+    floatText(this, p.x, p.y - 30, app.t('crystal.got', { n: value }), { color: '#bff4ff', size: 40 });
+    burst(this, p.x, p.y, 0x7fe8ff, 24, 380);
+    app.audio.play('reward', { volume: 0.8 });
+    this.refreshUi();
+  }
+
+  /**
+   * Board full, nothing to merge, no slot to buy (CLAUDE.md 4b): after a few seconds a panel offers
+   * to feed the weakest body to the core, or the same for energy x5 by ad, or the main menu.
+   * Once per stuck spell: it comes back only after the board has moved again.
+   */
+  private checkStuck() {
+    const run = this.run;
+    if (!run.isStuck() || (run.s.finishedAt !== null && run.s.mode === 'speedrun')) {
+      this.stuckSince = null;
+      this.stuckShown = false;
+      return;
+    }
+    if (this.stuckShown || !save.data.tutorial.includes('full')) return;
+    if (!this.calm()) {
+      this.stuckSince = null;
+      return;
+    }
+    this.stuckSince ??= run.s.time;
+    if (run.s.time - this.stuckSince < content.economy.rewarded.clearSlot.afterSec) return;
+    this.stuckShown = true;
+    this.showBoardFull();
+  }
+
+  private showBoardFull() {
+    const run = this.run;
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    // The body that would go: the weakest one, or the cheapest hidden one when only those are left.
+    let slot = run.weakestSlot();
+    if (slot < 0) {
+      let best = Infinity;
+      run.s.board.forEach((b, i) => {
+        if (b?.s && i < run.slots && run.sellValue(b) < best) {
+          best = run.sellValue(b);
+          slot = i;
+        }
+      });
+    }
+    const body = run.s.board[slot];
+    if (!body) return;
+    // Landscape: the body on the left, the choices on the right, so it fits a 16:9 frame.
+    const wide = !this.vp.portrait;
+    const panel = this.openPanel({ title: app.t('full.title'), width: wide ? 900 : 640, height: wide ? 600 : 860 });
+    const W = panel.panelWidth;
+    const text = this.add
+      .text(0, panel.top + 24, app.t('full.text'), { ...font, fontStyle: '700', fontSize: 28, color: app.theme.surfaceText, align: 'center', wordWrap: { width: W - 90 } })
+      .setOrigin(0.5);
+    const imgX = wide ? -W / 4 + 10 : 0;
+    const imgY = wide ? panel.top + 180 : panel.top + 170;
+    const img = this.add.image(imgX, imgY, ensureAnyBodyTexture(this, body)).setScale(wide ? 0.9 : 0.8);
+    const name = body.s ? app.t(`special.${body.s}.name`) : app.t(`tier.${content.tiers[body.t - 1].id}`);
+    const label = this.add
+      .text(imgX, imgY + 100, `${app.t(`rarity.${content.rarities[body.r].id}`)} ${name}`, { ...font, fontStyle: '900', fontSize: 28, color: RARITY_CSS[body.r] })
+      .setOrigin(0.5);
+    panel.content.add([text, img, label]);
+    const bx = wide ? W / 4 - 10 : 0;
+    const bw = wide ? 380 : 440;
+    const by = wide ? panel.top + 130 : panel.top + 340;
+    if (body.s) {
+      const sell = new Button(this, bx, by, {
+        label: app.t('full.sell', { n: run.sellValue(body) }),
+        icon: crystalIcon,
+        width: bw,
+        height: 96,
+        fontSize: 32,
+        onClick: () => {
+          panel.close();
+          this.sellBody(slot);
+        },
+      });
+      panel.content.add(sell);
+    } else {
+      const feed = new Button(this, bx, by, {
+        label: app.t('full.feed', { name }),
+        width: bw,
+        height: 96,
+        fontSize: 32,
+        onClick: () => {
+          panel.close();
+          this.feedToCore(slot, 1);
+        },
+      });
+      if (feed.width > bw) feed.setScale(bw / feed.width);
+      const mult = content.economy.rewarded.clearSlot.energyMult;
+      const ad = rewardButton(this, bx, by + 112, {
+        label: app.t('full.ad', { n: mult }),
+        width: bw,
+        height: 96,
+        fontSize: 32,
+        onReward: () => {
+          panel.close();
+          this.feedToCore(slot, mult);
+        },
+      });
+      panel.content.add([feed, ad]);
+    }
+    const menuY = wide ? by + 220 : panel.bottom - 70;
+    const menu = new Button(this, bx, menuY, {
+      label: app.t('full.menu'),
+      icon: icons.homeIcon,
+      width: 300,
+      height: 80,
+      fontSize: 28,
+      color: app.theme.surface,
+      textColor: app.theme.surfaceText,
+      onClick: () => app.toMenu(),
+    });
+    const ring = this.add.graphics();
+    ring.lineStyle(3, 0xffffff, 0.22);
+    ring.strokeRoundedRect(bx - 150, menuY - 40, 300, 80, app.theme.radius);
+    const tip = this.add
+      .text(0, wide ? panel.bottom - 40 : by + 210, app.t('full.tip'), { ...font, fontStyle: '700', fontSize: 22, color: app.theme.textDim, align: 'center', wordWrap: { width: W - 90 } })
+      .setOrigin(0.5);
+    panel.content.add([ring, menu, tip]);
+  }
+
+  /** The body goes into the core like a drag would; `mult` > 1 for the ad version. */
+  private feedToCore(slot: number, mult: number) {
+    const from = this.board.slotPos(slot);
+    const value = this.run.absorb(slot);
+    if (!value) return;
+    if (mult > 1) this.run.addEnergy(value * (mult - 1));
+    this.board.sync();
+    this.beam(slot);
+    this.core.hit(2);
+    floatText(this, this.core.x, this.core.y - 60, app.t('reveal.absorbed', { n: formatNumber(value * mult) }), { color: '#ffd166', size: 56 });
+    burst(this, from.x, from.y, 0xffb36b, 16, 300);
+    burst(this, this.core.x, this.core.y, 0xffb36b, 24, 420);
+    app.audio.play('reward', { volume: 0.7 });
+    this.refreshUi();
   }
 
   // ---------- coming back ----------
@@ -1003,7 +1371,7 @@ export class PlayScene extends BaseScene {
 
   /** Teaches each new thing the first time it shows up. Runs with the UI refresh. */
   private checkTutorialTriggers() {
-    if (!save.data.tutorial.includes('goal') || this.tutorial.active || this.revealOpen) return;
+    if (!save.data.tutorial.includes('goal') || this.tutorial.active || this.revealOpen || this.decorLayer.arranging) return;
     const run = this.run;
     const focus = run.upgrade('focus');
     if (run.s.energy >= run.upgradeCost(focus) && run.level('focus') === 0) {
@@ -1076,17 +1444,6 @@ function trim(n: number) {
 function withArticle(word: string) {
   return `${/^[aeiou]/i.test(word) ? 'an' : 'a'} ${word}`;
 }
-
-/** Stopwatch: timed run. */
-const stopwatchIcon: icons.IconDraw = (g, size, color) => {
-  const s = size / 2;
-  g.lineStyle(size * 0.1, color, 1);
-  g.strokeCircle(0, s * 0.1, s * 0.72);
-  g.fillStyle(color, 1);
-  g.fillRoundedRect(-s * 0.18, -s * 0.95, s * 0.36, s * 0.22, s * 0.06);
-  g.lineBetween(0, s * 0.1, 0, -s * 0.38);
-  g.lineBetween(0, s * 0.1, s * 0.3, s * 0.3);
-};
 
 /** Radar sweep for the scan button. */
 const scanIcon: icons.IconDraw = (g, size, color) => {

@@ -125,11 +125,12 @@ export function showDailyPanel(scene: Phaser.Scene, options: DailyPanelOptions):
   const mult = options.adMultiplier ?? 2;
   const cycle = options.rewards.length;
   const { index: today, canClaim } = dailyDayIndex(options.state, cycle);
-  const panel = new Panel(scene, { title: app.t('core.dailyTitle'), height: 760, onClose: options.onClose });
+  // Landscape: one row of tiles, so the panel fits a 16:9 frame. Portrait: two rows (4 + 3).
+  const wide = !app.viewport.info.portrait;
+  const panel = new Panel(scene, { title: app.t('core.dailyTitle'), width: wide ? 1040 : 620, height: wide ? 600 : 760, onClose: options.onClose });
   const font = { fontFamily: theme.font, resolution: app.textResolution };
 
-  // Tiles: 4 on the first row, the rest on the second.
-  const perRow = Math.ceil(cycle / 2);
+  const perRow = wide ? cycle : Math.ceil(cycle / 2);
   const gap = 14;
   const tileW = Math.min(132, (panel.panelWidth - 60 - gap * (perRow - 1)) / perRow);
   const tileH = 170;

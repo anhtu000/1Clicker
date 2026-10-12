@@ -2,6 +2,10 @@
 import bodies from '../content/bodies.json';
 import economy from '../content/economy.json';
 import upgrades from '../content/upgrades.json';
+import decorFile from '../content/decor.json';
+import { checkDecor } from '../logic/decor.ts';
 import { checkContent } from '../logic/content.ts';
 
 export const content = checkContent(bodies, economy, upgrades);
+
+export const decor = checkDecor(decorFile);

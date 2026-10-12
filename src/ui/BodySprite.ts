@@ -1,6 +1,6 @@
 import Phaser from 'phaser';
 import type { Body } from '../logic/run.ts';
-import { BODY_SIZE, ensureAuraTexture, ensureBodyTexture } from '../render/bodies';
+import { BODY_SIZE, ensureAnyBodyTexture, ensureAuraTexture } from '../render/bodies';
 
 /** One celestial body on screen: the drawn body, plus an animated halo for rare ones. */
 export class BodySprite extends Phaser.GameObjects.Container {
@@ -17,7 +17,7 @@ export class BodySprite extends Phaser.GameObjects.Container {
   constructor(scene: Phaser.Scene, x: number, y: number, body: Body, size: number) {
     super(scene, x, y);
     this.size = size;
-    this.img = scene.add.image(0, 0, ensureBodyTexture(scene, body.t, body.r));
+    this.img = scene.add.image(0, 0, ensureAnyBodyTexture(scene, body));
     this.add(this.img);
     this.setBody(body);
     scene.add.existing(this);
@@ -28,7 +28,7 @@ export class BodySprite extends Phaser.GameObjects.Container {
 
   setBody(body: Body) {
     this.celestial = body;
-    this.img.setTexture(ensureBodyTexture(this.scene, body.t, body.r));
+    this.img.setTexture(ensureAnyBodyTexture(this.scene, body));
     this.aura?.destroy();
     this.aura = null;
     if (body.r > 0) {

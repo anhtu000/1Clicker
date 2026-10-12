@@ -77,5 +77,27 @@
       "minTier": 3,
       "within": 120
     }
+  ],
+  "specials": [
+    {
+      "id": "cradleWorld",
+      "tier": 6,
+      "sell": 10
+    },
+    {
+      "id": "haloGiant",
+      "tier": 7,
+      "sell": 15
+    },
+    {
+      "id": "starburstCore",
+      "tier": 8,
+      "sell": 25
+    },
+    {
+      "id": "quasar",
+      "tier": 9,
+      "sell": 40
+    }
   ]
 }

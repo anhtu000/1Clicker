@@ -503,6 +503,80 @@ export function drawBody(ctx: Ctx, size: number, tier: number, rarity: number) {
   rarityMarks(ctx, x, y, r, rarity, tier, rnd);
 }
 
+// ---------- hidden bodies (a Galaxy merged into a planet, gas giant, star or black hole) ----------
+
+/** Galaxy colors of each hidden body. The body of its tier sits inside the swirl. */
+const SPECIAL_LOOK: Record<string, Palette> = {
+  cradleWorld: { light: '#d4fff3', base: '#2bb39a', dark: '#0d4f45', accent: '#5ef2c9', glow: '#5ef2c9' },
+  haloGiant: { light: '#fff1c9', base: '#e08a2b', dark: '#6b3a0e', accent: '#ffcf6b', glow: '#ffb84d' },
+  starburstCore: { light: '#ffe0f6', base: '#c03aa6', dark: '#5a1350', accent: '#ff7ad9', glow: '#ff5fc8' },
+  quasar: { light: '#e6f7ff', base: '#3a7bff', dark: '#10306e', accent: '#7fd4ff', glow: '#6fc8ff' },
+};
+
+export const specialKey = (id: string, rarity: number) => `special-${id}-${rarity}`;
+
+/** A hidden body: a colored galaxy swirl wrapped around the body it was merged into, with rarity marks. */
+export function drawSpecial(ctx: Ctx, size: number, id: string, tier: number, rarity: number) {
+  const rnd = seeded(id.length * 7349 + tier * 911 + rarity * 104729 + 3);
+  const x = size / 2;
+  const y = size / 2;
+  const r = size * 0.33;
+  const look = SPECIAL_LOOK[id] ?? SPECIAL_LOOK.cradleWorld;
+  if (rarity > 0) glow(ctx, x, y, r * (1.3 + rarity * 0.08), RARITY_CSS[rarity], 0.22 + rarity * 0.06);
+  galaxy(ctx, x, y, r * 1.02, look, rnd);
+  if (id === 'quasar') {
+    // Two jets out of the poles, the signature of a quasar.
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (const dir of [-1, 1]) {
+      const g = ctx.createLinearGradient(x, y, x, y + dir * r * 1.45);
+      g.addColorStop(0, withAlpha('#ffffff', 0.9));
+      g.addColorStop(1, withAlpha(look.accent, 0));
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.moveTo(x - r * 0.07, y);
+      ctx.lineTo(x + r * 0.07, y);
+      ctx.lineTo(x + r * 0.02, y + dir * r * 1.45);
+      ctx.lineTo(x - r * 0.02, y + dir * r * 1.45);
+      ctx.closePath();
+      ctx.fill();
+    }
+    ctx.restore();
+  }
+  const inner = r * 0.52 * TIER_SCALE[tier - 1];
+  DRAW[tier - 1](ctx, x, y, inner, paletteFor(tier, rarity), rnd);
+  rarityMarks(ctx, x, y, inner, rarity, tier, rnd);
+  // A thin golden halo marks it as something special.
+  ctx.save();
+  ctx.strokeStyle = withAlpha('#ffd166', 0.85);
+  ctx.lineWidth = size * 0.012;
+  ctx.beginPath();
+  ctx.ellipse(x, y, r * 0.98, r * 0.62, -0.4, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+  for (let i = 0; i < 5; i++) {
+    const a = rnd() * Math.PI * 2;
+    const d = r * (0.85 + rnd() * 0.3);
+    sparkle(ctx, x + Math.cos(a) * d, y + Math.sin(a) * d * 0.7, r * (0.06 + rnd() * 0.06), '#ffffff');
+  }
+}
+
+/** Texture of a hidden body. */
+export function ensureSpecialTexture(scene: Phaser.Scene, id: string, tier: number, rarity: number): string {
+  const key = specialKey(id, rarity);
+  if (!scene.textures.exists(key)) {
+    const [c, ctx] = canvas(BODY_SIZE);
+    drawSpecial(ctx, BODY_SIZE, id, tier, rarity);
+    scene.textures.addCanvas(key, c);
+  }
+  return key;
+}
+
+/** Texture for any body on the board, hidden or not. */
+export function ensureAnyBodyTexture(scene: Phaser.Scene, body: { t: number; r: number; s?: string }): string {
+  return body.s ? ensureSpecialTexture(scene, body.s, body.t, body.r) : ensureBodyTexture(scene, body.t, body.r);
+}
+
 function canvas(size: number): [HTMLCanvasElement, Ctx] {
   const c = document.createElement('canvas');
   c.width = size;

@@ -2,12 +2,16 @@
 // The game scene and the balance simulator (tools/sim) both drive this class,
 // so simulated pacing matches the real game.
 import { pityLeft, rarityOdds, Rng, rollRarity } from '../../core/rng.ts';
-import type { Content, StatId, UpgradeDef } from './content.ts';
+import type { Content, SpecialDef, StatId, UpgradeDef } from './content.ts';
 
-/** A celestial body on the board. t: tier from 1. r: rarity index (0 = common). */
+/**
+ * A celestial body on the board. t: tier from 1. r: rarity index (0 = common).
+ * s: hidden body id (a Galaxy merged into tier t). Hidden bodies have rarities too, but never merge.
+ */
 export interface Body {
   t: number;
   r: number;
+  s?: string;
 }
 
 export type RunMode = 'main' | 'speedrun';
@@ -90,8 +94,11 @@ const BASE_STATS: Record<StatId, number> = {
 };
 
 export function codexKey(body: Body): string {
-  return `${body.t}.${body.r}`;
+  return body.s ? `s.${body.s}.${body.r}` : `${body.t}.${body.r}`;
 }
+
+/** Hidden bodies are stored in the collection under "s.<id>.<rarity>". */
+export const isSpecialKey = (key: string) => key.startsWith('s.');
 
 export function newRunState(content: Content, mode: RunMode, seed = Date.now()): RunState {
   return {
@@ -157,6 +164,7 @@ export class Run {
   }
 
   bodyValue(body: Body): number {
+    if (body.s) return 0; // hidden bodies are for the collection only
     return this.content.economy.tierValueGrowth ** (body.t - 1) * this.content.rarities[body.r].mult;
   }
 
@@ -176,6 +184,7 @@ export class Run {
     if (this.codexCache === null) {
       let bonus = 1;
       for (const key of Object.keys(this.codex.found)) {
+        if (isSpecialKey(key)) continue;
         const r = Number(key.split('.')[1]);
         bonus += this.content.rarities[r]?.codexBonus ?? 0;
       }
@@ -305,7 +314,7 @@ export class Run {
   private place(slot: number, body: Body): NewBody {
     this.s.board[slot] = body;
     this.powerCache = null;
-    if (body.t > this.s.highestTier) this.s.highestTier = body.t;
+    if (!body.s && body.t > this.s.highestTier) this.s.highestTier = body.t;
     const key = codexKey(body);
     const isNew = !(key in this.codex.found);
     if (isNew) {
@@ -334,7 +343,48 @@ export class Run {
   canMerge(a: number, b: number): boolean {
     const x = this.s.board[a];
     const y = this.s.board[b];
-    return a !== b && !!x && !!y && x.t === y.t && x.t < this.content.economy.goalTier;
+    return a !== b && !!x && !!y && !x.s && !y.s && x.t === y.t && x.t < this.content.economy.goalTier;
+  }
+
+  /** The hidden body a and b would make: a Galaxy and a body of a special's tier, either way round. */
+  fusionOf(a: number, b: number): SpecialDef | null {
+    const x = this.s.board[a];
+    const y = this.s.board[b];
+    if (a === b || !x || !y || x.s || y.s) return null;
+    const goal = this.content.economy.goalTier;
+    const other = x.t === goal ? y : y.t === goal ? x : null;
+    if (!other || other.t === goal) return null;
+    return this.content.specials.find((sp) => sp.tier === other.t) ?? null;
+  }
+
+  /**
+   * Galaxy + partner: both leave the board, the hidden body takes b's slot. Not done by Auto Merge.
+   * Rarity works as in a merge: at least the average of the pair, rounded down, then rolled.
+   */
+  fuse(a: number, b: number): (NewBody & { special: SpecialDef }) | null {
+    const special = this.fusionOf(a, b);
+    if (!special) return null;
+    const x = this.s.board[a]!;
+    const y = this.s.board[b]!;
+    this.s.board[a] = null;
+    const r = this.rollRarity(Math.floor((x.r + y.r) / 2));
+    this.syncRng();
+    return { ...this.place(b, { t: special.tier, r, s: special.id }), special };
+  }
+
+  /** Crystals a hidden body sells for: its base price times its rarity's power multiplier. */
+  sellValue(body: Body): number {
+    const special = body.s ? this.content.specials.find((sp) => sp.id === body.s) : null;
+    return special ? Math.round(special.sell * this.content.rarities[body.r].mult) : 0;
+  }
+
+  /** Takes a body off the board (sold). Returns it, or null for an empty slot. */
+  removeBody(slot: number): Body | null {
+    const body = this.s.board[slot];
+    if (!body) return null;
+    this.s.board[slot] = null;
+    this.powerCache = null;
+    return body;
   }
 
   /** Energy a merge of this pair gives: a share of the current scan price (CLAUDE.md 4b). */
@@ -392,7 +442,7 @@ export class Run {
   /** A copy of this body can be made: low enough tier, and a free slot. */
   canDuplicate(slot: number): boolean {
     const body = this.s.board[slot];
-    return !!body && body.t <= this.content.economy.twinMaxTier && this.freeSlot() >= 0;
+    return !!body && !body.s && body.t <= this.content.economy.twinMaxTier && this.freeSlot() >= 0;
   }
 
   /** Puts an identical copy of the body in the first free slot (Binary Merge, or the rewarded twin). */
@@ -404,7 +454,9 @@ export class Run {
 
   /** Energy the core gives for absorbing this body. */
   absorbValue(slot: number): number {
-    return this.s.board[slot] ? this.content.economy.absorbTaps * this.tapValue() : 0;
+    const body = this.s.board[slot];
+    // Hidden bodies are sold for crystals instead; the core does not take them.
+    return body && !body.s ? this.content.economy.absorbTaps * this.tapValue() : 0;
   }
 
   /** Feeds a body to the core for energy. Frees a slot when the board is stuck. */
@@ -424,10 +476,10 @@ export class Run {
     const board = this.s.board;
     for (let i = 0; i < this.slots; i++) {
       const x = board[i];
-      if (!x || x.t >= this.content.economy.goalTier) continue;
+      if (!x || x.s || x.t >= this.content.economy.goalTier) continue;
       for (let j = i + 1; j < this.slots; j++) {
         const y = board[j];
-        if (!y || y.t !== x.t) continue;
+        if (!y || y.s || y.t !== x.t) continue;
         const score = x.t * 100 + Math.abs(x.r - y.r) * 10 - Math.min(x.r, y.r);
         if (score < bestScore) {
           bestScore = score;
@@ -437,6 +489,26 @@ export class Run {
       }
     }
     return best;
+  }
+
+  /** The body the core would miss least: lowest tier, then lowest rarity. Hidden bodies are never picked. -1 if none. */
+  weakestSlot(): number {
+    let best = -1;
+    for (let i = 0; i < this.slots; i++) {
+      const b = this.s.board[i];
+      if (!b || b.s) continue;
+      const w = this.s.board[best] ?? null;
+      if (!w || b.t < w.t || (b.t === w.t && b.r < w.r)) best = i;
+    }
+    return best;
+  }
+
+  /**
+   * Board full with nothing to merge and no slot upgrade to buy right now (CLAUDE.md 4b).
+   * Never a dead end: any body can go to the core, and hidden bodies sell for crystals.
+   */
+  isStuck(): boolean {
+    return this.freeSlot() < 0 && !this.findPair() && !this.canBuy('slots');
   }
 
 

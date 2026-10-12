@@ -125,7 +125,7 @@ export class Board {
         this.all.add(made);
         made.once(Phaser.GameObjects.Events.DESTROY, () => this.all.delete(made));
         s.pop();
-      } else if (s.celestial.t !== b.t || s.celestial.r !== b.r) {
+      } else if (s.celestial.t !== b.t || s.celestial.r !== b.r || s.celestial.s !== b.s) {
         s.setBody(b);
         if (popSlots.includes(i)) s.pop();
       } else if (popSlots.includes(i)) {

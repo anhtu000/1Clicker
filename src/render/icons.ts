@@ -142,3 +142,96 @@ export const UPGRADE_ICONS: Record<string, GlyphDraw> = {
     g.strokePath();
   },
 };
+
+export const CRYSTAL_COLOR = 0x7fe8ff;
+
+/** Cut gem: the crystal currency (decorations only). */
+export const crystalIcon: GlyphDraw = (g, size, color = CRYSTAL_COLOR) => {
+  const s = size / 2;
+  g.fillStyle(color, 1);
+  g.beginPath();
+  g.moveTo(-s * 0.55, -s * 0.62);
+  g.lineTo(s * 0.55, -s * 0.62);
+  g.lineTo(s * 0.92, -s * 0.18);
+  g.lineTo(0, s * 0.9);
+  g.lineTo(-s * 0.92, -s * 0.18);
+  g.closePath();
+  g.fillPath();
+  // facets
+  g.fillStyle(0xffffff, 0.45);
+  g.fillTriangle(-s * 0.55, -s * 0.62, s * 0.05, -s * 0.62, -s * 0.3, -s * 0.18);
+  g.fillStyle(0x000000, 0.18);
+  g.fillTriangle(s * 0.92, -s * 0.18, 0, s * 0.9, s * 0.3, -s * 0.18);
+  g.lineStyle(Math.max(1, s * 0.07), 0xffffff, 0.35);
+  g.lineBetween(-s * 0.92, -s * 0.18, s * 0.92, -s * 0.18);
+};
+
+/** Three lines: the menu. */
+export const menuIcon: GlyphDraw = (g, size, color) => {
+  const s = size / 2;
+  g.fillStyle(color, 1);
+  for (let i = -1; i <= 1; i++) g.fillRoundedRect(-s * 0.72, i * s * 0.5 - s * 0.1, s * 1.44, s * 0.2, s * 0.1);
+};
+
+/** Stopwatch: timed run. */
+export const stopwatchIcon: GlyphDraw = (g, size, color) => {
+  const s = size / 2;
+  g.lineStyle(size * 0.1, color, 1);
+  g.strokeCircle(0, s * 0.1, s * 0.72);
+  g.fillStyle(color, 1);
+  g.fillRoundedRect(-s * 0.18, -s * 0.95, s * 0.36, s * 0.22, s * 0.06);
+  g.lineBetween(0, s * 0.1, 0, -s * 0.38);
+  g.lineBetween(0, s * 0.1, s * 0.3, s * 0.3);
+};
+
+/** Grid of cells: the collection. */
+export const collectionIcon: GlyphDraw = (g, size, color) => {
+  const s = size / 2;
+  for (let i = 0; i < 9; i++) {
+    g.fillStyle(color, i === 4 ? 1 : 0.75);
+    g.fillCircle(-s * 0.62 + (i % 3) * s * 0.62, -s * 0.62 + Math.floor(i / 3) * s * 0.62, s * 0.22);
+  }
+};
+
+/** Ringed planet: decorations. */
+export const decorIcon: GlyphDraw = (g, size, color) => {
+  const s = size / 2;
+  g.fillStyle(color, 1);
+  g.fillCircle(0, 0, s * 0.46);
+  g.lineStyle(s * 0.13, color, 1);
+  g.strokeEllipse(0, 0, s * 1.9, s * 0.6);
+};
+
+/** Cup: records. */
+export const trophyIcon: GlyphDraw = (g, size, color) => {
+  const s = size / 2;
+  g.fillStyle(color, 1);
+  g.beginPath();
+  g.moveTo(-s * 0.55, -s * 0.8);
+  g.lineTo(s * 0.55, -s * 0.8);
+  g.lineTo(s * 0.45, -s * 0.1);
+  g.lineTo(s * 0.12, s * 0.2);
+  g.lineTo(-s * 0.12, s * 0.2);
+  g.lineTo(-s * 0.45, -s * 0.1);
+  g.closePath();
+  g.fillPath();
+  g.fillRect(-s * 0.1, s * 0.15, s * 0.2, s * 0.4);
+  g.fillRoundedRect(-s * 0.45, s * 0.52, s * 0.9, s * 0.22, s * 0.06);
+  g.lineStyle(s * 0.12, color, 1);
+  g.strokeCircle(-s * 0.58, -s * 0.48, s * 0.24);
+  g.strokeCircle(s * 0.58, -s * 0.48, s * 0.24);
+};
+
+/** Arrows on four sides: move things around. */
+export const arrangeIcon: GlyphDraw = (g, size, color) => {
+  const s = size / 2;
+  g.lineStyle(s * 0.13, color, 1);
+  g.lineBetween(-s * 0.8, 0, s * 0.8, 0);
+  g.lineBetween(0, -s * 0.8, 0, s * 0.8);
+  g.fillStyle(color, 1);
+  const a = s * 0.3;
+  g.fillTriangle(s * 0.95, 0, s * 0.95 - a, -a * 0.8, s * 0.95 - a, a * 0.8);
+  g.fillTriangle(-s * 0.95, 0, -s * 0.95 + a, -a * 0.8, -s * 0.95 + a, a * 0.8);
+  g.fillTriangle(0, s * 0.95, -a * 0.8, s * 0.95 - a, a * 0.8, s * 0.95 - a);
+  g.fillTriangle(0, -s * 0.95, -a * 0.8, -s * 0.95 + a, a * 0.8, -s * 0.95 + a);
+};

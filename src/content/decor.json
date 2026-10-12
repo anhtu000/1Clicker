@@ -1,0 +1,29 @@
+{
+  "backgrounds": [
+    { "id": "nebula", "price": 0 },
+    { "id": "aurora", "price": 50 },
+    { "id": "ember", "price": 70 },
+    { "id": "abyss", "price": 90 },
+    { "id": "rose", "price": 110 }
+  ],
+  "items": [
+    { "id": "moon", "kind": "planet", "price": 10 },
+    { "id": "mars", "kind": "planet", "price": 15 },
+    { "id": "venus", "kind": "planet", "price": 15 },
+    { "id": "earth", "kind": "planet", "price": 25 },
+    { "id": "neptune", "kind": "planet", "price": 25 },
+    { "id": "uranus", "kind": "planet", "price": 30 },
+    { "id": "jupiter", "kind": "planet", "price": 35 },
+    { "id": "saturn", "kind": "planet", "price": 45 },
+    { "id": "comet", "kind": "ship", "price": 15 },
+    { "id": "satellite", "kind": "ship", "price": 15 },
+    { "id": "rocket", "kind": "ship", "price": 20 },
+    { "id": "astronaut", "kind": "ship", "price": 25 },
+    { "id": "shuttle", "kind": "ship", "price": 30 },
+    { "id": "ufo", "kind": "ship", "price": 35 },
+    { "id": "station", "kind": "ship", "price": 50 }
+  ],
+  "maxShown": 15,
+  "itemSize": 64,
+  "ad": { "crystals": 15, "cooldownSec": 300 }
+}

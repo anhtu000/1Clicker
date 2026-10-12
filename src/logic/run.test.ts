@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { checkContent } from './content.ts';
-import { newRunState, Run } from './run.ts';
+import { codexKey, newRunState, Run } from './run.ts';
 
 const read = (p: string) => JSON.parse(readFileSync(new URL(`../content/${p}`, import.meta.url), 'utf8'));
 const content = checkContent(read('bodies.json'), read('economy.json'), read('upgrades.json'));
@@ -228,4 +228,52 @@ test('personal records: fastest first, top 5, rank of the new run', async () => 
   const tie = addRecord(list, rec(40));
   assert.equal(tie.rank, 4, 'a tie goes behind the run that set it first');
   assert.deepEqual(tie.list.map((r) => r.ms), [20, 30, 40, 40, 45]);
+});
+
+test('hidden bodies: Galaxy + planet tier makes one; it never merges, copies, or adds power', () => {
+  const run = fresh();
+  const goal = content.economy.goalTier;
+  const [first] = content.specials;
+  run.s.board[0] = { t: goal, r: 2 };
+  run.s.board[1] = { t: first.tier, r: 0 };
+  run.s.board[2] = { t: first.tier, r: 0 };
+  run.s.board[3] = { t: 1, r: 0 };
+  assert.equal(run.fusionOf(0, 3), null, 'stardust has no hidden form');
+  assert.equal(run.fusionOf(1, 2), null, 'two planets merge normally, no fusion');
+  const highest = run.s.highestTier;
+  const powerBefore = run.power();
+  const made = run.fuse(1, 0)!; // planet dragged onto the Galaxy: lands in the Galaxy's slot
+  assert.equal(made.slot, 0);
+  assert.equal(made.body.s, first.id);
+  assert.ok(made.isNew);
+  assert.equal(run.s.board[1], null);
+  assert.ok(made.body.r >= 1, 'Epic Galaxy + Common planet: at least Rare, like a merge');
+  assert.equal(codexKey(made.body), `s.${first.id}.${made.body.r}`);
+  assert.equal(run.sellValue(made.body), Math.round(first.sell * content.rarities[made.body.r].mult));
+  assert.equal(run.s.highestTier, highest);
+  // the Galaxy (and the planet) left the board, the hidden body adds nothing
+  assert.ok(run.power() < powerBefore);
+  run.s.board[1] = { t: first.tier, r: 2, s: first.id };
+  assert.equal(run.canMerge(0, 1), false, 'two hidden bodies never merge');
+  assert.equal(run.canMerge(0, 2), false, 'hidden + its tier never merges');
+  assert.equal(run.canDuplicate(0), false);
+  assert.equal(run.absorbValue(0), 0);
+  assert.equal(run.findPair(), null);
+  assert.equal(run.removeBody(0)!.s, first.id);
+  assert.equal(run.s.board[0], null);
+});
+
+test('board full with nothing to merge: stuck, and the weakest body can go to the core', () => {
+  const run = fresh();
+  // A hidden body first, then one body of each tier: no two can merge.
+  run.s.board[0] = { t: 7, r: 2, s: content.specials[1].id };
+  for (let i = 1; i < run.slots; i++) run.s.board[i] = { t: i, r: i % 3 };
+  run.s.board[run.slots - 1] = { t: content.economy.goalTier, r: 0 };
+  (run as any).powerCache = null;
+  assert.equal(run.findPair(), null);
+  assert.ok(run.isStuck());
+  const weak = run.weakestSlot();
+  assert.equal(run.s.board[weak]!.t, 1, 'lowest tier, never the hidden body');
+  assert.ok(run.absorb(weak) > 0);
+  assert.equal(run.isStuck(), false);
 });

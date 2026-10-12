@@ -146,8 +146,11 @@ class App extends Emitter<{ language: [lang: string] }> {
     return menu;
   }
 
-  /** Goes back to the main menu from anywhere. Shows a midgame ad at this natural break. */
-  async toMenu() {
+  /**
+   * Goes back to the main menu from anywhere. No ad here: CrazyGames does not allow a midgame ad
+   * on a navigation button (publishing brief, section 8). Show ads at real breaks instead (level end, new run).
+   */
+  toMenu() {
     this.gameplay.stop();
     this.save.flush();
     const manager = this.game.scene;
@@ -157,7 +160,6 @@ class App extends Emitter<{ language: [lang: string] }> {
       if (key !== target && (manager.isActive(key) || manager.isPaused(key) || manager.isSleeping(key))) manager.stop(key);
     }
     manager.start(target);
-    await this.ads.midgame();
   }
 
   async start(config: GameConfig) {

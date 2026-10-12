@@ -41,6 +41,35 @@ function almost(): RunState {
   return run;
 }
 
+/** A Galaxy next to a planet, gas giant, star and black hole (checks the hidden bodies). */
+function hidden(): RunState {
+  const run = showcase();
+  run.board[8] = { t: 10, r: 2 };
+  run.board[9] = { t: 6, r: 0 };
+  run.board[10] = { t: 7, r: 1 };
+  run.board[11] = { t: 10, r: 0 };
+  run.finishedAt = 30 * 60;
+  run.highestTier = 10;
+  return run;
+}
+
+/** Board full and every slot bought: tiers 1-9 once, three Galaxies, four hidden bodies. Nothing can merge (checks the Board full panel). */
+function stuck(): RunState {
+  const run = showcase();
+  run.levels.slots = 2;
+  for (let t = 1; t <= 9; t++) run.board[t - 1] = { t, r: t % 3 };
+  run.board[9] = { t: 10, r: 0 };
+  run.board[10] = { t: 10, r: 1 };
+  run.board[11] = { t: 10, r: 2 };
+  run.board[12] = { t: 6, r: 1, s: 'cradleWorld' };
+  run.board[13] = { t: 7, r: 0, s: 'haloGiant' };
+  run.board[14] = { t: 8, r: 2, s: 'starburstCore' };
+  run.board[15] = { t: 9, r: 0, s: 'quasar' };
+  run.highestTier = 10;
+  run.finishedAt = 30 * 60;
+  return run;
+}
+
 export function applyPreset(name: string, data: SaveData) {
   if (data.run) return; // keep what the preset session did since
   if (name === 'starstep') {
@@ -68,6 +97,19 @@ export function applyPreset(name: string, data: SaveData) {
     ];
     data.bestRunMs = data.records[0].ms;
     data.tutorial = [...ALL_STEPS];
+  }
+  if (name === 'stuck') {
+    data.run = stuck();
+    data.firstFinishMs = 30 * 60 * 1000;
+    data.tutorial = [...ALL_STEPS];
+    for (const b of data.run.board) if (b) data.codex.found[b.s ? `s.${b.s}.${b.r}` : `${b.t}.${b.r}`] = 1;
+  }
+  if (name === 'hidden') {
+    data.run = hidden();
+    data.crystals = 300;
+    data.firstFinishMs = 30 * 60 * 1000;
+    data.tutorial = [...ALL_STEPS];
+    for (const b of data.run.board) if (b) data.codex.found[`${b.t}.${b.r}`] = 1;
   }
   if (name === 'showcase') {
     data.run = showcase();

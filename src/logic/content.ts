@@ -110,13 +110,31 @@ export interface EconomyDef {
     freeCooldownMult: number;
     offlineMult: number;
     dailyMult: number;
+    /**
+     * Board full with nothing to merge (CLAUDE.md 4b): the panel offers to feed the weakest body to the core
+     * for free, or by ad for energyMult times its energy. It opens after the board has been stuck for afterSec.
+     */
+    clearSlot: { energyMult: number; afterSec: number };
   };
+  /** Daily gift track, one entry per day (CLAUDE.md 4b): minutes of active income, crystals, or both. */
+  daily: { energyMin?: number; crystals?: number }[];
+}
+
+/**
+ * Hidden body (CLAUDE.md 4b item 8): a Galaxy merged into a body of `tier` makes it.
+ * Only for the collection: it cannot merge, adds no power, and sells for `sell` crystals.
+ */
+export interface SpecialDef {
+  id: string;
+  tier: number;
+  sell: number;
 }
 
 export interface Content {
   tiers: TierDef[];
   rarities: RarityDef[];
   pity: PityRule[];
+  specials: SpecialDef[];
   economy: EconomyDef;
   upgrades: UpgradeDef[];
 }
@@ -147,6 +165,7 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   const tiers: TierDef[] = bodies?.tiers ?? [];
   const rarities: RarityDef[] = bodies?.rarities ?? [];
   const pity: PityRule[] = bodies?.pity ?? [];
+  const specials: SpecialDef[] = bodies?.specials ?? [];
   const upgrades: UpgradeDef[] = upgradesFile?.upgrades ?? [];
 
   check.need(tiers.length >= 2, 'bodies.tiers needs at least 2 tiers');
@@ -162,6 +181,18 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
     check.positive(p.within, `pity ${i + 1}: within`);
   });
   check.need(economy?.goalTier === tiers.length, 'economy.goalTier must equal the number of tiers');
+  check.uniqueIds(specials, 'special');
+  specials.forEach((sp) => {
+    check.need(sp.tier >= 1 && sp.tier < tiers.length, `special ${sp.id}: tier must be below the goal tier`);
+    check.positive(sp.sell, `special ${sp.id}: sell`);
+  });
+  check.need(new Set(specials.map((sp) => sp.tier)).size === specials.length, 'specials: one per tier');
+  check.positive(economy?.rewarded?.clearSlot?.energyMult, 'economy.rewarded.clearSlot.energyMult');
+  const daily: unknown = economy?.daily;
+  check.need(Array.isArray(daily) && daily.length >= 2, 'economy.daily needs at least 2 days');
+  if (Array.isArray(daily)) {
+    daily.forEach((d, i) => check.need((d?.energyMin ?? 0) > 0 || (d?.crystals ?? 0) > 0, `economy.daily day ${i + 1}: needs energyMin or crystals above 0`));
+  }
   check.positive(economy?.scan?.baseCost, 'economy.scan.baseCost');
   check.positive(economy?.scan?.exponent, 'economy.scan.exponent');
   check.positive(economy?.stars?.everyMin, 'economy.stars.everyMin');
@@ -193,5 +224,5 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
     if (u.show?.upgrade) check.ref(u.show.upgrade, ids, `upgrade ${u.id}: show.upgrade`);
   }
   check.done();
-  return { tiers, rarities, pity, economy, upgrades };
+  return { tiers, rarities, pity, specials, economy, upgrades };
 }

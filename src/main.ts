@@ -2,6 +2,7 @@ import { startGame } from '@core';
 import game from './game.json';
 import en from './i18n/en.json';
 import { save } from './save';
+import { HomeScene } from './scenes/HomeScene';
 import { PlayScene } from './scenes/PlayScene';
 
 startGame({
@@ -9,9 +10,11 @@ startGame({
   title: game.title,
   // English only in v1 (CLAUDE.md 4b). Russian and Turkish come with Yandex.
   languages: { en },
-  scenes: [PlayScene],
+  scenes: [HomeScene, PlayScene],
   playScene: 'Play',
-  menu: false,
+  // New players go straight into the game; returning players see the home screen (CLAUDE.md 4b).
+  menu: 'returning',
+  menuScene: 'Home',
   save,
   preload: (scene) => {
     scene.load.setPath('audio');

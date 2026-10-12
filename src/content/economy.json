@@ -59,8 +59,21 @@
     "twin": {
       "cooldown": 300,
       "firstAt": 360
+    },
+    "clearSlot": {
+      "energyMult": 5,
+      "afterSec": 4
     }
   },
+  "daily": [
+    { "energyMin": 5 },
+    { "crystals": 10 },
+    { "energyMin": 10 },
+    { "crystals": 15 },
+    { "energyMin": 20 },
+    { "crystals": 20 },
+    { "crystals": 40 }
+  ],
   "stars": {
     "everyMin": 12,
     "everyMax": 50,
