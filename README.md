@@ -70,7 +70,7 @@ core/        Bộ khung chung. Giống hệt nhau ở 2 repo
   format.ts    Số dạng K/M/B/T, thời lượng, đồng hồ
   time.ts      Thu nhập khi vắng mặt, quà hằng ngày, bước cố định cho kinh tế
   scenes/      Màn loading, menu, tạm dừng, lớp BaseScene
-  ui/          Nút, nút quảng cáo có thưởng, nút âm thanh, thông báo ngắn, icon
+  ui/          Nút, nút quảng cáo có thưởng, nút âm thanh, thông báo ngắn, icon, hình vẽ sẵn thành texture (shapes.ts)
 src/         Code riêng của game này
   game.json    id, tên, màu nền. Không đổi id sau khi phát hành, nếu không save cũ sẽ mất
   main.ts      Cấu hình game: scene, ngôn ngữ, asset, theme
@@ -113,6 +113,7 @@ Các dịch vụ dùng qua `app`:
 - `app.ads.midgame()` quảng cáo giữa chừng, chỉ gọi ở điểm nghỉ (bộ khung đã gọi khi quay về menu).
 - `app.openPause(scene)`, `app.toMenu()` mở màn tạm dừng, về menu.
 - `app.platform.happyTime()` khi người chơi đạt thành tích lớn, dùng ít.
+- `setShape(image, key, w, h, (g) => ...)`, `shapeImage(...)` vẽ hình tĩnh (nút, thẻ, khung) một lần thành texture rồi hiện bằng Image. Đừng để Graphics tĩnh trên màn hình: Phaser dựng lại Graphics mỗi khung, trên điện thoại tầm trung chỉ còn khoảng 20 fps (đo 12/10).
 
 ## Kinh tế và mô phỏng
 

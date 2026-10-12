@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { app, Button, formatNumber, Panel, rewardButton, toast } from '@core';
+import { app, Button, formatNumber, Panel, rewardButton, shapeImage, toast } from '@core';
 import { decor } from '../game/content';
 import { buyDecor } from '../logic/decor.ts';
 import { ensureNebulaTexture } from '../render/background';
@@ -184,10 +184,10 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Deco
       const x = (col - (inRow - 1) / 2) * (cardW + gap);
       const top = gridTop + row * (cardH + gap);
       const owned = d.owned.includes(entry.id) || entry.price === 0;
-      const box = scene.add.graphics();
-      box.fillStyle(0x000000, 0.25);
-      box.fillRoundedRect(x - cardW / 2, top, cardW, cardH, 18);
-      grid.add(box);
+      grid.add(shapeImage(scene, x, top + cardH / 2, `decor-card|${cardW}|${cardH}`, cardW, cardH, (g) => {
+        g.fillStyle(0x000000, 0.25);
+        g.fillRoundedRect(-cardW / 2, -cardH / 2, cardW, cardH, 18);
+      }));
       const art = Math.min(cardH * 0.46, cardW * 0.6);
       const artY = top + 10 + art / 2;
       if (tab === 'bg') {

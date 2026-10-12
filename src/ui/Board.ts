@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { app } from '@core';
+import { app, setShape } from '@core';
 import type { Run } from '../logic/run.ts';
 import { BodySprite } from './BodySprite';
 
@@ -31,7 +31,8 @@ export class Board {
   private scene: Phaser.Scene;
   private run: Run;
   private cb: BoardCallbacks;
-  private bg: Phaser.GameObjects.Graphics;
+  /** One image per cell (open or locked), baked once: a Graphics of 16 rounded cells redrawn every frame is slow on phones. */
+  private cells: Phaser.GameObjects.Image[] = [];
   private hints: Phaser.GameObjects.Graphics;
   private sprites: (BodySprite | null)[] = [];
   /** Every live sprite the board made, so sync() can remove any that lost its slot. */
@@ -43,7 +44,6 @@ export class Board {
     this.scene = scene;
     this.run = run;
     this.cb = callbacks;
-    this.bg = scene.add.graphics().setDepth(5);
     this.hints = scene.add.graphics().setDepth(6);
     scene.input.dragDistanceThreshold = 10;
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.tick, this);
@@ -228,24 +228,27 @@ export class Board {
   }
 
   private drawCells() {
-    const g = this.bg;
-    g.clear();
-    const r = this.cell * 0.2;
+    const c = this.cell;
+    const r = c * 0.2;
     for (let i = 0; i < this.cols * this.rows; i++) {
       const p = this.slotPos(i);
       const open = i < this.run.slots;
-      g.fillStyle(open ? 0x1a1840 : 0x0e0d24, open ? 0.72 : 0.55);
-      g.fillRoundedRect(p.x - this.cell / 2, p.y - this.cell / 2, this.cell, this.cell, r);
-      g.lineStyle(2, open ? 0x6f63c9 : 0x2c2856, open ? 0.45 : 0.4);
-      g.strokeRoundedRect(p.x - this.cell / 2, p.y - this.cell / 2, this.cell, this.cell, r);
-      if (!open) {
-        // Small padlock.
-        const s = this.cell * 0.14;
-        g.lineStyle(3, 0x3c3770, 0.9);
-        g.strokeRoundedRect(p.x - s * 0.6, p.y - s * 1.1, s * 1.2, s * 1.1, s * 0.5);
-        g.fillStyle(0x3c3770, 0.9);
-        g.fillRoundedRect(p.x - s, p.y - s * 0.2, s * 2, s * 1.4, s * 0.25);
-      }
+      const img = (this.cells[i] ??= this.scene.add.image(0, 0, '__DEFAULT').setDepth(5));
+      setShape(img, `cell|${c}|${open ? 1 : 0}`, c, c, (g) => {
+        g.fillStyle(open ? 0x1a1840 : 0x0e0d24, open ? 0.72 : 0.55);
+        g.fillRoundedRect(-c / 2, -c / 2, c, c, r);
+        g.lineStyle(2, open ? 0x6f63c9 : 0x2c2856, open ? 0.45 : 0.4);
+        g.strokeRoundedRect(-c / 2, -c / 2, c, c, r);
+        if (!open) {
+          // Small padlock.
+          const s = c * 0.14;
+          g.lineStyle(3, 0x3c3770, 0.9);
+          g.strokeRoundedRect(-s * 0.6, -s * 1.1, s * 1.2, s * 1.1, s * 0.5);
+          g.fillStyle(0x3c3770, 0.9);
+          g.fillRoundedRect(-s, -s * 0.2, s * 2, s * 1.4, s * 0.25);
+        }
+      });
+      img.setPosition(p.x, p.y);
     }
   }
 

@@ -14,6 +14,8 @@ import {
   secondsAway,
   showOfflinePanel,
   rewardButton,
+  setShape,
+  shapeImage,
   soundButton,
   toast,
   Tutorial,
@@ -57,11 +59,11 @@ export class PlayScene extends BaseScene {
   private board!: Board;
   private shop!: UpgradeList;
   private energyText!: Phaser.GameObjects.Text;
-  private energyIconG!: Phaser.GameObjects.Graphics;
+  private energyIconG!: Phaser.GameObjects.Image;
   private rateText!: Phaser.GameObjects.Text;
   private goalLabel!: Phaser.GameObjects.Text;
   private chain: Phaser.GameObjects.Image[] = [];
-  private chainMarker!: Phaser.GameObjects.Graphics;
+  private chainMarker!: Phaser.GameObjects.Image;
   private scanBtn!: Button;
   /** Auto Scan on/off, shown once Auto Scan is bought (CLAUDE.md 4b). */
   private autoBtn!: Button;
@@ -71,7 +73,7 @@ export class PlayScene extends BaseScene {
   /** Menu: collection, decor, daily gift, timed runs, records (CLAUDE.md 4b). */
   private menuBtn!: Button;
   /** Red dot on the menu button while the daily gift waits. */
-  private menuDot!: Phaser.GameObjects.Graphics;
+  private menuDot!: Phaser.GameObjects.Image;
   private decorLayer!: DecorLayer;
   /** Card of the body last tapped. */
   private info: BodyInfo | null = null;
@@ -150,13 +152,13 @@ export class PlayScene extends BaseScene {
     this.core.setDepth(8);
 
     const font = { fontFamily: app.theme.font, resolution: app.textResolution };
-    this.energyIconG = this.add.graphics().setDepth(30);
-    energyIcon(this.energyIconG, 44, 0xffc23d);
+    // Small shapes are baked into images: live Graphics are redrawn every frame, which is slow on phones.
+    this.energyIconG = shapeImage(this, 0, 0, 'hud-energy', 44, 44, (g) => energyIcon(g, 44, 0xffc23d)).setDepth(30);
     this.energyText = this.add.text(0, 0, '0', { ...font, fontStyle: '900', fontSize: 76, color: '#ffffff' }).setOrigin(0, 0.5).setDepth(30);
     this.energyText.setShadow(0, 4, '#00000088', 8, false, true);
     this.rateText = this.add.text(0, 0, '', { ...font, fontStyle: '700', fontSize: 28, color: '#b9b4d9' }).setOrigin(0.5).setDepth(30);
     this.goalLabel = this.add.text(0, 0, app.t('hud.goal', { name: app.t('tier.galaxy') }), { ...font, fontStyle: '700', fontSize: 24, color: '#b9b4d9' }).setOrigin(0.5).setDepth(30);
-    this.chainMarker = this.add.graphics().setDepth(29);
+    this.chainMarker = this.add.image(0, 0, '__DEFAULT').setDepth(29).setVisible(false);
     for (let t = 1; t <= content.tiers.length; t++) {
       this.chain.push(this.add.image(0, 0, ensureBodyTexture(this, t, 0)).setDepth(30));
     }
@@ -205,11 +207,12 @@ export class PlayScene extends BaseScene {
       textColor: app.theme.surfaceText,
       onClick: () => this.showMenu(),
     }).setDepth(30);
-    this.menuDot = this.add.graphics().setDepth(31);
-    this.menuDot.fillStyle(0xff5a6e, 1);
-    this.menuDot.fillCircle(0, 0, 11);
-    this.menuDot.lineStyle(3, 0xffffff, 1);
-    this.menuDot.strokeCircle(0, 0, 11);
+    this.menuDot = shapeImage(this, 0, 0, 'menu-dot', 22, 22, (g) => {
+      g.fillStyle(0xff5a6e, 1);
+      g.fillCircle(0, 0, 11);
+      g.lineStyle(3, 0xffffff, 1);
+      g.strokeCircle(0, 0, 11);
+    }).setDepth(31);
     this.decorLayer = new DecorLayer(
       this,
       () => this.decorBlocked(),
@@ -391,12 +394,16 @@ export class PlayScene extends BaseScene {
       img.setTint(t <= top ? 0xffffff : 0x3a3478);
       img.setAlpha(t <= top ? 1 : 0.55);
     });
-    const g = this.chainMarker;
-    g.clear();
+    const marker = this.chainMarker;
+    marker.setVisible(top > 0);
     if (top > 0) {
       const img = this.chain[top - 1];
-      g.lineStyle(3, 0xffc23d, 0.9);
-      g.strokeCircle(img.x, img.y, this.chainCenter.art * 0.46);
+      const r = Math.round(this.chainCenter.art * 0.46);
+      setShape(marker, `chain-marker|${r}`, r * 2, r * 2, (g) => {
+        g.lineStyle(3, 0xffc23d, 0.9);
+        g.strokeCircle(0, 0, r);
+      });
+      marker.setPosition(img.x, img.y);
     }
   }
 

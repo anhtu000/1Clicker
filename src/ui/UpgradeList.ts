@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { app, formatCountdown, formatNumber, icons, punch, rewardButton, toast, type Button } from '@core';
+import { app, drawId, formatCountdown, formatNumber, icons, punch, rewardButton, setShape, toast, type Button } from '@core';
 import type { UpgradeDef } from '../logic/content.ts';
 import type { Run } from '../logic/run.ts';
 import { ENERGY_COLOR, energyIcon, UPGRADE_ICONS, type GlyphDraw } from '../render/icons';
@@ -36,12 +36,13 @@ export interface UpgradeListOptions {
 interface Card {
   id: string;
   box: Phaser.GameObjects.Container;
-  bg: Phaser.GameObjects.Graphics;
-  icon: Phaser.GameObjects.Graphics;
+  // Baked shapes shown as images (cheap to draw on phones), not live Graphics.
+  bg: Phaser.GameObjects.Image;
+  icon: Phaser.GameObjects.Image;
   name: Phaser.GameObjects.Text;
   desc: Phaser.GameObjects.Text;
   cost: Phaser.GameObjects.Text;
-  coin: Phaser.GameObjects.Graphics;
+  coin: Phaser.GameObjects.Image;
   level: Phaser.GameObjects.Text;
   state: string;
 }
@@ -206,11 +207,11 @@ export class UpgradeList {
     const s = this.scene;
     const theme = app.theme;
     const font = { fontFamily: theme.font, resolution: app.textResolution };
-    const bg = s.add.graphics();
-    const icon = s.add.graphics();
+    const bg = s.add.image(0, 0, '__DEFAULT');
+    const icon = s.add.image(0, 0, '__DEFAULT');
     const name = s.add.text(0, 0, label, { ...font, fontStyle: '900', fontSize: 26, color: theme.text });
     const desc = s.add.text(0, 0, '', { ...font, fontStyle: '700', fontSize: 22, color: theme.textDim });
-    const coin = s.add.graphics();
+    const coin = s.add.image(0, 0, '__DEFAULT');
     const cost = s.add.text(0, 0, '', { ...font, fontStyle: '900', fontSize: 28, color: '#ffd166' });
     const level = s.add.text(0, 0, '', { ...font, fontStyle: '900', fontSize: 20, color: theme.textDim });
     const box = s.add.container(0, 0, [bg, icon, name, desc, coin, cost, level]).setDepth(20);
@@ -264,12 +265,12 @@ export class UpgradeList {
   private frame(card: Card, fill: number, line: number, lineAlpha: number) {
     const w = this.cardW;
     const h = this.cardH;
-    const g = card.bg;
-    g.clear();
-    g.fillStyle(fill, 0.95);
-    g.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
-    g.lineStyle(3, line, lineAlpha);
-    g.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
+    setShape(card.bg, `card|${w}|${h}|${fill}|${line}|${lineAlpha}`, w, h, (g) => {
+      g.fillStyle(fill, 0.95);
+      g.fillRoundedRect(-w / 2, -h / 2, w, h, 20);
+      g.lineStyle(3, line, lineAlpha);
+      g.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
+    });
     card.box.setSize(w, h);
     (card.box.input!.hitArea as Phaser.Geom.Rectangle).setTo(0, 0, w, h);
     if (this.horizontal) {
@@ -291,6 +292,11 @@ export class UpgradeList {
       card.coin.setPosition(-w / 2 + 98, h / 2 - 28);
       card.cost.setOrigin(0, 0.5).setPosition(-w / 2 + 116, h / 2 - 28).setFontSize(28);
     }
+  }
+
+  /** A vector icon, baked once per icon, size and color. */
+  private drawGlyph(img: Phaser.GameObjects.Image, draw: GlyphDraw, size: number, color: number) {
+    setShape(img, `glyph|${drawId(draw)}|${size}|${color}`, size, size, (g) => draw(g, size, color), Math.ceil(size * 0.25));
   }
 
   /** Long names and effects shrink to fit (clear of the level badge). */
@@ -315,15 +321,14 @@ export class UpgradeList {
     card.state = state;
     this.frame(card, affordable ? 0x2b2463 : 0x16143a, affordable ? 0xffc23d : 0x3a3478, affordable ? 1 : 0.8);
     const iconColor = affordable ? 0xffd166 : 0x9f97d9;
-    card.icon.clear();
-    (UPGRADE_ICONS[card.id] ?? UPGRADE_ICONS.focus)(card.icon, this.horizontal ? 42 : 46, iconColor);
+    this.drawGlyph(card.icon, UPGRADE_ICONS[card.id] ?? UPGRADE_ICONS.focus, this.horizontal ? 42 : 46, iconColor);
     card.desc.setText(this.opts.describe(u));
     // A level cap that lifts after the Galaxy shows the level, not MAX: there is more to come.
     card.level.setText(maxed && !run.waitsForGoal(u) ? app.t('shop.max') : app.t('shop.level', { n: run.level(card.id) }));
     card.cost.setText(maxed ? '' : formatNumber(price));
     card.cost.setColor(affordable ? '#ffd166' : '#8d86c4');
-    card.coin.clear();
-    if (!maxed) energyIcon(card.coin, 24, affordable ? ENERGY_COLOR : 0x6d66a8);
+    card.coin.setVisible(!maxed);
+    if (!maxed) this.drawGlyph(card.coin, energyIcon, 24, affordable ? ENERGY_COLOR : 0x6d66a8);
     this.fit(card);
   }
 
@@ -335,14 +340,13 @@ export class UpgradeList {
     card.state = state;
     const reward = app.theme.reward;
     this.frame(card, ready ? 0x113a31 : 0x16143a, ready ? reward : 0x2f6b55, ready ? 1 : 0.8);
-    card.icon.clear();
-    boost.icon(card.icon, this.horizontal ? 42 : 46, ready ? 0x7ff0b8 : 0x5f9c86);
+    this.drawGlyph(card.icon, boost.icon, this.horizontal ? 42 : 46, ready ? 0x7ff0b8 : 0x5f9c86);
     card.name.setText(boost.name);
     card.desc.setText(boost.desc);
     card.level.setText('');
     // Video icon before the status line: this card plays a rewarded ad (CrazyGames asks for a clear marker).
-    card.coin.clear();
-    icons.videoIcon(card.coin, 30, ready ? 0x7ff0b8 : 0x5f9c86);
+    card.coin.setVisible(true);
+    this.drawGlyph(card.coin, icons.videoIcon, 30, ready ? 0x7ff0b8 : 0x5f9c86);
     card.cost.setText(status);
     card.cost.setColor(ready ? REWARD_TEXT : '#8fb8a8');
     card.cost.setScale(1);

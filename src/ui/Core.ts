@@ -1,5 +1,12 @@
 import Phaser from 'phaser';
+import { shapeTexture } from '@core';
 import { CORE_KEY, ensureCoreTexture, ensureSparkTexture } from '../render/bodies';
+
+/** Radius the ring textures are drawn for; the images are scaled to the real radius. */
+const RING_BASE = 100;
+const RING_COLORS = [0xa98bff, 0xffc27a];
+const MOON_COLORS = [0xd8ccff, 0xffd9a8];
+const ringAxes = (i: number, r: number) => ({ rx: r * (1.35 + i * 0.18), ry: r * (0.42 + i * 0.1) });
 
 /**
  * The stellar core the player taps. Pulses gently, squashes on each tap,
@@ -9,7 +16,10 @@ export class Core extends Phaser.GameObjects.Container {
   radius = 110;
   private orb: Phaser.GameObjects.Image;
   private halo: Phaser.GameObjects.Image;
-  private rings: Phaser.GameObjects.Graphics;
+  /** Orbit rings and their moons: images turned each frame (a Graphics redrawn each frame is slow on phones). */
+  private rings: Phaser.GameObjects.Image[] = [];
+  private moons: Phaser.GameObjects.Image[] = [];
+  private ringRes = 1;
   private time = 0;
   private kick = 0;
 
@@ -17,9 +27,23 @@ export class Core extends Phaser.GameObjects.Container {
     super(scene, 0, 0);
     ensureCoreTexture(scene);
     this.halo = scene.add.image(0, 0, ensureSparkTexture(scene)).setBlendMode(Phaser.BlendModes.ADD).setTint(0x8f6bff).setAlpha(0.5);
-    this.rings = scene.add.graphics();
+    for (let i = 0; i < 2; i++) {
+      const { rx, ry } = ringAxes(i, RING_BASE);
+      const ring = shapeTexture(scene, `core-ring|${i}`, rx * 2, ry * 2, (g) => {
+        g.lineStyle(2, RING_COLORS[i], 0.35);
+        g.strokeEllipse(0, 0, rx * 2, ry * 2, 72);
+      });
+      const mr = 5 + i * 2;
+      const moon = shapeTexture(scene, `core-moon|${i}`, mr * 2, mr * 2, (g) => {
+        g.fillStyle(MOON_COLORS[i], 0.9);
+        g.fillCircle(0, 0, mr);
+      }, 1);
+      this.ringRes = ring.res;
+      this.rings.push(scene.add.image(0, 0, ring.key));
+      this.moons.push(scene.add.image(0, 0, moon.key).setScale(1 / moon.res));
+    }
     this.orb = scene.add.image(0, 0, CORE_KEY);
-    this.add([this.halo, this.rings, this.orb]);
+    this.add([this.halo, ...this.rings, ...this.moons, this.orb]);
     this.setInteractive(new Phaser.Geom.Circle(0, 0, 150), Phaser.Geom.Circle.Contains);
     this.on('pointerdown', (p: Phaser.Input.Pointer) => onTap(p.worldX, p.worldY));
     scene.add.existing(this);
@@ -48,30 +72,17 @@ export class Core extends Phaser.GameObjects.Container {
     const squash = 1 - this.kick * 0.08;
     this.orb.setScale(((this.radius * 2.4) / 320) * breathe * squash);
     this.halo.setAlpha(0.45 + this.kick * 0.3 + Math.sin(this.time * 1.3) * 0.08);
-    const g = this.rings;
-    g.clear();
     const r = this.radius;
     for (let i = 0; i < 2; i++) {
+      // Tilted ellipse, turning slowly.
       const a = this.time * (i ? -0.35 : 0.5) + i;
-      g.lineStyle(2, i ? 0xffc27a : 0xa98bff, 0.35);
-      g.beginPath();
-      // Tilted ellipse drawn as a polyline.
-      for (let k = 0; k <= 48; k++) {
-        const t = (k / 48) * Math.PI * 2;
-        const ex = Math.cos(t) * r * (1.35 + i * 0.18);
-        const ey = Math.sin(t) * r * (0.42 + i * 0.1);
-        const x = ex * Math.cos(a) - ey * Math.sin(a);
-        const y = ex * Math.sin(a) + ey * Math.cos(a);
-        if (k === 0) g.moveTo(x, y);
-        else g.lineTo(x, y);
-      }
-      g.strokePath();
+      this.rings[i].setRotation(a).setScale(r / RING_BASE / this.ringRes);
       // A small moon riding each ring.
       const t = this.time * (i ? 0.9 : 1.3);
-      const ex = Math.cos(t) * r * (1.35 + i * 0.18);
-      const ey = Math.sin(t) * r * (0.42 + i * 0.1);
-      g.fillStyle(i ? 0xffd9a8 : 0xd8ccff, 0.9);
-      g.fillCircle(ex * Math.cos(a) - ey * Math.sin(a), ex * Math.sin(a) + ey * Math.cos(a), 5 + i * 2);
+      const { rx, ry } = ringAxes(i, r);
+      const ex = Math.cos(t) * rx;
+      const ey = Math.sin(t) * ry;
+      this.moons[i].setPosition(ex * Math.cos(a) - ey * Math.sin(a), ex * Math.sin(a) + ey * Math.cos(a));
     }
   }
 }

@@ -10,6 +10,7 @@ export { Panel, type PanelOptions } from './ui/panel';
 export { Tutorial, type TutorialStep, type TutorialTarget } from './ui/tutorial';
 export { showOfflinePanel, showDailyPanel, dailyDayIndex, type DailyRewardView } from './ui/rewardPanels';
 export * as icons from './ui/icons';
+export { shapeTexture, shapeImage, setShape, drawId, shapeResolution } from './ui/shapes';
 export { floatText, punch, burst } from './fx';
 export { formatNumber, formatDuration, formatClock, formatCountdown } from './format';
 export { secondsAway, dayKey, dailyStatus, claimDaily, FixedStep, type DailyState } from './time';

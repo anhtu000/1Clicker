@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { app } from '../app';
 import type { IconDraw } from './icons';
+import { drawId, setShape } from './shapes';
 
 export interface ButtonOptions {
   label?: string;
@@ -30,10 +31,11 @@ const EDGE = 8; // height of the 3D bottom edge, in design units
  * so a swipe across the screen does not trigger it.
  */
 export class Button extends Phaser.GameObjects.Container {
-  private bg: Phaser.GameObjects.Graphics;
+  // Images of baked shapes, not live Graphics: much cheaper to draw on phones (see shapes.ts).
+  private bg: Phaser.GameObjects.Image;
   private face: Phaser.GameObjects.Container;
   private labelText: Phaser.GameObjects.Text | null = null;
-  private iconGfx: Phaser.GameObjects.Graphics | null = null;
+  private iconGfx: Phaser.GameObjects.Image | null = null;
   private opts: Required<Omit<ButtonOptions, 'label' | 'icon'>> & Pick<ButtonOptions, 'label' | 'icon'>;
   private pressed = false;
   private enabled = true;
@@ -50,11 +52,11 @@ export class Button extends Phaser.GameObjects.Container {
       sound: 'ui-tap',
       ...options,
     };
-    this.bg = scene.add.graphics();
+    this.bg = scene.add.image(0, 0, '__DEFAULT');
     this.face = scene.add.container(0, 0);
     this.add([this.bg, this.face]);
     if (this.opts.icon) {
-      this.iconGfx = scene.add.graphics();
+      this.iconGfx = scene.add.image(0, 0, '__DEFAULT');
       this.face.add(this.iconGfx);
     }
     if (this.opts.label != null) {
@@ -99,6 +101,11 @@ export class Button extends Phaser.GameObjects.Container {
 
   setIcon(icon: IconDraw) {
     this.opts.icon = icon;
+    if (!this.iconGfx) {
+      this.iconGfx = this.scene.add.image(0, 0, '__DEFAULT');
+      this.face.add(this.iconGfx);
+      this.layoutContent();
+    }
     this.redraw();
     return this;
   }
@@ -156,23 +163,25 @@ export class Button extends Phaser.GameObjects.Container {
   private redraw() {
     const { width: w, height: h, color } = this.opts;
     const r = Math.min(app.theme.radius, h / 2);
-    const g = this.bg;
-    g.clear();
-    // bottom edge
-    g.fillStyle(shade(color, 0.62), 1);
-    g.fillRoundedRect(-w / 2, -h / 2 + EDGE, w, h - EDGE, r);
-    // face, lower when pressed
-    const top = -h / 2 + (this.pressed ? EDGE / 2 : 0);
-    g.fillStyle(color, 1);
-    g.fillRoundedRect(-w / 2, top, w, h - EDGE, r);
-    // soft highlight on the upper half
-    g.fillStyle(0xffffff, 0.14);
-    g.fillRoundedRect(-w / 2 + 6, top + 5, w - 12, (h - EDGE) * 0.42, { tl: r - 4, tr: r - 4, bl: 6, br: 6 });
+    const pressed = this.pressed;
+    setShape(this.bg, `button|${w}|${h}|${color}|${r}|${pressed ? 1 : 0}`, w, h, (g) => {
+      // bottom edge
+      g.fillStyle(shade(color, 0.62), 1);
+      g.fillRoundedRect(-w / 2, -h / 2 + EDGE, w, h - EDGE, r);
+      // face, lower when pressed
+      const top = -h / 2 + (pressed ? EDGE / 2 : 0);
+      g.fillStyle(color, 1);
+      g.fillRoundedRect(-w / 2, top, w, h - EDGE, r);
+      // soft highlight on the upper half
+      g.fillStyle(0xffffff, 0.14);
+      g.fillRoundedRect(-w / 2 + 6, top + 5, w - 12, (h - EDGE) * 0.42, { tl: r - 4, tr: r - 4, bl: 6, br: 6 });
+    });
 
-    if (this.iconGfx && this.opts.icon) {
-      this.iconGfx.clear();
+    const icon = this.opts.icon;
+    if (this.iconGfx && icon) {
+      const size = this.opts.height * 0.42;
       const iconColor = Phaser.Display.Color.HexStringToColor(this.opts.textColor).color;
-      this.opts.icon(this.iconGfx, this.opts.height * 0.42, iconColor);
+      setShape(this.iconGfx, `icon|${drawId(icon)}|${size}|${iconColor}`, size, size, (g) => icon(g, size, iconColor), Math.ceil(size * 0.25));
     }
   }
 }

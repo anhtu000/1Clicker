@@ -3,6 +3,7 @@ import { app } from '../app';
 import type { ViewportInfo } from '../viewport';
 import { Button } from './button';
 import { closeIcon } from './icons';
+import { shapeImage } from './shapes';
 
 export interface PanelOptions {
   title: string;
@@ -43,14 +44,16 @@ export class Panel extends Phaser.GameObjects.Container {
     const h = this.panelHeight;
 
     this.dim = scene.add.rectangle(0, 0, 10, 10, 0x000000, 0.62).setOrigin(0).setInteractive();
-    const bg = scene.add.graphics();
     const r = theme.radius * 1.5;
-    bg.fillStyle(0x000000, 0.35);
-    bg.fillRoundedRect(-w / 2, -h / 2 + 10, w, h, r);
-    bg.fillStyle(theme.surface, 1);
-    bg.fillRoundedRect(-w / 2, -h / 2, w, h, r);
-    bg.lineStyle(3, 0xffffff, 0.08);
-    bg.strokeRoundedRect(-w / 2 + 1.5, -h / 2 + 1.5, w - 3, h - 3, r);
+    // Baked into an image: a live Graphics is rebuilt every frame, which is slow on phones.
+    const bg = shapeImage(scene, 0, 5, `panel|${w}|${h}|${theme.surface}|${r}`, w, h + 10, (g) => {
+      g.fillStyle(0x000000, 0.35);
+      g.fillRoundedRect(-w / 2, -h / 2 + 5, w, h, r);
+      g.fillStyle(theme.surface, 1);
+      g.fillRoundedRect(-w / 2, -h / 2 - 5, w, h, r);
+      g.lineStyle(3, 0xffffff, 0.08);
+      g.strokeRoundedRect(-w / 2 + 1.5, -h / 2 - 3.5, w - 3, h - 3, r);
+    });
     // Swallow taps on the panel so they do not reach the dim layer.
     const hit = scene.add.zone(0, 0, w, h).setInteractive();
     const title = scene.add

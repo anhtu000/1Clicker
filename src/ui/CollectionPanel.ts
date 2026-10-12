@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { app, Button, formatNumber, Panel } from '@core';
+import { app, Button, formatNumber, Panel, shapeImage } from '@core';
 import type { Content } from '../logic/content.ts';
 import { ensureBodyTexture, ensureSpecialTexture } from '../render/bodies';
 import { RARITY_CSS } from '../render/palette';
@@ -68,10 +68,13 @@ export function showCollection(scene: Phaser.Scene, data: CollectionData, onClos
 
   /** A cell: the body if found, else a dark silhouette (or a question mark for hidden ones). */
   const cell = (x: number, y: number, size: number, key: string | null, isFound: boolean, mystery: boolean) => {
-    const bg = scene.add.graphics();
-    bg.fillStyle(0x000000, isFound ? 0.28 : 0.18);
-    bg.fillRoundedRect(x - size / 2 + 3, y - size / 2 + 3, size - 6, size - 6, size * 0.18);
-    grid.add(bg);
+    // Baked once per size: 50 live rounded rectangles made the panel slow on phones.
+    const c = size - 6;
+    const alpha = isFound ? 0.28 : 0.18;
+    grid.add(shapeImage(scene, x, y, `collection-cell|${c}|${alpha}`, c, c, (g) => {
+      g.fillStyle(0x000000, alpha);
+      g.fillRoundedRect(-c / 2, -c / 2, c, c, size * 0.18);
+    }));
     if (key && (isFound || !mystery)) {
       const img = scene.add.image(x, y, key).setScale(((size - 8) / 192) * 1.25);
       if (!isFound) img.setTint(0x231f47).setAlpha(0.75);

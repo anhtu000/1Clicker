@@ -60,6 +60,7 @@ export class Tutorial {
   private hole: TutorialTarget | null = null;
   private time = 0;
   private stepStarted = 0;
+  private bubbleSize = '';
 
   constructor(scene: Phaser.Scene, options: TutorialOptions = {}) {
     this.scene = scene;
@@ -209,11 +210,16 @@ export class Tutorial {
     const safe = vp.safe;
     const bw = this.bubbleText.width + 64;
     const bh = this.bubbleText.height + 44;
-    this.bubbleBg.clear();
-    this.bubbleBg.fillStyle(0x0b0a1e, 0.94);
-    this.bubbleBg.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 26);
-    this.bubbleBg.lineStyle(3, app.theme.primary, 0.9);
-    this.bubbleBg.strokeRoundedRect(-bw / 2, -bh / 2, bw, bh, 26);
+    // Redrawn only when its size changes (layout runs every frame; Graphics are costly on phones).
+    const size = `${bw}x${bh}`;
+    if (size !== this.bubbleSize) {
+      this.bubbleSize = size;
+      this.bubbleBg.clear();
+      this.bubbleBg.fillStyle(0x0b0a1e, 0.94);
+      this.bubbleBg.fillRoundedRect(-bw / 2, -bh / 2, bw, bh, 26);
+      this.bubbleBg.lineStyle(3, app.theme.primary, 0.9);
+      this.bubbleBg.strokeRoundedRect(-bw / 2, -bh / 2, bw, bh, 26);
+    }
     let by = vp.height / 2;
     if (h) {
       const above = h.y - h.h / 2 - PAD - bh / 2 - 40;

@@ -25,30 +25,36 @@ export interface FloatOptions {
   font?: string;
 }
 
-const floatPools = new WeakMap<Phaser.Scene, Phaser.GameObjects.Text[]>();
+const floatPools = new WeakMap<Phaser.Scene, Map<string, Phaser.GameObjects.Text[]>>();
 
-/** "+12" that rises and fades. Reuses text objects, so fast clicking does not pile up garbage. */
+/**
+ * "+12" that rises and fades. Reuses text objects, so fast clicking does not pile up garbage.
+ * One pool per look (font, size, color): a reused label only changes its text. Changing a text's
+ * size or color re-measures and redraws it several times, which stalls a phone on every tap.
+ */
 export function floatText(scene: Phaser.Scene, x: number, y: number, text: string, options: FloatOptions = {}) {
-  let pool = floatPools.get(scene);
-  if (!pool) {
-    pool = [];
-    floatPools.set(scene, pool);
+  let pools = floatPools.get(scene);
+  if (!pools) {
+    pools = new Map();
+    floatPools.set(scene, pools);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => floatPools.delete(scene));
   }
+  const size = options.size ?? 44;
+  const color = options.color ?? '#ffffff';
+  const font = options.font ?? 'Nunito, sans-serif';
+  const look = `${font}|${size}|${color}`;
+  let pool = pools.get(look);
+  if (!pool) pools.set(look, (pool = []));
   let label = pool.find((t) => !t.active);
   if (!label) {
-    label = scene.add.text(0, 0, '', { fontFamily: options.font ?? 'Nunito, sans-serif', fontStyle: '900' });
+    label = scene.add.text(0, 0, text, { fontFamily: font, fontStyle: '900', fontSize: size, color, stroke: '#00000088', strokeThickness: Math.round(size / 7) });
     label.setOrigin(0.5).setDepth(1000);
     pool.push(label);
   }
-  const size = options.size ?? 44;
   label
     .setActive(true)
     .setVisible(true)
     .setText(text)
-    .setFontSize(size)
-    .setColor(options.color ?? '#ffffff')
-    .setStroke('#00000088', Math.round(size / 7))
     .setPosition(x + Phaser.Math.Between(-12, 12), y)
     .setAlpha(1)
     .setScale(0.6);

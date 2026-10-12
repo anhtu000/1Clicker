@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { app } from '@core';
 
-// Deep-space backdrop: a nebula painted once on a canvas, and twinkling stars drawn each frame.
+// Deep-space backdrop: a nebula painted once on a canvas, and twinkling stars (small images moved each frame).
 
 /** Backdrop themes, bought in the decor shop (CLAUDE.md 4b item 10). Ids match src/content/decor.json. */
 const THEMES: Record<string, { stops: [string, string, string]; clouds: [string, number][]; seed: number }> = {
@@ -61,6 +61,23 @@ export function ensureNebulaTexture(scene: Phaser.Scene, theme: string): string 
   return key;
 }
 
+const STAR_KEY = 'twinkle-dot';
+const STAR_R = 8;
+
+/** Small round dot for the twinkling stars, drawn once. */
+function ensureStarTexture(scene: Phaser.Scene): string {
+  if (scene.textures.exists(STAR_KEY)) return STAR_KEY;
+  const c = document.createElement('canvas');
+  c.width = c.height = STAR_R * 2;
+  const ctx = c.getContext('2d')!;
+  ctx.fillStyle = '#ffffff';
+  ctx.beginPath();
+  ctx.arc(STAR_R, STAR_R, STAR_R - 0.5, 0, Math.PI * 2);
+  ctx.fill();
+  scene.textures.addCanvas(STAR_KEY, c);
+  return STAR_KEY;
+}
+
 interface TwinkleStar {
   x: number;
   y: number;
@@ -68,18 +85,19 @@ interface TwinkleStar {
   phase: number;
   speed: number;
   drift: number;
+  img: Phaser.GameObjects.Image;
 }
 
 /** Fills the whole screen. Call layout() on resize and update(delta) every frame. */
 export class SpaceBackground {
   private image: Phaser.GameObjects.Image;
-  private stars: Phaser.GameObjects.Graphics;
   private list: TwinkleStar[] = [];
   private time = 0;
 
   constructor(scene: Phaser.Scene, theme = 'nebula') {
     this.image = scene.add.image(0, 0, ensureNebulaTexture(scene, theme)).setOrigin(0.5).setDepth(-100);
-    this.stars = scene.add.graphics().setDepth(-99);
+    // Images, not a Graphics redrawn each frame: 70 circles in a Graphics cost several ms per frame on a phone.
+    const key = ensureStarTexture(scene);
     for (let i = 0; i < 70; i++) {
       this.list.push({
         x: Math.random(),
@@ -88,6 +106,7 @@ export class SpaceBackground {
         phase: Math.random() * Math.PI * 2,
         speed: Phaser.Math.FloatBetween(0.6, 2.2),
         drift: Phaser.Math.FloatBetween(2, 9),
+        img: scene.add.image(0, 0, key).setDepth(-99),
       });
     }
   }
@@ -107,15 +126,12 @@ export class SpaceBackground {
   update(delta: number) {
     this.time += delta / 1000;
     const vp = app.viewport.info;
-    const g = this.stars;
-    g.clear();
     for (const s of this.list) {
       // Slow drift downward, as if the camera is rising through space.
       s.y += (s.drift * delta) / 1000 / vp.height;
       if (s.y > 1) s.y -= 1;
       const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(this.time * s.speed + s.phase));
-      g.fillStyle(0xffffff, a * 0.8);
-      g.fillCircle(s.x * vp.width, s.y * vp.height, s.r);
+      s.img.setPosition(s.x * vp.width, s.y * vp.height).setAlpha(a * 0.8).setScale(s.r / STAR_R);
     }
   }
 }
