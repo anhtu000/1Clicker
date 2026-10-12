@@ -21,66 +21,58 @@
   "upgrade": {
     "focus": {
       "name": "Core Focus",
-      "desc": "Tap energy x{now} › x{next}",
-      "descMax": "Tap energy x{now} (taps only)"
+      "desc": "Each tap gives more energy"
     },
     "slots": {
       "name": "Orbit Ring",
-      "desc": "+1 board slot ({now} › {next})",
-      "descMax": "All {now} board slots open"
+      "desc": "One more space on the board",
+      "descMax": "All board spaces are open"
     },
     "discount": {
       "name": "Lean Optics",
-      "desc": "Scan price -{now}% › -{next}%",
-      "descMax": "Scan price -{now}%"
+      "desc": "Scans cost less"
     },
     "fleet": {
       "name": "Probe Fleet",
-      "desc": "Auto energy x{v} (probes)",
-      "descStart": "Starts probes: energy with no tapping",
+      "descStart": "Probes earn energy for you",
+      "desc": "Probes earn more energy",
       "descMax": "Probes at full power"
     },
     "crit": {
       "name": "Supernova Tap",
-      "desc": "x{m} tap chance: {now}% › {next}%",
-      "descMax": "x{m} tap chance: {now}%"
+      "desc": "More taps hit 6x harder"
     },
     "luck": {
       "name": "Stellar Luck",
-      "desc": "Rare or better: {now}% › {next}%",
-      "descMax": "Rare or better: {now}%"
+      "desc": "Rare bodies more often"
     },
     "lens": {
       "name": "Gravity Lens",
-      "desc": "Tier 2-4 scans: {now}% › {next}%",
-      "descMax": "Tier 2-4 scans: {now}%"
+      "desc": "Bigger bodies from scans"
     },
     "binary": {
       "name": "Binary Merge",
-      "desc": "Free copy on merge: {now}% › {next}%",
-      "descMax": "Free copy on merge: {now}%"
+      "desc": "Merges may give a free copy"
     },
     "starMagnet": {
       "name": "Star Magnet",
-      "desc": "Shooting stars +{now}% › +{next}%",
-      "descMax": "Shooting stars +{now}%"
+      "desc": "More shooting stars"
     },
     "relay": {
       "name": "Deep Space Relay",
-      "desc": "Away earnings: up to {now}h › {next}h",
-      "descMax": "Away earnings: up to {now}h"
+      "desc": "Earn longer while away"
     },
     "autoScan": {
       "name": "Auto Scanner",
-      "desc": "Auto scan: every {now}s › {next}s",
-      "descStart": "Scans by itself every {next}s",
-      "descMax": "Auto scan: every {now}s"
+      "descStart": "Scans for you on its own",
+      "desc": "Scans for you faster",
+      "descMax": "Scans for you at top speed"
     },
     "autoMerge": {
       "name": "Gravity Well",
-      "desc": "Auto merge: every {now}s › {next}s",
-      "descStart": "Merges by itself every {next}s",
-      "descMax": "Auto merge: every {now}s"
+      "descStart": "Merges for you on its own",
+      "desc": "Merges for you faster",
+      "descMax": "Merges for you at top speed"
     }
   },
   "hud": {
@@ -104,14 +96,14 @@
   },
   "boost": {
     "lucky": "Lucky Scan",
-    "luckyDesc": "One tier higher, Rare or better",
+    "luckyDesc": "Lucky scan for free!",
     "copy": "Copy",
     "copyDesc": "One more {name}"
   },
   "reveal": {
     "odds": "1 in {n}",
     "new": "New discovery!",
-    "twin": "Twin!",
+    "twin": "Free copy!",
     "copy": "Copy",
     "absorbed": "+{n}"
   },
@@ -196,9 +188,9 @@
     "title": "Collection",
     "bodies": "Bodies {n}/{total}",
     "hidden": "Hidden {n}/{total}",
-    "bonus": "Discoveries: +{n}% energy",
+    "bonus": "Your finds give +{n}% energy",
     "odds": "1 in {n}",
-    "pity": "{rarity} guaranteed within {n} rolls",
+    "pity": "{rarity} or better guaranteed within {n} scans or merges",
     "pityNote": "Odds per scan or merge, with your luck upgrades"
   },
   "menu": {
@@ -256,7 +248,7 @@
     }
   },
   "info": {
-    "tier": "Tier {n} of {total}",
+    "tier": "Stage {n} of {total}",
     "makes": "Two of them make a {name}",
     "goal": "The end of the chain. Or is it?",
     "special": "Collectible. It does not merge",

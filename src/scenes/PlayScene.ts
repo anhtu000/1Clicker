@@ -11,7 +11,6 @@ import {
   formatNumber,
   icons,
   Panel,
-  rarityOdds,
   secondsAway,
   showOfflinePanel,
   rewardButton,
@@ -1409,68 +1408,16 @@ export class PlayScene extends BaseScene {
   }
 
   /**
-   * Text on an upgrade card: what the next level does, and whom it helps (taps or probes).
-   * Lines that grow a number show it as "now › next"; a maxed line shows where it ended.
+   * Text on an upgrade card: what it does, in plain words, without numbers (user request 12/10).
+   * A few lines read differently before the first level (what it unlocks) and at the top level.
    */
   private describe(u: UpgradeDef): string {
-    const run = this.run;
-    const level = run.level(u.id);
-    const maxed = level >= u.max;
+    const level = this.run.level(u.id);
     const key = `upgrade.${u.id}`;
-    const pct = (x: number) => (x < 0.1 ? trim(x * 100).replace(/^(\d+\.\d).*$/, '$1') : String(Math.round(x * 100)));
-    const nowNext = (now: string | number, next: string | number, extra: Record<string, string | number> = {}) =>
-      app.t(maxed ? `${key}.descMax` : `${key}.desc`, { now, next, ...extra });
-    // Total effect after `l` levels, for lines that stack.
-    const total = (l: number) => (u.op === 'mul' ? (u.value ?? 1) ** l : (u.value ?? 0) * l);
-    const times = (x: number) => (x < 10 ? trim(x) : x < 1000 ? String(Math.round(x)) : formatNumber(x));
-    switch (u.id) {
-      case 'focus':
-        return nowNext(times(total(level)), times(total(level + 1)));
-      case 'slots':
-        return nowNext(run.slots, run.slots + (u.value ?? 1));
-      case 'discount':
-        return nowNext(Math.round((1 - total(level)) * 100), Math.round((1 - total(level + 1)) * 100));
-      case 'fleet': {
-        const values = u.values ?? [];
-        if (level === 0) return app.t(`${key}.descStart`);
-        if (maxed) return app.t(`${key}.descMax`);
-        return app.t(`${key}.desc`, { v: String(Math.round((values[level] / values[level - 1]) * 10) / 10) });
-      }
-      case 'crit':
-        return nowNext(Math.round(total(level) * 100), Math.round(total(level + 1) * 100), { m: content.economy.tap.critMult });
-      case 'luck': {
-        // Share of rolls that come out Rare or better, at this luck and with one more level.
-        const weights = content.rarities.map((r) => r.weight);
-        const rareUp = (luck: number) => 1 - rarityOdds(weights, { weightMult: (t) => (t > 0 ? luck : 1) })[0];
-        const luck = run.stat('luck');
-        return nowNext(pct(rareUp(luck)), pct(rareUp(luck + (u.value ?? 0))));
-      }
-      case 'lens': {
-        const rows = content.economy.scan.tierOdds;
-        const bigger = (l: number) => 1 - rows[Math.min(rows.length - 1, l)][0];
-        return nowNext(pct(bigger(level)), pct(bigger(level + 1)));
-      }
-      case 'binary':
-      case 'starMagnet':
-        return nowNext(Math.round(total(level) * 100), Math.round(total(level + 1) * 100));
-      case 'relay': {
-        const now = run.stat('offlineCapHours');
-        return nowNext(trim(now), trim(now + (u.value ?? 0)));
-      }
-      case 'autoScan':
-      case 'autoMerge': {
-        const values = u.values ?? [];
-        if (level === 0) return app.t(`${key}.descStart`, { next: trim(values[0]) });
-        return nowNext(trim(values[level - 1]), trim(values[Math.min(level, values.length - 1)]));
-      }
-      default:
-        return app.t(`${key}.desc`, { v: trim(u.value ?? 0) });
-    }
+    if (level >= u.max && app.i18n.has(`${key}.descMax`)) return app.t(`${key}.descMax`);
+    if (level === 0 && app.i18n.has(`${key}.descStart`)) return app.t(`${key}.descStart`);
+    return app.t(`${key}.desc`);
   }
-}
-
-function trim(n: number) {
-  return String(Math.round(n * 100) / 100);
 }
 
 /** "Epic" -> "an Epic", "Rare" -> "a Rare" (English string only). */
