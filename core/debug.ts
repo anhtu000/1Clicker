@@ -3,7 +3,12 @@
 
 interface DebugSource {
   game: { loop: { actualFps: number; delta: number } };
-  viewport: { info: { width: number; height: number; scale: number; dpr: number; cssWidth: number; cssHeight: number; portrait: boolean } };
+  viewport: {
+    info: { width: number; height: number; scale: number; dpr: number; cssWidth: number; cssHeight: number; portrait: boolean };
+    dprCap: number;
+    setMaxDpr(value: number): void;
+  };
+  quality: { state: string; lastMs: number; cycle(): void } | null;
   platform: { id: string };
   i18n: { lang: string };
   pause: { paused: boolean };
@@ -32,9 +37,21 @@ export class DebugOverlay {
   constructor(private app: DebugSource) {
     this.box = document.createElement('div');
     this.box.style.cssText =
-      'position:fixed;left:6px;bottom:6px;z-index:9998;pointer-events:none;white-space:pre;' +
+      'position:fixed;left:6px;bottom:6px;z-index:9998;white-space:pre;cursor:pointer;' +
       'font:12px/1.35 ui-monospace,monospace;color:#0f0;background:rgba(0,0,0,.65);padding:6px 8px;border-radius:6px';
     document.body.append(this.box);
+    // Tap the box: next lower canvas resolution (wraps around), to test what the GPU can hold.
+    this.box.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      if (app.quality) app.quality.cycle();
+      else {
+        const levels = [2, 1.5, 1.25, 1];
+        const i = levels.findIndex((v) => v < app.viewport.dprCap - 0.01);
+        app.viewport.setMaxDpr(i < 0 ? levels[0] : levels[i]);
+      }
+      this.render();
+    });
+    this.gpu = gpuName(app.game);
     this.timer = setInterval(() => this.render(), 250);
     // Low frame rate: these two lines tell whether the game or the browser is the limit.
     //   game ms near or above 16 -> the game's own work is too heavy for this device.
@@ -55,6 +72,7 @@ export class DebugOverlay {
   }
 
   private wrapped: ((time: number, delta: number) => void) | null = null;
+  private gpu = '';
 
   /** Times the game's frame callback. Called again on each refresh: Phaser sets the callback only once it has booted. */
   private hook() {
@@ -85,6 +103,8 @@ export class DebugOverlay {
       `fps ${a.game.loop.actualFps.toFixed(0)}  delta ${a.game.loop.delta.toFixed(1)}ms`,
       `game ${this.jsMs.toFixed(1)}ms/frame  raf ${this.rafRate.toFixed(0)}/s`,
       `css ${v.cssWidth}x${v.cssHeight}  dpr ${v.dpr}  ${v.portrait ? 'portrait' : 'landscape'}`,
+      `render cap ${a.viewport.dprCap}  ${a.quality ? `auto ${a.quality.state} ${a.quality.lastMs.toFixed(1)}ms` : 'fixed'}  (tap: lower)`,
+      `gpu ${this.gpu}`,
       `units ${v.width.toFixed(0)}x${v.height.toFixed(0)}  scale ${v.scale.toFixed(3)}  textRes ${a.textResolution}`,
       `platform ${a.platform.id}  lang ${a.i18n.lang}`,
       `paused ${a.pause.paused}  gameplay ${a.gameplay.isActive}  ad ${a.ads.lastOutcome ?? '-'}`,
@@ -92,5 +112,18 @@ export class DebugOverlay {
       ...Object.entries(DebugOverlay.extra).map(([k, val]) => `${k} ${val}`),
     ];
     this.box.textContent = lines.join('\n');
+  }
+}
+
+/** Name of the graphics chip, when the browser tells it (helps read phone test results). */
+function gpuName(game: unknown): string {
+  try {
+    const gl = (game as { renderer?: { gl?: WebGLRenderingContext } }).renderer?.gl;
+    if (!gl) return 'canvas';
+    const ext = gl.getExtension('WEBGL_debug_renderer_info');
+    const name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER);
+    return String(name).slice(0, 40);
+  } catch {
+    return '?';
   }
 }

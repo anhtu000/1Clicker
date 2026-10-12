@@ -15,6 +15,7 @@ import { Settings } from './settings';
 import { Rng } from './rng';
 import { defaultTheme, type Theme } from './theme';
 import { Viewport, type ViewportOptions } from './viewport';
+import { QualityGovernor } from './quality';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { PauseScene } from './scenes/PauseScene';
@@ -85,6 +86,8 @@ class App extends Emitter<{ language: [lang: string] }> {
   pause!: PauseManager;
   gameplay!: GameplayTracker;
   viewport!: Viewport;
+  /** Phones only: lowers the canvas resolution when frames are slow (see quality.ts). */
+  quality: QualityGovernor | null = null;
   theme: Theme = defaultTheme;
   /**
    * Seeded random numbers for gameplay (CLAUDE.md 5c, A1). Never call Math.random() for gameplay.
@@ -207,6 +210,15 @@ class App extends Emitter<{ language: [lang: string] }> {
     // ?fps=144 simulates a 144 Hz screen, to check that speed does not depend on frame rate.
     const fpsParam = Number(params.get('fps'));
     if (fpsParam > 0) Object.assign(fps, { target: fpsParam, forceSetTimeOut: true });
+    // Phones with 120 Hz screens: draw every other screen refresh (60 fps). Otherwise the browser aims
+    // for 120, misses often, and frame times jump between 16, 25 and 33 ms (felt as stutter, phone test
+    // 12/10). Phaser skips a frame while less than 1000/limit ms have passed, so 95 skips the 8.3 ms
+    // refreshes of a 120 Hz screen but keeps every refresh at 90 Hz and 60 Hz (a limit of exactly 60
+    // would drop frames on a 60 Hz screen whenever a refresh comes a hair early).
+    const mobile = this.platform.isMobile();
+    if (mobile && !(fpsParam > 0)) fps.limit = 95;
+    // Resolution the governor settled on for this phone last time.
+    if (mobile && this.settings.renderDpr) this.viewport.setMaxDpr(this.settings.renderDpr);
 
     const scenes: Phaser.Types.Scenes.SceneType[] = [BootScene, PauseScene, ...config.scenes];
     if (config.menu !== false && !config.menuScene) scenes.splice(1, 0, MenuScene);
@@ -220,10 +232,13 @@ class App extends Emitter<{ language: [lang: string] }> {
       disableContextMenu: true,
       banner: false,
       fps,
-      render: { antialias: true, powerPreference: 'high-performance' },
+      // No multisampling: shapes are drawn into textures already smoothed (ui/shapes.ts), and on phones
+      // the multisampled canvas cost a large share of the drawing time.
+      render: { antialias: true, antialiasGL: false, powerPreference: 'high-performance' },
       scene: scenes,
     });
     this.viewport.attach(this.game);
+    if (mobile && !params.has('fixedres')) this.quality = new QualityGovernor(this);
     this.audio.attach(this.game);
     this.platform.onMuteChange((muted) => this.audio.setPortalMuted(muted));
     this.wirePause();

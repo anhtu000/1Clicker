@@ -68,6 +68,18 @@ export class Viewport extends Emitter<{ change: [info: ViewportInfo] }> {
     };
   }
 
+  /** Highest device pixel ratio the canvas renders at. Lower it when the GPU cannot keep up. */
+  get dprCap() {
+    return this.maxDpr;
+  }
+
+  /** Changes the resolution cap and resizes the canvas right away (scenes get a 'change' event). */
+  setMaxDpr(value: number) {
+    this.maxDpr = value;
+    if (this.game) this.update();
+    else this.info = this.measure();
+  }
+
   attach(game: Phaser.Game) {
     this.game = game;
     const schedule = () => {

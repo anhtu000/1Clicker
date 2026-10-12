@@ -6,11 +6,13 @@ interface SettingsData {
   haptics: boolean;
   /** Language the player picked. null means "follow the portal or browser". */
   lang: string | null;
+  /** Canvas resolution cap chosen by the quality governor on this device (null: not measured yet). */
+  renderDpr: number | null;
 }
 
 /** Player preferences, stored apart from game progress so a progress reset keeps them. */
 export class Settings {
-  private data: SettingsData = { muted: false, haptics: true, lang: null };
+  private data: SettingsData = { muted: false, haptics: true, lang: null, renderDpr: null };
 
   constructor(
     private storage: KeyValueStorage,
@@ -45,6 +47,14 @@ export class Settings {
   }
   set lang(value: string | null) {
     this.data.lang = value;
+    this.save();
+  }
+
+  get renderDpr() {
+    return this.data.renderDpr;
+  }
+  set renderDpr(value: number | null) {
+    this.data.renderDpr = value;
     this.save();
   }
 
