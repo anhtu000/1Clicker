@@ -295,7 +295,7 @@ export class PlayScene extends BaseScene {
       this.rateRoom = vp.width - 48;
       this.core.setPosition(cx, y0 + 228);
       this.core.setRadius(84);
-      this.placeChain(cx, y0 + 354, 450, 82);
+      this.placeChain(cx, y0 + 352, 540, 80);
       const size = cell * 4 + 3 * Math.round(cell * 0.08);
       this.board.layout(cx, boardBottom - size / 2, cell);
       // Scan alone is centered; with the Auto switch the pair is centered together.
@@ -335,14 +335,15 @@ export class PlayScene extends BaseScene {
       const leftX = x0 + colW / 2;
       // Below the pause row on 16:9; centered with the board when the screen is taller.
       const colTop = Math.max(s.y + 4, 100);
-      this.placeEnergy(leftX, colTop + 36);
-      this.rateText.setPosition(leftX, colTop + 80);
+      // Kept inside 720 high: the Auto switch under Scan ends at colTop + 606.
+      this.placeEnergy(leftX, colTop + 34);
+      this.rateText.setPosition(leftX, colTop + 76);
       this.rateRoom = colW - 10;
-      this.core.setPosition(leftX, colTop + 194);
-      this.core.setRadius(76);
-      this.placeChain(leftX, colTop + 308, 340, 68);
-      this.scanBtn.setPosition(leftX, colTop + 498);
-      this.autoBtn.setPosition(leftX, colTop + 600);
+      this.core.setPosition(leftX, colTop + 172);
+      this.core.setRadius(70);
+      this.placeChain(leftX, colTop + 276, 370, 62);
+      this.scanBtn.setPosition(leftX, colTop + 462);
+      this.autoBtn.setPosition(leftX, colTop + 562);
       this.board.layout(x0 + colW + 24 + size / 2, Math.max(s.y + s.height / 2, colTop + size / 2 - 40), cell);
     }
     this.energyY = this.energyText.y;
@@ -353,8 +354,8 @@ export class PlayScene extends BaseScene {
     this.closeInfo();
   }
 
-  /** The goal chain's area (center, size), both rows. */
-  private chainCenter = { x: 0, y: 0, w: 0, h: 0, step: 0 };
+  /** The goal chain's area (center, size), both rows; `art` is the drawn size of one stage. */
+  private chainCenter = { x: 0, y: 0, w: 0, h: 0, art: 0 };
   private energyY = 0;
   private energyX = 0;
   /** Width the per tap / per second line may take before it shrinks. */
@@ -370,11 +371,14 @@ export class PlayScene extends BaseScene {
   private placeChain(cx: number, y: number, width: number, rowGap: number) {
     const perRow = Math.ceil(this.chain.length / 2);
     const step = width / perRow;
-    this.chainCenter = { x: cx, y: y + rowGap / 2, w: width, h: rowGap + step, step };
+    // Ringed bodies (gas giant, black hole) fill about 92% of their texture's width: at 88% of the step
+    // they keep a clear gap to their neighbours (user feedback 12/10: the lower row overlapped).
+    const art = step * 0.88;
+    this.chainCenter = { x: cx, y: y + rowGap / 2, w: width, h: rowGap + art, art };
     this.chain.forEach((img, i) => {
       const col = i % perRow;
       img.setPosition(cx - width / 2 + step * (col + 0.5), y + Math.floor(i / perRow) * rowGap);
-      img.setScale((step * 1.3) / BODY_SIZE);
+      img.setScale(art / BODY_SIZE);
     });
     this.refreshChain();
   }
@@ -392,7 +396,7 @@ export class PlayScene extends BaseScene {
     if (top > 0) {
       const img = this.chain[top - 1];
       g.lineStyle(3, 0xffc23d, 0.9);
-      g.strokeCircle(img.x, img.y, this.chainCenter.step * 0.48);
+      g.strokeCircle(img.x, img.y, this.chainCenter.art * 0.46);
     }
   }
 
