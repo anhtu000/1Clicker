@@ -67,11 +67,11 @@ const verdict: [string, string, string, Status][] = [
   ],
   [
     'Về đích, có quảng cáo',
-    '45–60 phút',
+    'Dưới 60 phút',
     `Trung vị ${mmss(P.realistic.p50)} (xem quảng cáo thật) · ${mmss(P.basic.p50)} (Basic Launch)`,
-    [P.realistic.p50, P.basic.p50].every((t) => t >= 2700 && t <= 3600) ? 'ok' : 'near',
+    [P.realistic.p50, P.basic.p50].every((t) => t <= 3600) ? 'ok' : 'near',
   ],
-  ['Về đích, không quảng cáo', '70–90 phút', `Trung vị ${mmss(P.none.p50)}, 80% người chơi trong ${mmss(P.none.p10)}–${mmss(P.none.p90)}`, within(P.none.p50 / 60, 70, 90)],
+  ['Về đích, không quảng cáo', 'Dưới 60 phút', `Trung vị ${mmss(P.none.p50)}, 80% người chơi trong ${mmss(P.none.p10)}–${mmss(P.none.p90)}`, P.none.p50 <= 3600 ? 'ok' : P.none.p50 <= 3960 ? 'near' : 'miss'],
   [
     'Nhấp đều so với chỉ để auto',
     'Thu nhập gấp khoảng 2 lần',
@@ -115,10 +115,9 @@ function rangeChart() {
   const h = top + all.length * rowH + 30;
   let svg = `<svg viewBox="-8 0 ${chartW + 16} ${h}" role="img" aria-label="Thời gian về đích theo cách dùng quảng cáo">`;
   // target bands
-  svg += `<rect x="${x(45 * 60)}" y="${top - 8}" width="${x(60 * 60) - x(45 * 60)}" height="${all.length * rowH + 4}" class="band"/>`;
-  svg += `<rect x="${x(70 * 60)}" y="${top - 8}" width="${x(90 * 60) - x(70 * 60)}" height="${all.length * rowH + 4}" class="band b2"/>`;
-  svg += `<text x="${(x(45 * 60) + x(60 * 60)) / 2}" y="12" class="bandlab" text-anchor="middle">mục tiêu có QC</text>`;
-  svg += `<text x="${(x(70 * 60) + x(90 * 60)) / 2}" y="12" class="bandlab" text-anchor="middle">mục tiêu không QC</text>`;
+  // Target since 13/10: under an hour with or without ads.
+  svg += `<rect x="${x(0)}" y="${top - 8}" width="${x(60 * 60) - x(0)}" height="${all.length * rowH + 4}" class="band"/>`;
+  svg += `<text x="${x(30 * 60)}" y="12" class="bandlab" text-anchor="middle">mục tiêu: dưới 1 giờ</text>`;
   for (let m = 0; m <= MAX_MIN; m += 10) {
     svg += `<line x1="${x(m * 60)}" x2="${x(m * 60)}" y1="${top - 8}" y2="${top + all.length * rowH - 4}" class="grid"/>`;
     svg += `<text x="${x(m * 60)}" y="${h - 8}" class="tick" text-anchor="middle">${m}</text>`;
