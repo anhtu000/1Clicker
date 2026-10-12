@@ -45,6 +45,10 @@ interface Card {
   coin: Phaser.GameObjects.Image;
   level: Phaser.GameObjects.Text;
   state: string;
+  /** Size and orientation the parts were last laid out for (font changes re-measure text: slow on phones). */
+  layout: string;
+  /** Description text and layout the description font was last fitted for. */
+  descFit: string;
 }
 
 /** Id of the boost card in the list. Not an upgrade id. */
@@ -217,7 +221,7 @@ export class UpgradeList {
     const box = s.add.container(0, 0, [bg, icon, name, desc, coin, cost, level]).setDepth(20);
     box.setSize(this.cardW, this.cardH);
     box.setInteractive({ useHandCursor: true });
-    const card: Card = { id, box, bg, icon, name, desc, cost, coin, level, state: '' };
+    const card: Card = { id, box, bg, icon, name, desc, cost, coin, level, state: '', layout: '', descFit: '' };
     // A press on a card also starts a scroll, so the list can be dragged anywhere, not only in the gaps.
     box.on('pointerdown', (p: Phaser.Input.Pointer) => {
       this.startDrag(p);
@@ -271,6 +275,10 @@ export class UpgradeList {
       g.lineStyle(3, line, lineAlpha);
       g.strokeRoundedRect(-w / 2, -h / 2, w, h, 20);
     });
+    const layout = `${w}|${h}|${this.horizontal}`;
+    if (card.layout === layout) return;
+    card.layout = layout;
+    card.descFit = '';
     card.box.setSize(w, h);
     (card.box.input!.hitArea as Phaser.Geom.Rectangle).setTo(0, 0, w, h);
     if (this.horizontal) {
@@ -305,9 +313,23 @@ export class UpgradeList {
     const room = this.horizontal ? w - 28 : w - 100 - card.level.width - 10;
     card.name.setScale(1);
     card.name.setScale(card.name.width > room ? room / card.name.width : 1);
-    const descRoom = this.horizontal ? Infinity : w - 100;
-    card.desc.setScale(1);
-    card.desc.setScale(card.desc.width > descRoom ? descRoom / card.desc.width : 1);
+    if (this.horizontal) {
+      // Phone strip: the description gets two lines above the price. Fonts differ a little between
+      // phones (a Samsung wrapped "Rare bodies more often when scanning" to three lines over the price),
+      // so the font steps down until the text fits in two.
+      const key = `${card.desc.text}|${card.layout}`;
+      if (card.descFit !== key) {
+        card.descFit = key;
+        let size = 22;
+        card.desc.setFontSize(size);
+        while (size > 16 && card.desc.getWrappedText(card.desc.text).length > 2) card.desc.setFontSize(--size);
+      }
+      card.desc.setScale(1);
+    } else {
+      const descRoom = w - 100;
+      card.desc.setScale(1);
+      card.desc.setScale(card.desc.width > descRoom ? descRoom / card.desc.width : 1);
+    }
   }
 
   private drawCard(card: Card, force = false) {

@@ -135,7 +135,10 @@ test('upgrades: visibility, price, purchase', () => {
   assert.ok(run.buy('focus'));
   assert.equal(run.level('focus'), 1);
   assert.equal(run.s.energy, 0);
-  assert.equal(run.stat('tapMult'), focus.value);
+  // Level 1 is 1.5x stronger than the old 1.5x per level (user request 13/10): 2.25, then x1.5 per level.
+  assert.equal(run.stat('tapMult'), focus.values![0]);
+  assert.equal(focus.values![0], 2.25);
+  for (let i = 1; i < focus.max; i++) assert.ok(Math.abs(focus.values![i] / focus.values![i - 1] - 1.5) < 1e-3);
 });
 
 test('free upgrade target never gives the first probes, and stays within the income cap', () => {
