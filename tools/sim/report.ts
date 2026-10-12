@@ -22,8 +22,8 @@ const TIER_VI = ['Bụi sao', 'Thiên thạch', 'Tiểu hành tinh', 'Sao chổi
 const RARITY_VI = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
 const UPGRADE_VI: Record<string, [string, string]> = {
   focus: ['Core Focus', 'Nhấp tay ×1,5 mỗi cấp (không tăng tàu thu)'],
-  lens: ['Gravity Lens', 'Sau auto. +4% cơ hội quét ra cao hơn 1 cấp (1/10 trong số đó cao hơn 2 cấp)'],
-  slots: ['Orbit Ring', '+4 ô trên bảng (8 → 12 → 16)'],
+  lens: ['Gravity Lens', 'Sau auto. Mỗi cấp +4% cơ hội một lần quét ra cao hơn 1 cấp (1/10 trong số đó cao hơn 2 cấp), tối đa 20%'],
+  slots: ['Orbit Ring', '+1 ô trên bảng mỗi cấp, 8 cấp (8 → 16 ô)'],
   discount: ['Lean Optics', 'Giá quét ×0,88 mỗi cấp'],
   probes: ['Probe Bay', 'Mở tự động hoá: tàu thu bắt đầu thu năng lượng. Không nhận bằng quảng cáo'],
   crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 (chỉ nhấp tay)'],

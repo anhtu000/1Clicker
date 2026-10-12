@@ -13,7 +13,7 @@ import type { Content } from '../../src/logic/content.ts';
 /** Minute each upgrade level should become affordable, for a player who never watches ads. */
 export const SCHEDULE: Record<string, number[]> = {
   focus: [0.25, 0.6, 1, 1.6, 2.3, 3.2, 4.3, 5.8, 8, 11, 15, 20, 27, 36, 48],
-  slots: [2.6, 20],
+  slots: [1.5, 2.2, 3, 4, 13, 16, 19, 22], // one slot per level (user request 12/10)
   discount: [2, 6, 14, 26, 42], // cheaper than other lines on purpose (user request 11/10)
   probes: [4.5],
   crit: [5.2, 9.5, 17, 30, 46],

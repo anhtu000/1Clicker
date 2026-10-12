@@ -11,6 +11,7 @@
     "dev:cg": "vite --mode crazygames",
     "build": "tsc --noEmit && vite build --mode crazygames && node scripts/check-build.mjs dist/crazygames crazygames",
     "build:web": "tsc --noEmit && vite build --mode web && node scripts/check-build.mjs dist/web web",
+    "build:single": "npm run build:web && node scripts/build-single.mjs dist/web dist/single/CosmicClicker_PhoneTest_v1.html",
     "preview": "vite preview --outDir dist/crazygames",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test tests/core.test.ts src/logic/run.test.ts src/logic/decor.test.ts",

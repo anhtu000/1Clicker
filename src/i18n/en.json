@@ -25,7 +25,7 @@
     },
     "slots": {
       "name": "Orbit Ring",
-      "desc": "+{v} board slots"
+      "desc": "+1 board slot"
     },
     "discount": {
       "name": "Lean Optics",
@@ -33,7 +33,7 @@
     },
     "probes": {
       "name": "Probe Bay",
-      "desc": "Probes collect for you"
+      "desc": "Earns energy without tapping"
     },
     "crit": {
       "name": "Supernova Tap",
@@ -45,11 +45,11 @@
     },
     "fleet": {
       "name": "Probe Fleet",
-      "desc": "Probes x{v}"
+      "desc": "Probe income x{v}"
     },
     "lens": {
       "name": "Gravity Lens",
-      "desc": "+{v}% chance of a bigger body"
+      "desc": "+{v}% scans 1 tier higher"
     },
     "binary": {
       "name": "Binary Merge",

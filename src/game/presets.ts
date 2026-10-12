@@ -12,7 +12,7 @@ function showcase(): RunState {
     { t: 7, r: 2 }, { t: 7, r: 0 }, { t: 8, r: 4 }, { t: 9, r: 3 },
   ];
   bodies.forEach((b, i) => (run.board[i] = b));
-  run.levels = { slots: 1, focus: 6, probes: 1, fleet: 3, crit: 2, luck: 1, lens: 1 };
+  run.levels = { slots: 4, focus: 6, probes: 1, fleet: 3, crit: 2, luck: 1, lens: 1 };
   run.highestTier = 9;
   run.energy = 4.2e6;
   run.time = 20 * 60;
@@ -56,7 +56,7 @@ function hidden(): RunState {
 /** Board full and every slot bought: tiers 1-9 once, three Galaxies, four hidden bodies. Nothing can merge (checks the Board full panel). */
 function stuck(): RunState {
   const run = showcase();
-  run.levels.slots = 2;
+  run.levels.slots = 8;
   for (let t = 1; t <= 9; t++) run.board[t - 1] = { t, r: t % 3 };
   run.board[9] = { t: 10, r: 0 };
   run.board[10] = { t: 10, r: 1 };

@@ -17,11 +17,12 @@ startGame({
   menuScene: 'Home',
   save,
   preload: (scene) => {
-    scene.load.setPath('audio');
-    scene.load.audio('tap', 'tap.wav');
-    scene.load.audio('ui-tap', 'ui-tap.wav');
-    scene.load.audio('buy', 'buy.wav');
-    scene.load.audio('reward', 'reward.wav');
+    // A single-file build (npm run build:single) carries the sounds inline in window.__ASSETS.
+    const inline = (window as unknown as { __ASSETS?: Record<string, string> }).__ASSETS;
+    for (const key of ['tap', 'ui-tap', 'buy', 'reward']) {
+      const path = `audio/${key}.wav`;
+      scene.load.audio(key, inline?.[path] ?? path);
+    }
   },
   theme: {
     background: game.background,

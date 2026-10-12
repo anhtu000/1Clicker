@@ -44,38 +44,34 @@ export const preset =
         (/^#[a-z+]+$/.test(location.hash) ? (location.hash.slice(1).split('+').find((p) => p && p !== 'debug') ?? null) : null))
     : null;
 
+const fresh = (): SaveData => ({
+  run: null,
+  speedrun: null,
+  mode: 'main',
+  mainLeftAt: 0,
+  codex: { found: {} },
+  tutorial: [],
+  daily: { lastClaim: null, streak: 0 },
+  bestRunMs: 0,
+  records: [],
+  crystals: 0,
+  decor: newDecorState(),
+  decorAdAt: 0,
+  firstFinishMs: 0,
+});
+
+/** Version 2 to 3: Orbit Ring went from 2 levels of +4 slots to 8 levels of +1, so the same board stays open. */
+function fromV2(old: SaveData): SaveData {
+  for (const run of [old.run, old.speedrun]) {
+    if (run?.levels?.slots) run.levels.slots *= 4;
+  }
+  return old;
+}
+
 export const save = new SaveStore<SaveData>({
   key: preset ? `${__GAME_ID__}.preset.${preset}` : `${__GAME_ID__}.save`,
-  version: 2,
-  defaults: () => ({
-    run: null,
-    speedrun: null,
-    mode: 'main',
-    mainLeftAt: 0,
-    codex: { found: {} },
-    tutorial: [],
-    daily: { lastClaim: null, streak: 0 },
-    bestRunMs: 0,
-    records: [],
-    crystals: 0,
-    decor: newDecorState(),
-    decorAdAt: 0,
-    firstFinishMs: 0,
-  }),
+  version: 3,
+  defaults: fresh,
   // Version 1 was the framework demo: nothing to keep.
-  migrate: () => ({
-    run: null,
-    speedrun: null,
-    mode: 'main',
-    mainLeftAt: 0,
-    codex: { found: {} },
-    tutorial: [],
-    daily: { lastClaim: null, streak: 0 },
-    bestRunMs: 0,
-    records: [],
-    crystals: 0,
-    decor: newDecorState(),
-    decorAdAt: 0,
-    firstFinishMs: 0,
-  }),
+  migrate: (old, from) => (from === 2 ? fromV2(old) : fresh()),
 });

@@ -262,7 +262,8 @@ export class PlayScene extends BaseScene {
       const stripTop = vp.height - stripH - 16;
       const rowY = stripTop - 70;
       const boardBottom = rowY - 72;
-      const headH = 430; // energy + core + chain
+      // energy, rate, core, goal chain and the label under it (its bottom is at y0 + 460), plus a gap
+      const headH = 476;
       const avail = boardBottom - (top + headH);
       const boardSize = Math.min(vp.width - 96, avail);
       const cell = Math.floor(boardSize / (4 + 3 * 0.08));
