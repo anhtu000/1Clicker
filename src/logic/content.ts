@@ -55,6 +55,8 @@ export interface UpgradeDef {
   show: ShowRule;
   /** Its first level is never offered free for an ad (keeps a milestone, the first automation, on schedule). */
   noAdFirst?: boolean;
+  /** Highest level until the goal tier (the Galaxy) has been made in this run; the rest opens after it. */
+  capBeforeGoal?: number;
 }
 
 export interface EconomyDef {
@@ -231,6 +233,7 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
       check.positive(u.growth, `upgrade ${u.id}: growth`);
     }
     if (u.show?.upgrade) check.ref(u.show.upgrade, ids, `upgrade ${u.id}: show.upgrade`);
+    if (u.capBeforeGoal !== undefined) check.need(u.capBeforeGoal >= 1 && u.capBeforeGoal < u.max, `upgrade ${u.id}: capBeforeGoal must be from 1 to max - 1`);
     if (u.stat === 'lensLevel' && Array.isArray(tierOdds)) {
       check.need(u.op === 'add' && u.value === 1 && u.max <= tierOdds.length - 1, `upgrade ${u.id}: lensLevel goes up 1 per level, at most ${tierOdds.length - 1} (rows of economy.scan.tierOdds)`);
     }

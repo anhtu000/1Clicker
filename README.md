@@ -49,6 +49,7 @@ Tham số URL để thử (thêm vào cuối link, ví dụ `?debug&fps=144`):
 | `#almosttimed` | Lượt tính giờ còn một lần ghép nữa là về đích, có sẵn 4 kỷ lục: thử bảng kỷ lục cá nhân (chỉ build web, khoá lưu riêng) |
 | `#starstep` | Vừa xong phần hướng dẫn đầu, sao băng xuất hiện sau 2 giây: thử bước hướng dẫn sao băng (chỉ build web, khoá lưu riêng) |
 | `#hidden` | Thiên hà đứng cạnh hành tinh, khí khổng lồ và thiên hà khác, sẵn 300 tinh thể: thử thiên thể ẩn, bộ sưu tập, cửa hàng trang trí (chỉ build web, khoá lưu riêng) |
+| `#comet` | Hai Tiểu hành tinh cạnh nhau, 0 tinh thể: ghép ra Sao chổi đầu tiên để thử bảng tặng 20 tinh thể và hướng dẫn mua, đặt Earth (chỉ build web, khoá lưu riêng) |
 | `#stuck` | Bảng đầy, không còn cặp ghép, chưa đủ tiền mua ô: thử bảng "Board full" sau 4 giây (chỉ build web, khoá lưu riêng) |
 
 Lần đầu mở một preset là người chơi mới nên vào thẳng màn chơi. Tải lại trang sẽ thấy màn Home của người chơi quay lại.

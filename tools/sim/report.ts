@@ -21,10 +21,10 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const TIER_VI = ['Bụi sao', 'Thiên thạch', 'Tiểu hành tinh', 'Sao chổi', 'Mặt trăng', 'Hành tinh', 'Khí khổng lồ', 'Ngôi sao', 'Hố đen', 'Thiên hà'];
 const RARITY_VI = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
 const UPGRADE_VI: Record<string, [string, string]> = {
-  focus: ['Core Focus', 'Nhấp tay ×1,5 mỗi cấp, 20 cấp (không tăng tàu thu)'],
-  slots: ['Orbit Ring', '+1 ô trên bảng mỗi cấp, 8 cấp (8 → 16 ô)'],
-  discount: ['Lean Optics', 'Giá quét ×0,88 mỗi cấp, 8 cấp'],
-  fleet: ['Probe Fleet', 'Cấp 1 mở tàu thu (tự kiếm năng lượng, không cần nhấp; không nhận bằng quảng cáo). Các cấp sau nhân thu nhập tàu thu khoảng ×1,5, 15 cấp'],
+  focus: ['Core Focus', 'Nhấp tay ×1,5 mỗi cấp, 20 cấp (không tăng tàu thu). Trước khi có Thiên hà chỉ tới cấp 17'],
+  slots: ['Orbit Ring', 'Hiện khi có Tiểu hành tinh. +1 ô trên bảng mỗi cấp, 8 cấp (8 → 16 ô)'],
+  discount: ['Lean Optics', 'Hiện khi có Tiểu hành tinh. Giá quét ×0,88 mỗi cấp, 8 cấp'],
+  fleet: ['Probe Fleet', 'Hiện khi có Tiểu hành tinh. Cấp 1 mở tàu thu (tự kiếm năng lượng, không cần nhấp; không nhận bằng quảng cáo). Các cấp sau nhân thu nhập tàu thu khoảng ×1,5, 15 cấp; trước khi có Thiên hà chỉ tới cấp 13'],
   crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 mỗi cấp, 8 cấp (chỉ nhấp tay)'],
   luck: ['Stellar Luck', 'Trọng số Rare trở lên +25% mỗi cấp, 8 cấp'],
   lens: ['Gravity Lens', 'Sau auto. Quét ra tối đa cấp 4 (Sao chổi). Tỉ lệ cấp 1/2/3/4: cấp 0 là 100/0/0/0%, cấp 10 là 40/30/20/10%'],
@@ -338,14 +338,14 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 <section class="two">
   <div style="display:grid;gap:10px">
     <h2>Giá quét</h2>
-    <p class="muted">Tổng đã trả cho U đơn vị bụi sao = ${String(sc.baseCost).replace('.', ',')} × U<sup>${String(sc.exponent).replace('.', ',')}</sup>. Máy quét sâu cho 2, 4, 8 đơn vị mỗi lần nên giá mỗi lượt quét cao hơn tương ứng. Giá dưới đây chưa tính giảm giá.</p>
+    <p class="muted">Tổng đã trả cho U đơn vị bụi sao = ${String(sc.baseCost).replace('.', ',')} × U<sup>${String(sc.exponent).replace('.', ',')}</sup>. Mỗi lần quét là 1 đơn vị. Giá dưới đây chưa tính Lean Optics.</p>
     <div class="scroll"><table><thead><tr><th>Đơn vị thứ</th><th>Giá</th></tr></thead><tbody>${scanExamples}</tbody></table></div>
   </div>
   <div style="display:grid;gap:10px;align-content:start">
     <h2>Quảng cáo có thưởng</h2>
     <ul class="plain">
       <li><b>Nâng cấp miễn phí</b>: gắn trên món đắt nhất chưa mua được, trong tầm ${vi(reward.freeUpgrade.maxIncomeSeconds / 60)} phút thu nhập. Hồi ${vi(reward.freeUpgrade.cooldown / 60)} phút.</li>
-      <li><b>Lượt quét may mắn</b>: cao hơn ${reward.luckyScan.tierBonus} cấp so với máy quét, ít nhất Rare, không làm tăng giá quét. Hồi ${vi(reward.luckyScan.cooldown / 60)} phút.</li>
+      <li><b>Lượt quét may mắn</b>: cao hơn ${reward.luckyScan.tierBonus} cấp so với một lần quét thường, ít nhất Rare, không làm tăng giá quét. Hồi ${vi(reward.luckyScan.cooldown / 60)} phút.</li>
       <li><b>Thêm 1 bản sau khi ghép</b>: thẻ thưởng đầu bảng nâng cấp đổi thành "Copy" trong 8 giây sau mỗi lần ghép, tới cấp Khí khổng lồ. Hồi ${vi(reward.twin.cooldown / 60)} phút.</li>
       <li>Mọi nút thưởng chỉ xuất hiện sau vài phút đầu (quét may mắn từ phút ${vi(reward.luckyScan.firstAt / 60)}, nâng cấp miễn phí từ phút ${vi(reward.freeUpgrade.firstAt / 60)}).</li>
       <li><b>Khi portal tắt quảng cáo</b> (Basic Launch): thưởng vẫn trao, thời gian hồi ×${String(reward.freeCooldownMult).replace('.', ',')}.</li>

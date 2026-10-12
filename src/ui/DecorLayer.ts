@@ -25,6 +25,8 @@ export class DecorLayer {
   private onArrangeDone: (() => void) | null = null;
   private hud: () => { x: number; y: number; w: number };
   arranging = false;
+  /** Items dropped in a new place since arrange mode opened (the decor tutorial waits for one). */
+  moves = 0;
   /** The game has been laid out at least once, so the blocked areas are real. */
   private laidOut = false;
 
@@ -138,6 +140,7 @@ export class DecorLayer {
   arrange(onDone: () => void) {
     if (this.arranging) return;
     this.arranging = true;
+    this.moves = 0;
     this.onArrangeDone = onDone;
     const scene = this.scene;
     const vp = app.viewport.info;
@@ -160,6 +163,53 @@ export class DecorLayer {
       this.makeDraggable(id, img);
     }
     this.layout();
+  }
+
+  /** An item on screen (center and size), for the tutorial's pointer. */
+  itemRect(id: string): { x: number; y: number; w: number; h: number } | null {
+    const img = this.sprites.get(id);
+    if (!img?.visible) return null;
+    return { x: img.x, y: img.y, w: this.size + 16, h: this.size + 16 };
+  }
+
+  private suggestion: { key: string; spot: { x: number; y: number } | null } | null = null;
+
+  /**
+   * A free spot clearly away from where the item is now (the nearest one at least two item sizes off),
+   * for the tutorial's hand to drag towards. Null when the item is not on screen or there is no other room.
+   */
+  suggestSpot(id: string): { x: number; y: number; w: number; h: number } | null {
+    const p = this.at.get(id);
+    if (!p || !this.sprites.get(id)?.visible) return null;
+    const vp = app.viewport.info;
+    const key = `${id}|${Math.round(p.x)},${Math.round(p.y)}|${vp.width}x${vp.height}`;
+    if (this.suggestion?.key !== key) {
+      const size = this.size;
+      const screen = { width: vp.width, height: vp.height };
+      const blocked = this.blocked();
+      const others = [...this.at.entries()].filter(([other]) => other !== id).map(([, q]) => itemBox(q.x, q.y, size));
+      const minD = (size * 2) ** 2;
+      let best: { x: number; y: number } | null = null;
+      let bestD = Infinity;
+      for (let gy = size / 2 + 8; gy <= vp.height - size / 2 - 8; gy += 16) {
+        for (let gx = size / 2 + 8; gx <= vp.width - size / 2 - 8; gx += 16) {
+          const d = (gx - p.x) ** 2 + (gy - p.y) ** 2;
+          if (d >= minD && d < bestD && fits(gx, gy, size, blocked, others, screen)) {
+            bestD = d;
+            best = { x: gx, y: gy };
+          }
+        }
+      }
+      this.suggestion = { key, spot: best };
+    }
+    const spot = this.suggestion.spot;
+    return spot ? { x: spot.x, y: spot.y, w: this.size + 16, h: this.size + 16 } : null;
+  }
+
+  /** The Done button of arrange mode, on screen. */
+  doneRect(): { x: number; y: number; w: number; h: number } | null {
+    const done = this.arrangeParts[3] as Button | undefined;
+    return this.arranging && done ? { x: done.x, y: done.y, w: 220, h: 88 } : null;
   }
 
   endArrange() {
@@ -231,6 +281,7 @@ export class DecorLayer {
       if (ok(img.x, img.y)) {
         this.at.set(id, { x: img.x, y: img.y });
         this.save(id, img.x, img.y);
+        this.moves += 1;
         app.audio.play('ui-tap', { volume: 0.6 });
       } else {
         const back = this.at.get(id) ?? { x: img.x, y: img.y };

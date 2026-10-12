@@ -44,7 +44,7 @@
     },
     "luck": {
       "name": "Stellar Luck",
-      "desc": "Rare bodies more often"
+      "desc": "Rare bodies more often when scanning"
     },
     "lens": {
       "name": "Gravity Lens",
@@ -77,9 +77,10 @@
   },
   "hud": {
     "perSecond": "+{n}/s",
-    "perTap": "{n} per tap",
+    "perTap": "+{n} per tap",
     "goal": "Goal: {name}",
-    "next": "Next: {name}"
+    "next": "Next: {name}",
+    "rates": "+{tap} per tap  ·  +{sec}/s"
   },
   "scan": {
     "button": "Scan",
@@ -92,7 +93,8 @@
     "level": "Lv {n}",
     "max": "MAX",
     "free": "Free",
-    "locked": "Reach {name} to unlock"
+    "locked": "Reach {name} to unlock",
+    "afterGoal": "More levels after your Galaxy"
   },
   "boost": {
     "lucky": "Lucky Scan",
@@ -106,6 +108,12 @@
     "twin": "Free copy!",
     "copy": "Copy",
     "absorbed": "+{n}"
+  },
+  "rarities": {
+    "title": "First merge!",
+    "intro": "Every body comes in {n} rarities",
+    "text": "Rarer bodies give more energy, so you can scan more. Any scan or merge can turn out rare.",
+    "ok": "Got it"
   },
   "star": {
     "golden": "Golden star!"
@@ -124,7 +132,7 @@
     "full": "Board full. Merge, or drag a body onto the core for energy",
     "probes": "Buy Probe Fleet: probes collect energy without tapping",
     "tapStill": "Tapping still adds a lot on top of probes",
-    "rarity": "Rarer bodies give more energy. Merge two of the same rarity to keep it",
+    "rarity": "Merge two of the same rarity to keep it in the next stage",
     "reward": "Free rewards come back every few minutes",
     "twin": "Watch an ad to copy what you just merged",
     "autoScan": "Auto Scan buys scans for you. Turn it off to save up for an upgrade"
@@ -246,6 +254,16 @@
       "ufo": "UFO",
       "station": "Space station"
     }
+  },
+  "decorTut": {
+    "title": "A gift for you!",
+    "text": "Crystals buy decorations for your space. Let's place your first one.",
+    "claim": "Claim",
+    "buy": "Buy {name} for your space",
+    "show": "Show {name} on your screen",
+    "arrange": "Press Arrange to place it",
+    "drag": "Drag {name} anywhere outside the red areas",
+    "done": "Press Done to get back to the game"
   },
   "info": {
     "tier": "Stage {n} of {total}",

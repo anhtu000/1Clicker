@@ -1,28 +1,29 @@
 {
   "backgrounds": [
     { "id": "nebula", "price": 0 },
-    { "id": "aurora", "price": 50 },
-    { "id": "ember", "price": 70 },
-    { "id": "abyss", "price": 90 },
-    { "id": "rose", "price": 110 }
+    { "id": "aurora", "price": 80 },
+    { "id": "ember", "price": 100 },
+    { "id": "abyss", "price": 130 },
+    { "id": "rose", "price": 160 }
   ],
   "items": [
-    { "id": "moon", "kind": "planet", "price": 10 },
-    { "id": "mars", "kind": "planet", "price": 15 },
-    { "id": "venus", "kind": "planet", "price": 15 },
-    { "id": "earth", "kind": "planet", "price": 25 },
-    { "id": "neptune", "kind": "planet", "price": 25 },
-    { "id": "uranus", "kind": "planet", "price": 30 },
-    { "id": "jupiter", "kind": "planet", "price": 35 },
-    { "id": "saturn", "kind": "planet", "price": 45 },
-    { "id": "comet", "kind": "ship", "price": 15 },
-    { "id": "satellite", "kind": "ship", "price": 15 },
-    { "id": "rocket", "kind": "ship", "price": 20 },
-    { "id": "astronaut", "kind": "ship", "price": 25 },
-    { "id": "shuttle", "kind": "ship", "price": 30 },
-    { "id": "ufo", "kind": "ship", "price": 35 },
-    { "id": "station", "kind": "ship", "price": 50 }
+    { "id": "moon", "kind": "planet", "price": 15 },
+    { "id": "mars", "kind": "planet", "price": 25 },
+    { "id": "venus", "kind": "planet", "price": 25 },
+    { "id": "earth", "kind": "planet", "price": 20 },
+    { "id": "neptune", "kind": "planet", "price": 35 },
+    { "id": "uranus", "kind": "planet", "price": 40 },
+    { "id": "jupiter", "kind": "planet", "price": 50 },
+    { "id": "saturn", "kind": "planet", "price": 60 },
+    { "id": "comet", "kind": "ship", "price": 20 },
+    { "id": "satellite", "kind": "ship", "price": 25 },
+    { "id": "rocket", "kind": "ship", "price": 30 },
+    { "id": "astronaut", "kind": "ship", "price": 35 },
+    { "id": "shuttle", "kind": "ship", "price": 40 },
+    { "id": "ufo", "kind": "ship", "price": 50 },
+    { "id": "station", "kind": "ship", "price": 70 }
   ],
+  "guide": { "atTier": 4, "crystals": 20, "item": "earth" },
   "maxShown": 15,
   "itemSize": 64,
   "ad": { "crystals": 15, "cooldownSec": 300 }

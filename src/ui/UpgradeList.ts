@@ -318,7 +318,8 @@ export class UpgradeList {
     card.icon.clear();
     (UPGRADE_ICONS[card.id] ?? UPGRADE_ICONS.focus)(card.icon, this.horizontal ? 42 : 46, iconColor);
     card.desc.setText(this.opts.describe(u));
-    card.level.setText(maxed ? app.t('shop.max') : app.t('shop.level', { n: run.level(card.id) }));
+    // A level cap that lifts after the Galaxy shows the level, not MAX: there is more to come.
+    card.level.setText(maxed && !run.waitsForGoal(u) ? app.t('shop.max') : app.t('shop.level', { n: run.level(card.id) }));
     card.cost.setText(maxed ? '' : formatNumber(price));
     card.cost.setColor(affordable ? '#ffd166' : '#8d86c4');
     card.coin.clear();

@@ -9,6 +9,11 @@ const def = checkDecor(JSON.parse(readFileSync(new URL('../content/decor.json', 
 test('decor content passes its checks', () => {
   assert.ok(def.items.length >= def.maxShown, 'enough items to fill the screen');
   assert.throws(() => checkDecor({ backgrounds: [{ id: 'a', price: 5 }], items: [] }), /Content errors/);
+  // The guided first decoration: the gift pays for the item it points at (user request 12/10).
+  const guided = def.items.find((it) => it.id === def.guide.item);
+  assert.ok(guided && def.guide.crystals >= guided.price);
+  assert.throws(() => checkDecor({ ...def, guide: { ...def.guide, crystals: guided!.price - 1 } }), /Content errors/);
+  assert.throws(() => checkDecor({ ...def, guide: { ...def.guide, item: 'nope' } }), /Content errors/);
 });
 
 test('buying: costs crystals, once per id, not without enough', () => {

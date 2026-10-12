@@ -336,3 +336,19 @@ test('Stellar Luck adds 25% weight to Rare and up per level; Star Magnet makes s
   (run as any).statCache = null;
   assert.ok(Math.abs(run.stat('starFreq') - 1.64) < 1e-9);
 });
+
+test('Core Focus and Probe Fleet keep their last levels until the Galaxy is made', () => {
+  const run = fresh();
+  const focus = run.upgrade('focus');
+  const fleet = run.upgrade('fleet');
+  assert.equal(run.levelCap(focus), 17);
+  assert.equal(run.levelCap(fleet), 13);
+  run.s.levels.focus = 17;
+  run.s.energy = 1e30;
+  assert.equal(run.canBuy('focus'), false);
+  assert.ok(run.waitsForGoal(focus));
+  run.s.highestTier = content.economy.goalTier;
+  assert.equal(run.levelCap(focus), focus.max);
+  assert.ok(run.canBuy('focus'));
+  assert.equal(run.waitsForGoal(focus), false);
+});

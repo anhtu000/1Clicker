@@ -17,6 +17,11 @@ export interface DecorDef {
   itemSize: number;
   /** Rewarded ad in the decor shop: crystals per ad, and the wait between two. */
   ad: { crystals: number; cooldownSec: number };
+  /**
+   * First decoration, guided (user request 12/10): once the run reaches `atTier` (the Comet), the player
+   * gets `crystals` and is walked through buying `item` and placing it.
+   */
+  guide: { atTier: number; crystals: number; item: string };
 }
 
 /** Position as a share of the screen (0-1), kept per orientation so phone and desktop layouts each have their own. */
@@ -49,6 +54,10 @@ export function checkDecor(raw: any): DecorDef {
   check.positive(raw?.itemSize, 'decor.itemSize');
   check.positive(raw?.ad?.crystals, 'decor.ad.crystals');
   check.positive(raw?.ad?.cooldownSec, 'decor.ad.cooldownSec');
+  const guided = items.find((it: DecorItemDef) => it.id === raw?.guide?.item);
+  check.need(!!guided, 'decor.guide.item: must be one of decor.items');
+  check.positive(raw?.guide?.atTier, 'decor.guide.atTier');
+  check.need(!guided || raw?.guide?.crystals >= guided.price, 'decor.guide.crystals: must cover the price of the guided item');
   check.done();
   return raw as DecorDef;
 }

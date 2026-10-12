@@ -529,8 +529,18 @@ export class Run {
     return true;
   }
 
+  /** Highest level that can be bought now: some lines open their last levels only after the Galaxy. */
+  levelCap(u: UpgradeDef): number {
+    return u.capBeforeGoal && this.s.highestTier < this.content.economy.goalTier ? u.capBeforeGoal : u.max;
+  }
+
   isMaxed(u: UpgradeDef): boolean {
-    return this.level(u.id) >= u.max;
+    return this.level(u.id) >= this.levelCap(u);
+  }
+
+  /** At its cap for now, with more levels waiting behind the Galaxy. */
+  waitsForGoal(u: UpgradeDef): boolean {
+    return this.isMaxed(u) && this.levelCap(u) < u.max;
   }
 
   upgradeCost(u: UpgradeDef): number {

@@ -19,7 +19,21 @@ function showcase(): RunState {
   return run;
 }
 
-const ALL_STEPS = ['tap', 'scan', 'scan2', 'merge', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin', 'autoScan'];
+const ALL_STEPS = ['tap', 'scan', 'scan2', 'merge', 'rarities', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin', 'autoScan', 'decorGift', 'decorBuy', 'decorArrange', 'decorDrag', 'decor'];
+
+/** Two Asteroids to merge into the first Comet (checks the guided first decoration). */
+function comet(): RunState {
+  const run = newRunState(content, 'main', 11);
+  run.board[0] = { t: 3, r: 0 };
+  run.board[1] = { t: 3, r: 0 };
+  run.board[2] = { t: 2, r: 0 };
+  run.levels = { focus: 2 };
+  run.highestTier = 3;
+  run.energy = 400;
+  run.time = 150;
+  run.starTimer = 60;
+  return run;
+}
 
 /** Right after the opening tutorial, with the first shooting star two seconds away (checks the star step). */
 function starStep(): RunState {
@@ -76,6 +90,11 @@ export function applyPreset(name: string, data: SaveData) {
     data.run = starStep();
     data.tutorial = ['tap', 'scan', 'scan2', 'merge', 'tapPower', 'goal'];
     data.codex.found['2.1'] = 1;
+  }
+  if (name === 'comet') {
+    data.run = comet();
+    data.tutorial = ALL_STEPS.filter((id) => !id.startsWith('decor'));
+    data.crystals = 0;
   }
   if (name === 'almost') {
     data.run = almost();
