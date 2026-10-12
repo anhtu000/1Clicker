@@ -14,7 +14,7 @@ interface DebugSource {
   pause: { paused: boolean };
   gameplay: { isActive: boolean };
   ads: { lastOutcome: string | null };
-  save: { data: unknown };
+  save: { data: unknown; erase(): void };
   textResolution: number;
 }
 
@@ -63,6 +63,23 @@ export class DebugOverlay {
       this.render();
     });
     this.gpu = gpuName(app.game);
+    // Start over from a new save (testing). Two taps within 3 seconds, so it cannot happen by accident.
+    this.resetLine = document.createElement('div');
+    this.resetLine.style.cssText = 'margin-top:4px;color:#ff8a8a;text-decoration:underline';
+    this.resetLine.textContent = 'reset save (tap twice)';
+    let armedAt = -Infinity;
+    this.resetLine.addEventListener('pointerdown', (e) => {
+      e.stopPropagation();
+      const now = performance.now();
+      if (now - armedAt < 3000) {
+        app.save.erase();
+        location.reload();
+        return;
+      }
+      armedAt = now;
+      this.resetLine.textContent = 'tap again to wipe the save';
+      setTimeout(() => (this.resetLine.textContent = 'reset save (tap twice)'), 3000);
+    });
     this.timer = setInterval(() => this.render(), 250);
     // Low frame rate: these two lines tell whether the game or the browser is the limit.
     //   game ms near or above 16 -> the game's own work is too heavy for this device.
@@ -84,6 +101,8 @@ export class DebugOverlay {
 
   private wrapped: ((time: number, delta: number) => void) | null = null;
   private gpu = '';
+  private resetLine!: HTMLDivElement;
+  private text = document.createElement('div');
 
   /** Times the game's frame callback. Called again on each refresh: Phaser sets the callback only once it has booted. */
   private hook() {
@@ -133,7 +152,8 @@ export class DebugOverlay {
       `save ${JSON.stringify(a.save.data).length} bytes`,
       ...Object.entries(DebugOverlay.extra).map(([k, val]) => `${k} ${val}`),
     ];
-    this.box.textContent = lines.join('\n');
+    this.text.textContent = lines.join('\n');
+    if (!this.text.parentNode) this.box.append(this.text, this.resetLine);
   }
 }
 

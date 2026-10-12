@@ -33,6 +33,38 @@ export interface SaveData {
 }
 
 /**
+ * Test builds only (web: the draft artifact and the phone test file). Changing this value wipes the
+ * test saves on the next load, so a new round of testing starts from the very beginning. #reset in
+ * the address does the same once. Settings (sound, language) stay. The portal build never does this.
+ */
+const WEB_SAVE_EPOCH = '2026-10-13a';
+
+if (__TARGET__ === 'web') {
+  try {
+    const epochKey = `${__GAME_ID__}.webEpoch`;
+    const asked = /(^#|\+)reset(\+|$)/.test(location.hash) || new URLSearchParams(location.search).has('reset');
+    if (asked || localStorage.getItem(epochKey) !== WEB_SAVE_EPOCH) {
+      for (const key of Object.keys(localStorage)) {
+        if (key === `${__GAME_ID__}.save` || key.startsWith(`${__GAME_ID__}.preset.`)) localStorage.removeItem(key);
+      }
+      localStorage.setItem(epochKey, WEB_SAVE_EPOCH);
+    }
+    // Drop #reset from the address, so a reload does not wipe again.
+    if (asked) {
+      const query = location.search
+        .slice(1)
+        .split('&')
+        .filter((p) => p && p !== 'reset' && !p.startsWith('reset='))
+        .join('&');
+      const hash = location.hash.replace(/(^#|\+)reset(?=\+|$)/, '$1').replace(/^#\+/, '#').replace(/\+$/, '').replace(/^#$/, '');
+      history.replaceState(null, '', location.pathname + (query ? `?${query}` : '') + hash);
+    }
+  } catch {
+    // no storage here: every load is fresh anyway
+  }
+}
+
+/**
  * ?preset=<name> or #<name> (web build only) starts from a prepared state and saves under its own key,
  * so trying a preset never touches real progress.
  */
@@ -41,7 +73,7 @@ export const preset =
     ? // A link can carry #showcase where a query string is dropped (artifact pages).
       // #debug is not a preset; #showcase+debug is the showcase with the debug box.
       (new URLSearchParams(location.search).get('preset') ??
-        (/^#[a-z+]+$/.test(location.hash) ? (location.hash.slice(1).split('+').find((p) => p && p !== 'debug') ?? null) : null))
+        (/^#[a-z+]+$/.test(location.hash) ? (location.hash.slice(1).split('+').find((p) => p && p !== 'debug' && p !== 'reset') ?? null) : null))
     : null;
 
 const fresh = (): SaveData => ({

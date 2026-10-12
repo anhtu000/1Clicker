@@ -91,6 +91,19 @@ export class SaveStore<T extends object> {
     }
   }
 
+  /**
+   * Deletes the save so the next load is a brand-new player (testing: the debug box's reset).
+   * Nothing is written after this, so the page should reload right away.
+   */
+  erase() {
+    try {
+      this.storage?.removeItem(this.options.key);
+    } catch {
+      // ignore
+    }
+    this.storage = null;
+  }
+
   /** Wipes progress. Used by a "reset progress" button and in tests. */
   reset() {
     this.data = this.options.defaults();
