@@ -41,28 +41,28 @@
     },
     {
       "id": "rare",
-      "weight": 200,
+      "weight": 167,
       "mult": 1.5,
       "codexBonus": 0.03,
       "color": "#4fc3ff"
     },
     {
       "id": "epic",
-      "weight": 60,
+      "weight": 50,
       "mult": 2.2,
       "codexBonus": 0.05,
       "color": "#b56cff"
     },
     {
       "id": "legendary",
-      "weight": 18,
+      "weight": 15,
       "mult": 3.5,
       "codexBonus": 0.08,
       "color": "#ffb020"
     },
     {
       "id": "mythic",
-      "weight": 2,
+      "weight": 1.67,
       "mult": 7,
       "codexBonus": 0.15,
       "color": "#ff4f9a"

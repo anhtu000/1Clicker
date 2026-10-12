@@ -130,7 +130,7 @@ test('upgrades: visibility, price, purchase', () => {
   const run = fresh();
   const focus = run.upgrade('focus');
   assert.ok(run.isVisible(focus));
-  assert.equal(run.isVisible(run.upgrade('probes')), false);
+  assert.equal(run.isVisible(run.upgrade('fleet')), false);
   run.s.energy = run.upgradeCost(focus);
   assert.ok(run.buy('focus'));
   assert.equal(run.level('focus'), 1);
@@ -138,14 +138,14 @@ test('upgrades: visibility, price, purchase', () => {
   assert.equal(run.stat('tapMult'), focus.value);
 });
 
-test('free upgrade target skips noAd upgrades and stays within the income cap', () => {
+test('free upgrade target never gives the first probes, and stays within the income cap', () => {
   const run = fresh();
   run.s.highestTier = 5;
   run.s.energy = 0;
   for (let i = 0; i < 8; i++) run.s.board[i] = { t: 5, r: 0 };
   (run as any).powerCache = null;
   const target = run.freeUpgradeTarget();
-  assert.notEqual(target, 'probes');
+  assert.notEqual(target, 'fleet', 'Probe Fleet level 1 (the first automation) is not offered for an ad');
   if (target) {
     const cap = run.activeIncome() * content.economy.rewarded.freeUpgrade.maxIncomeSeconds;
     assert.ok(run.upgradeCost(run.upgrade(target)) <= cap);
@@ -192,7 +192,8 @@ test('shooting stars appear, can be caught once, and go away', () => {
 test('offline earnings come from probes, capped, main mode only', () => {
   const run = fresh();
   assert.equal(run.offlineEarnings(3600), 0);
-  run.s.levels.probes = 1;
+  assert.equal(run.autoIncome(), 0, 'no probes before Probe Fleet level 1');
+  run.s.levels.fleet = 1;
   (run as any).statCache = null;
   const hour = run.offlineEarnings(3600);
   assert.ok(hour > 0);
@@ -276,4 +277,62 @@ test('board full with nothing to merge: stuck, and the weakest body can go to th
   assert.equal(run.s.board[weak]!.t, 1, 'lowest tier, never the hidden body');
   assert.ok(run.absorb(weak) > 0);
   assert.equal(run.isStuck(), false);
+});
+
+test('Probe Fleet: level 1 starts the probes, each later level raises their income', () => {
+  const run = fresh();
+  const fleet = run.upgrade('fleet');
+  let last = run.autoRate();
+  assert.equal(last, 0);
+  for (let level = 1; level <= fleet.max; level++) {
+    run.s.levels.fleet = level;
+    (run as any).statCache = null;
+    assert.ok(run.autoRate() > last, `level ${level} raises probe income`);
+    last = run.autoRate();
+  }
+  // Core Focus is for taps only: it does not change probe income.
+  run.s.board[0] = { t: 3, r: 0 };
+  (run as any).powerCache = null;
+  const auto = run.autoIncome();
+  run.s.levels.focus = 5;
+  (run as any).statCache = null;
+  assert.equal(run.autoIncome(), auto);
+  assert.ok(run.tapValue() > run.baseTapValue());
+});
+
+test('Gravity Lens: scans stay at tier 1 without it, reach tier 4 at most, and match the odds table', () => {
+  const odds = content.economy.scan.tierOdds;
+  assert.deepEqual(odds[0], [1, 0, 0, 0]);
+  assert.deepEqual(odds[10], [0.4, 0.3, 0.2, 0.1]);
+  const count = (lens: number, n: number) => {
+    const run = fresh('main', 77);
+    run.s.levels.lens = lens;
+    (run as any).statCache = null;
+    const tiers = [0, 0, 0, 0, 0];
+    for (let i = 0; i < n; i++) {
+      run.s.energy = 1e30;
+      run.s.board[0] = null;
+      const r = run.scan()!;
+      tiers[r.body.t] += 1;
+    }
+    return tiers;
+  };
+  const none = count(0, 200);
+  assert.equal(none[1], 200, 'lens 0: every scan is tier 1');
+  const max = count(10, 4000);
+  assert.equal(max.length, 5, 'never above tier 4');
+  for (let t = 1; t <= 4; t++) assert.ok(Math.abs(max[t] / 4000 - odds[10][t - 1]) < 0.03, `tier ${t}: ${max[t] / 4000}`);
+});
+
+test('Stellar Luck adds 25% weight to Rare and up per level; Star Magnet makes stars 8% more frequent per level', () => {
+  const run = fresh();
+  const rareUp = () => 1 - run.rarityOdds()[0];
+  const before = rareUp();
+  run.s.levels.luck = 8;
+  (run as any).statCache = null;
+  assert.equal(run.stat('luck'), 3);
+  assert.ok(rareUp() > before * 2);
+  run.s.levels.starMagnet = 8;
+  (run as any).statCache = null;
+  assert.ok(Math.abs(run.stat('starFreq') - 1.64) < 1e-9);
 });

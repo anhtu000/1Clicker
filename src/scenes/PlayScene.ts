@@ -11,6 +11,7 @@ import {
   formatNumber,
   icons,
   Panel,
+  rarityOdds,
   secondsAway,
   showOfflinePanel,
   rewardButton,
@@ -1384,11 +1385,12 @@ export class PlayScene extends BaseScene {
       this.queueOnce('full', [{ id: 'full', text: app.t('tut.full'), target: () => ({ x: this.board.x, y: this.board.y, w: this.board.size, h: this.board.size }), ack: app.t('tut.ok') }]);
       return;
     }
-    const probes = run.upgrade('probes');
-    if (run.isVisible(probes) && run.level('probes') === 0 && run.s.energy >= run.upgradeCost(probes)) {
-      this.shop.reveal('probes');
+    // First Probe Fleet level: the probes start (the tutorial step keeps its old id, so saves stay valid).
+    const fleet = run.upgrade('fleet');
+    if (run.isVisible(fleet) && run.level('fleet') === 0 && run.s.energy >= run.upgradeCost(fleet)) {
+      this.shop.reveal('fleet');
       this.queueOnce('probes', [
-        { id: 'probes', text: app.t('tut.probes'), target: () => this.shop.cardRect('probes'), done: () => run.level('probes') > 0 },
+        { id: 'probes', text: app.t('tut.probes'), target: () => this.shop.cardRect('fleet'), done: () => run.level('fleet') > 0 },
         { id: 'tapStill', text: app.t('tut.tapStill'), target: () => ({ x: this.core.x, y: this.core.y, w: this.core.radius * 2.2, h: this.core.radius * 2.2 }), ack: app.t('tut.ok') },
       ]);
       return;
@@ -1406,33 +1408,63 @@ export class PlayScene extends BaseScene {
     }
   }
 
+  /**
+   * Text on an upgrade card: what the next level does, and whom it helps (taps or probes).
+   * Lines that grow a number show it as "now › next"; a maxed line shows where it ended.
+   */
   private describe(u: UpgradeDef): string {
-    const v = u.value ?? 0;
-    const level = this.run.level(u.id);
-    switch (u.stat) {
-      case 'tapMult':
-      case 'autoMult':
-        return app.t(`upgrade.${u.id}.desc`, { v: trim(v) });
-      case 'scanCostMult':
-      case 'starRate':
-        return app.t(`upgrade.${u.id}.desc`, { v: Math.round((1 - v) * 100) });
-      case 'critChance':
-      case 'tierUpChance':
-      case 'twinChance':
-        return app.t(`upgrade.${u.id}.desc`, { v: Math.round(v * 100) });
-      case 'luck':
-        return app.t(`upgrade.${u.id}.desc`, { v: Math.round(v * 100) });
-      case 'spawnTier': {
-        const next = Math.min(content.tiers.length, this.run.stat('spawnTier') + 1);
-        return app.t(`upgrade.${u.id}.desc`, { next: app.t(`tier.${content.tiers[next - 1].id}`) });
-      }
-      case 'autoScanEvery':
-      case 'autoMergeEvery': {
+    const run = this.run;
+    const level = run.level(u.id);
+    const maxed = level >= u.max;
+    const key = `upgrade.${u.id}`;
+    const pct = (x: number) => (x < 0.1 ? trim(x * 100).replace(/^(\d+\.\d).*$/, '$1') : String(Math.round(x * 100)));
+    const nowNext = (now: string | number, next: string | number, extra: Record<string, string | number> = {}) =>
+      app.t(maxed ? `${key}.descMax` : `${key}.desc`, { now, next, ...extra });
+    // Total effect after `l` levels, for lines that stack.
+    const total = (l: number) => (u.op === 'mul' ? (u.value ?? 1) ** l : (u.value ?? 0) * l);
+    const times = (x: number) => (x < 10 ? trim(x) : x < 1000 ? String(Math.round(x)) : formatNumber(x));
+    switch (u.id) {
+      case 'focus':
+        return nowNext(times(total(level)), times(total(level + 1)));
+      case 'slots':
+        return nowNext(run.slots, run.slots + (u.value ?? 1));
+      case 'discount':
+        return nowNext(Math.round((1 - total(level)) * 100), Math.round((1 - total(level + 1)) * 100));
+      case 'fleet': {
         const values = u.values ?? [];
-        return app.t(`upgrade.${u.id}.desc`, { v: trim(values[Math.min(level, values.length - 1)]) });
+        if (level === 0) return app.t(`${key}.descStart`);
+        if (maxed) return app.t(`${key}.descMax`);
+        return app.t(`${key}.desc`, { v: String(Math.round((values[level] / values[level - 1]) * 10) / 10) });
+      }
+      case 'crit':
+        return nowNext(Math.round(total(level) * 100), Math.round(total(level + 1) * 100), { m: content.economy.tap.critMult });
+      case 'luck': {
+        // Share of rolls that come out Rare or better, at this luck and with one more level.
+        const weights = content.rarities.map((r) => r.weight);
+        const rareUp = (luck: number) => 1 - rarityOdds(weights, { weightMult: (t) => (t > 0 ? luck : 1) })[0];
+        const luck = run.stat('luck');
+        return nowNext(pct(rareUp(luck)), pct(rareUp(luck + (u.value ?? 0))));
+      }
+      case 'lens': {
+        const rows = content.economy.scan.tierOdds;
+        const bigger = (l: number) => 1 - rows[Math.min(rows.length - 1, l)][0];
+        return nowNext(pct(bigger(level)), pct(bigger(level + 1)));
+      }
+      case 'binary':
+      case 'starMagnet':
+        return nowNext(Math.round(total(level) * 100), Math.round(total(level + 1) * 100));
+      case 'relay': {
+        const now = run.stat('offlineCapHours');
+        return nowNext(trim(now), trim(now + (u.value ?? 0)));
+      }
+      case 'autoScan':
+      case 'autoMerge': {
+        const values = u.values ?? [];
+        if (level === 0) return app.t(`${key}.descStart`, { next: trim(values[0]) });
+        return nowNext(trim(values[level - 1]), trim(values[Math.min(level, values.length - 1)]));
       }
       default:
-        return app.t(`upgrade.${u.id}.desc`, { v: trim(v) });
+        return app.t(`${key}.desc`, { v: trim(u.value ?? 0) });
     }
   }
 }

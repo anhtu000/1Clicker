@@ -22,17 +22,15 @@ export type StatId =
   | 'tapMult'
   | 'critChance'
   | 'autoTps'
-  | 'autoMult'
   | 'slots'
-  | 'spawnTier'
-  | 'tierUpChance'
+  | 'lensLevel'
   | 'scanCostMult'
   | 'luck'
   | 'autoScanEvery'
   | 'autoMergeEvery'
   | 'offlineCapHours'
   | 'twinChance'
-  | 'starRate';
+  | 'starFreq';
 
 export interface ShowRule {
   /** Highest tier reached in this run. */
@@ -55,8 +53,8 @@ export interface UpgradeDef {
   growth?: number;
   costs?: number[];
   show: ShowRule;
-  /** Never offered as a free upgrade for an ad (keeps a milestone, such as the first automation, on schedule). */
-  noAd?: boolean;
+  /** Its first level is never offered free for an ad (keeps a milestone, the first automation, on schedule). */
+  noAdFirst?: boolean;
 }
 
 export interface EconomyDef {
@@ -67,8 +65,11 @@ export interface EconomyDef {
   scan: {
     baseCost: number;
     exponent: number;
-    spawnDiscount: number;
-    doubleTierUpShare: number;
+    /**
+     * Gravity Lens (CLAUDE.md 4b): row L is the chance of tier 1, 2, 3, 4... for one scan at lens level L.
+     * Scans never find more than the row length allows.
+     */
+    tierOdds: number[][];
     /** Past this many units the price per unit grows slowly (softCapExponent), so the last tiers are not a wall. */
     softCapUnits?: number;
     softCapExponent?: number;
@@ -143,17 +144,15 @@ const STATS: StatId[] = [
   'tapMult',
   'critChance',
   'autoTps',
-  'autoMult',
   'slots',
-  'spawnTier',
-  'tierUpChance',
+  'lensLevel',
   'scanCostMult',
   'luck',
   'autoScanEvery',
   'autoMergeEvery',
   'offlineCapHours',
   'twinChance',
-  'starRate',
+  'starFreq',
 ];
 
 /**
@@ -196,6 +195,16 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   check.positive(economy?.scan?.baseCost, 'economy.scan.baseCost');
   check.positive(economy?.scan?.exponent, 'economy.scan.exponent');
   check.positive(economy?.stars?.everyMin, 'economy.stars.everyMin');
+  const tierOdds: unknown = economy?.scan?.tierOdds;
+  check.need(Array.isArray(tierOdds) && tierOdds.length >= 1, 'economy.scan.tierOdds needs at least one row (lens level 0)');
+  if (Array.isArray(tierOdds)) {
+    tierOdds.forEach((row: unknown, i) =>
+      check.need(
+        Array.isArray(row) && row.length >= 1 && row.length < tiers.length && row.every((v) => typeof v === 'number' && v >= 0) && Math.abs(row.reduce((a: number, b: number) => a + b, 0) - 1) < 1e-6,
+        `economy.scan.tierOdds row ${i}: numbers >= 0 that add up to 1, one per tier, below the goal tier`,
+      ),
+    );
+  }
   const share: unknown = economy?.mergeBonus?.scanShare;
   check.need(Array.isArray(share) && share.length === tiers.length - 1, `economy.mergeBonus.scanShare needs ${tiers.length - 1} rows (one per tier that can merge)`);
   if (Array.isArray(share)) {
@@ -222,6 +231,9 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
       check.positive(u.growth, `upgrade ${u.id}: growth`);
     }
     if (u.show?.upgrade) check.ref(u.show.upgrade, ids, `upgrade ${u.id}: show.upgrade`);
+    if (u.stat === 'lensLevel' && Array.isArray(tierOdds)) {
+      check.need(u.op === 'add' && u.value === 1 && u.max <= tierOdds.length - 1, `upgrade ${u.id}: lensLevel goes up 1 per level, at most ${tierOdds.length - 1} (rows of economy.scan.tierOdds)`);
+    }
   }
   check.done();
   return { tiers, rarities, pity, specials, economy, upgrades };

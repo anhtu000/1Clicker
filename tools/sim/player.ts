@@ -53,7 +53,9 @@ const ACTION_TIME = { scan: 0.35, merge: 1.0, buy: 0.6, absorb: 1.2, reward: 0.5
 const saveWindow = (sec: number) => (sec < 600 ? 15 : 30);
 
 /** Upgrades a player buys as soon as they can, because they open something new. */
-const UNLOCKS = new Set(['probes', 'slots', 'deepScan', 'autoScan', 'autoMerge']);
+const UNLOCKS = new Set(['slots', 'autoScan', 'autoMerge']);
+/** Upgrades whose first level is an unlock (Probe Fleet level 1 starts the probes); later levels are ordinary. */
+const FIRST_LEVEL_UNLOCKS = new Set(['fleet']);
 
 export interface Milestone {
   t: number;
@@ -203,7 +205,8 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
     if (useRewards()) return true;
 
     for (const u of content.upgrades) {
-      if (UNLOCKS.has(u.id) && run.canBuy(u.id)) {
+      const unlock = UNLOCKS.has(u.id) || (FIRST_LEVEL_UNLOCKS.has(u.id) && run.level(u.id) === 0);
+      if (unlock && run.canBuy(u.id)) {
         run.buy(u.id);
         bought(u.id);
         busyUntil = clock + ACTION_TIME.buy;

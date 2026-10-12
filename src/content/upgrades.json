@@ -1,18 +1,16 @@
 {
   "upgrades": [
-    {"id": "focus", "stat": "tapMult", "op": "mul", "value": 1.5, "max": 15, "show": {}, "costs": [970,2400,6300,17000,55000,160000,220000,590000,2200000,11000000,15000000,57000000,150000000,780000000,1900000000]},
-    {"id": "slots", "stat": "slots", "op": "add", "value": 1, "max": 8, "show": {"tier": 4}, "costs": [12000,25000,50000,100000,4000000,9000000,20000000,45000000]},
-    {"id": "discount", "stat": "scanCostMult", "op": "mul", "value": 0.88, "max": 5, "show": {"tier": 4}, "costs": [60000,2500000,25000000,200000000,1300000000]},
-    {"id": "probes", "stat": "autoTps", "op": "add", "value": 60, "max": 1, "show": {"tier": 5}, "noAd": true, "costs": [260000]},
-    {"id": "crit", "stat": "critChance", "op": "add", "value": 0.04, "max": 5, "show": {"tier": 5}, "costs": [360000,5100000,39000000,280000000,1600000000]},
-    {"id": "luck", "stat": "luck", "op": "add", "value": 0.3, "max": 5, "show": {"tier": 5}, "costs": [1200000,16000000,180000000,1200000000,7000000000]},
-    {"id": "fleet", "stat": "autoMult", "op": "mul", "value": 1.6, "max": 10, "show": {"upgrade": "probes"}, "costs": [350000,720000,1900000,5000000,14000000,37000000,91000000,380000000,890000000,3700000000]},
-    {"id": "lens", "stat": "tierUpChance", "op": "add", "value": 0.04, "max": 5, "show": {"upgrade": "probes"}, "costs": [530000,11000000,84000000,730000000,2300000000]},
-    {"id": "binary", "stat": "twinChance", "op": "add", "value": 0.03, "max": 5, "show": {"upgrade": "probes"}, "costs": [760000,14000000,120000000,910000000,5400000000]},
-    {"id": "starMagnet", "stat": "starRate", "op": "mul", "value": 0.85, "max": 3, "show": {"upgrade": "probes"}, "costs": [2300000,54000000,840000000]},
-    {"id": "deepScan", "stat": "spawnTier", "op": "add", "value": 1, "max": 3, "show": {"tier": 6}, "costs": [4900000,230000000,3600000000]},
-    {"id": "relay", "stat": "offlineCapHours", "op": "add", "value": 2, "max": 3, "show": {"tier": 6}, "costs": [11000000,650000000,8200000000]},
-    {"id": "autoScan", "stat": "autoScanEvery", "op": "set", "values": [6,4,3,2,1.5], "max": 5, "show": {"tier": 7}, "costs": [47000000,170000000,1000000000,2400000000,11000000000]},
-    {"id": "autoMerge", "stat": "autoMergeEvery", "op": "set", "values": [5,3.5,2.5,1.5], "max": 4, "show": {"tier": 8}, "costs": [1600000000,4900000000,12000000000,18000000000]}
+    {"id": "focus", "stat": "tapMult", "op": "mul", "value": 1.5, "max": 20, "show": {}, "costs": [970, 2400, 6300, 17000, 55000, 160000, 220000, 590000, 2200000, 11000000, 15000000, 57000000, 150000000, 780000000, 1900000000, 4500000000, 10000000000, 24000000000, 55000000000, 120000000000]},
+    {"id": "slots", "stat": "slots", "op": "add", "value": 1, "max": 8, "show": {"tier": 4}, "costs": [12000, 25000, 50000, 100000, 4000000, 9000000, 20000000, 45000000]},
+    {"id": "discount", "stat": "scanCostMult", "op": "mul", "value": 0.88, "max": 8, "show": {"tier": 4}, "costs": [25000, 2500000, 25000000, 200000000, 1300000000, 5000000000, 15000000000, 40000000000]},
+    {"id": "fleet", "stat": "autoTps", "op": "set", "values": [60.0, 96.0, 153.6, 245.8, 393.2, 629.1, 1006.6, 1610.6, 2577.0, 4123.2, 6597.1, 10555.3, 16888.5, 27021.6, 43234.6], "max": 15, "show": {"tier": 4}, "noAdFirst": true, "costs": [130000, 350000, 720000, 1900000, 5000000, 14000000, 37000000, 91000000, 380000000, 890000000, 3700000000, 8000000000, 18000000000, 40000000000, 90000000000]},
+    {"id": "crit", "stat": "critChance", "op": "add", "value": 0.04, "max": 8, "show": {"tier": 5}, "costs": [360000, 5100000, 39000000, 280000000, 1600000000, 5000000000, 14000000000, 40000000000]},
+    {"id": "luck", "stat": "luck", "op": "add", "value": 0.25, "max": 8, "show": {"tier": 6}, "costs": [1200000, 16000000, 180000000, 1200000000, 7000000000, 18000000000, 45000000000, 100000000000]},
+    {"id": "lens", "stat": "lensLevel", "op": "add", "value": 1, "max": 10, "show": {"upgrade": "fleet"}, "costs": [530000, 2000000, 8000000, 25000000, 60000000, 150000000, 350000000, 800000000, 1800000000, 4000000000]},
+    {"id": "binary", "stat": "twinChance", "op": "add", "value": 0.03, "max": 5, "show": {"upgrade": "fleet", "level": 4}, "costs": [760000, 14000000, 120000000, 910000000, 5400000000]},
+    {"id": "starMagnet", "stat": "starFreq", "op": "add", "value": 0.08, "max": 8, "show": {"upgrade": "lens", "level": 3}, "costs": [2300000, 12000000, 54000000, 200000000, 840000000, 2500000000, 7000000000, 20000000000]},
+    {"id": "relay", "stat": "offlineCapHours", "op": "add", "value": 2, "max": 3, "show": {"tier": 6}, "costs": [6000000, 650000000, 8200000000]},
+    {"id": "autoScan", "stat": "autoScanEvery", "op": "set", "values": [6, 4, 3, 2, 1.5], "max": 5, "show": {"tier": 7}, "costs": [24000000, 85000000, 500000000, 1200000000, 5500000000]},
+    {"id": "autoMerge", "stat": "autoMergeEvery", "op": "set", "values": [5, 3.5, 2.5, 1.5], "max": 4, "show": {"tier": 8}, "costs": [650000000, 2000000000, 5000000000, 8000000000]}
   ]
 }

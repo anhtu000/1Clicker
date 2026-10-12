@@ -80,17 +80,15 @@ const BASE_STATS: Record<StatId, number> = {
   tapMult: 1,
   critChance: 0,
   autoTps: 0,
-  autoMult: 1,
   slots: 0,
-  spawnTier: 1,
-  tierUpChance: 0,
+  lensLevel: 0,
   scanCostMult: 1,
   luck: 1,
   autoScanEvery: 0,
   autoMergeEvery: 0,
   offlineCapHours: 0,
   twinChance: 0,
-  starRate: 1,
+  starFreq: 1,
 };
 
 export function codexKey(body: Body): string {
@@ -208,9 +206,9 @@ export class Run {
     return 1 + Math.min(1, this.stat('critChance')) * (this.content.economy.tap.critMult - 1);
   }
 
-  /** Probe taps per second, each worth baseTapValue. */
+  /** Probe taps per second, each worth baseTapValue. Probe Fleet sets it; 0 until its first level. */
   autoRate(): number {
-    return this.stat('autoTps') * this.stat('autoMult');
+    return this.stat('autoTps');
   }
 
   /** Probe income per second. */
@@ -239,21 +237,14 @@ export class Run {
     return { amount, crit };
   }
 
-  /** Stardust-equivalent units in one paid scan: a tier-2 body is 2 units, tier 3 is 4. */
-  unitsPerScan(): number {
-    return 2 ** (this.stat('spawnTier') - 1);
-  }
-
   /**
-   * Price of the next scan. Total paid for U units is baseCost * U^exponent,
-   * so the price per unit rises smoothly whatever tier the scanner finds,
-   * and each deeper scanner tier gets a discount.
+   * Price of the next scan. Total paid for the first n scans is baseCost * n^exponent (s.units counts them),
+   * so each scan costs a little more than the last. Bigger bodies from the Gravity Lens cost nothing extra.
    */
   scanCost(): number {
-    const sc = this.content.economy.scan;
     const u = this.s.units;
-    const raw = this.unitsTotalCost(u + this.unitsPerScan()) - this.unitsTotalCost(u);
-    return Math.ceil(raw * sc.spawnDiscount ** (this.stat('spawnTier') - 1) * this.stat('scanCostMult'));
+    const raw = this.unitsTotalCost(u + 1) - this.unitsTotalCost(u);
+    return Math.ceil(raw * this.stat('scanCostMult'));
   }
 
   /**
@@ -277,11 +268,21 @@ export class Run {
     return this.freeSlot() >= 0 && this.s.energy >= this.scanCost();
   }
 
-  /** Chance of each tier offset (0, +1, +2) for one scan, for the odds panel. */
+  /** Chance of tier 1, 2, 3, 4 for one scan at the current Gravity Lens level. */
   scanTierOdds(): number[] {
-    const up = Math.min(1, this.stat('tierUpChance'));
-    const share = this.content.economy.scan.doubleTierUpShare;
-    return [1 - up, up * (1 - share), up * share];
+    const rows = this.content.economy.scan.tierOdds;
+    return rows[Math.min(rows.length - 1, Math.max(0, Math.floor(this.stat('lensLevel'))))];
+  }
+
+  /** Tier of the body one scan finds. */
+  private rollScanTier(): number {
+    const odds = this.scanTierOdds();
+    let roll = this.rng.next();
+    for (let i = 0; i < odds.length; i++) {
+      roll -= odds[i];
+      if (roll < 0) return i + 1;
+    }
+    return odds.length;
   }
 
   /** Chance of each rarity for one roll at the current luck. */
@@ -331,11 +332,8 @@ export class Run {
     if (!this.canScan()) return null;
     this.s.energy -= this.scanCost();
     this.s.scans += 1;
-    this.s.units += this.unitsPerScan();
-    const odds = this.scanTierOdds();
-    const roll = this.rng.next();
-    const bonus = roll < odds[0] ? 0 : roll < odds[0] + odds[1] ? 1 : 2;
-    const t = Math.min(this.content.economy.goalTier - 1, this.stat('spawnTier') + bonus);
+    this.s.units += 1;
+    const t = this.rollScanTier();
     const floor = this.s.scans === this.content.economy.script.rareScan ? 1 : 0;
     return this.place(this.freeSlot(), { t, r: this.rollRarity(floor) });
   }
@@ -594,7 +592,7 @@ export class Run {
     const cap = this.activeIncome() * this.content.economy.rewarded.freeUpgrade.maxIncomeSeconds;
     let best: UpgradeDef | null = null;
     for (const u of this.content.upgrades) {
-      if (u.noAd || !this.isVisible(u) || this.isMaxed(u)) continue;
+      if ((u.noAdFirst && this.level(u.id) === 0) || !this.isVisible(u) || this.isMaxed(u)) continue;
       const cost = this.upgradeCost(u);
       if (cost <= this.s.energy || cost > cap) continue;
       if (!best || cost > this.upgradeCost(best)) best = u;
@@ -607,7 +605,8 @@ export class Run {
     const slot = this.freeSlot();
     if (slot < 0) return null;
     const cfg = this.content.economy.rewarded.luckyScan;
-    const t = Math.min(this.content.economy.goalTier - 1, this.stat('spawnTier') + cfg.tierBonus);
+    // One tier above what a paid scan would find right now.
+    const t = Math.min(this.content.economy.goalTier - 1, this.rollScanTier() + cfg.tierBonus);
     return this.place(slot, { t, r: this.rollRarity(cfg.rarityFloor) });
   }
 
@@ -685,7 +684,8 @@ export class Run {
   private nextStar() {
     const st = this.content.economy.stars;
     const range = st.early && this.s.time < st.early.untilSec ? st.early : st;
-    this.s.starTimer = (range.everyMin + this.rng.next() * (range.everyMax - range.everyMin)) * this.stat('starRate');
+    // Star Magnet: stars come more often (starFreq 1.08 = 8% more stars), so the wait is divided by it.
+    this.s.starTimer = (range.everyMin + this.rng.next() * (range.everyMax - range.everyMin)) / this.stat('starFreq');
     this.s.starGolden = false;
     this.syncRng();
   }

@@ -21,17 +21,15 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const TIER_VI = ['Bụi sao', 'Thiên thạch', 'Tiểu hành tinh', 'Sao chổi', 'Mặt trăng', 'Hành tinh', 'Khí khổng lồ', 'Ngôi sao', 'Hố đen', 'Thiên hà'];
 const RARITY_VI = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
 const UPGRADE_VI: Record<string, [string, string]> = {
-  focus: ['Core Focus', 'Nhấp tay ×1,5 mỗi cấp (không tăng tàu thu)'],
-  lens: ['Gravity Lens', 'Sau auto. Mỗi cấp +4% cơ hội một lần quét ra cao hơn 1 cấp (1/10 trong số đó cao hơn 2 cấp), tối đa 20%'],
+  focus: ['Core Focus', 'Nhấp tay ×1,5 mỗi cấp, 20 cấp (không tăng tàu thu)'],
   slots: ['Orbit Ring', '+1 ô trên bảng mỗi cấp, 8 cấp (8 → 16 ô)'],
-  discount: ['Lean Optics', 'Giá quét ×0,88 mỗi cấp'],
-  probes: ['Probe Bay', 'Mở tự động hoá: tàu thu bắt đầu thu năng lượng. Không nhận bằng quảng cáo'],
-  crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 (chỉ nhấp tay)'],
-  luck: ['Stellar Luck', 'Trọng số Rare trở lên +30% mỗi cấp'],
-  fleet: ['Probe Fleet', 'Tàu thu ×1,6 mỗi cấp (nhân duy nhất cho tàu thu)'],
+  discount: ['Lean Optics', 'Giá quét ×0,88 mỗi cấp, 8 cấp'],
+  fleet: ['Probe Fleet', 'Cấp 1 mở tàu thu (tự kiếm năng lượng, không cần nhấp; không nhận bằng quảng cáo). Các cấp sau nhân thu nhập tàu thu khoảng ×1,5, 15 cấp'],
+  crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 mỗi cấp, 8 cấp (chỉ nhấp tay)'],
+  luck: ['Stellar Luck', 'Trọng số Rare trở lên +25% mỗi cấp, 8 cấp'],
+  lens: ['Gravity Lens', 'Sau auto. Quét ra tối đa cấp 4 (Sao chổi). Tỉ lệ cấp 1/2/3/4: cấp 0 là 100/0/0/0%, cấp 10 là 40/30/20/10%'],
   binary: ['Binary Merge', 'Sau auto. +3% cơ hội ghép ra thêm 1 bản giống hệt (tới Khí khổng lồ)'],
-  starMagnet: ['Star Magnet', 'Sau auto. Sao băng dày hơn 15% mỗi cấp'],
-  deepScan: ['Deep Scanner', 'Quét ra thẳng cấp cao hơn: Thiên thạch, rồi Tiểu hành tinh, rồi Sao chổi'],
+  starMagnet: ['Star Magnet', 'Sau auto. Sao băng nhiều hơn 8% mỗi cấp, 8 cấp'],
   relay: ['Deep Space Relay', '+2 giờ trần thu nhập khi vắng mặt (gốc 2 giờ)'],
   autoScan: ['Auto Scanner', 'Tự quét mỗi 6 / 4 / 3 / 2 / 1,5 giây'],
   autoMerge: ['Gravity Well', 'Tự ghép một cặp mỗi 5 / 3,5 / 2,5 / 1,5 giây'],
@@ -52,7 +50,7 @@ const within = (v: number, lo: number, hi: number, slack = 0.1): Status =>
   v >= lo && v <= hi ? 'ok' : v >= lo * (1 - slack) && v <= hi * (1 + slack) ? 'near' : 'miss';
 
 // ---------- verdict rows ----------
-const probes = ['none', 'realistic', 'basic'].map((p) => median('Bought probes L1', p) ?? 0);
+const probes = ['none', 'realistic', 'basic'].map((p) => median('Bought fleet L1', p) ?? 0);
 const verdict: [string, string, string, Status][] = [
   ['Phần thưởng đầu tiên', 'Trong 5 giây', `Lần nhấp đầu cho +1 ngay. 90% người chơi có thiên thể đầu tiên sau ${P.none.firstScanP90 < 1 ? 'chưa tới 1 giây' : `${Math.ceil(P.none.firstScanP90)} giây`}`, P.none.firstScanP90 <= 5 ? 'ok' : 'near'],
   [

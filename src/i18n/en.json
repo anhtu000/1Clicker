@@ -21,59 +21,66 @@
   "upgrade": {
     "focus": {
       "name": "Core Focus",
-      "desc": "x{v} energy per tap"
+      "desc": "Tap energy x{now} › x{next}",
+      "descMax": "Tap energy x{now} (taps only)"
     },
     "slots": {
       "name": "Orbit Ring",
-      "desc": "+1 board slot"
+      "desc": "+1 board slot ({now} › {next})",
+      "descMax": "All {now} board slots open"
     },
     "discount": {
       "name": "Lean Optics",
-      "desc": "Scans cost {v}% less"
-    },
-    "probes": {
-      "name": "Probe Bay",
-      "desc": "Earns energy without tapping"
-    },
-    "crit": {
-      "name": "Supernova Tap",
-      "desc": "+{v}% chance of a x6 tap"
-    },
-    "luck": {
-      "name": "Stellar Luck",
-      "desc": "Rare finds +{v}%"
+      "desc": "Scan price -{now}% › -{next}%",
+      "descMax": "Scan price -{now}%"
     },
     "fleet": {
       "name": "Probe Fleet",
-      "desc": "Probe income x{v}"
+      "desc": "Auto energy x{v} (probes)",
+      "descStart": "Starts probes: energy with no tapping",
+      "descMax": "Probes at full power"
+    },
+    "crit": {
+      "name": "Supernova Tap",
+      "desc": "x{m} tap chance: {now}% › {next}%",
+      "descMax": "x{m} tap chance: {now}%"
+    },
+    "luck": {
+      "name": "Stellar Luck",
+      "desc": "Rare or better: {now}% › {next}%",
+      "descMax": "Rare or better: {now}%"
     },
     "lens": {
       "name": "Gravity Lens",
-      "desc": "+{v}% scans 1 tier higher"
+      "desc": "Tier 2-4 scans: {now}% › {next}%",
+      "descMax": "Tier 2-4 scans: {now}%"
     },
     "binary": {
       "name": "Binary Merge",
-      "desc": "+{v}% chance of a twin on merge"
+      "desc": "Free copy on merge: {now}% › {next}%",
+      "descMax": "Free copy on merge: {now}%"
     },
     "starMagnet": {
       "name": "Star Magnet",
-      "desc": "Shooting stars {v}% more often"
-    },
-    "deepScan": {
-      "name": "Deep Scanner",
-      "desc": "Scans find {next}"
+      "desc": "Shooting stars +{now}% › +{next}%",
+      "descMax": "Shooting stars +{now}%"
     },
     "relay": {
       "name": "Deep Space Relay",
-      "desc": "+{v}h of offline income"
+      "desc": "Away earnings: up to {now}h › {next}h",
+      "descMax": "Away earnings: up to {now}h"
     },
     "autoScan": {
       "name": "Auto Scanner",
-      "desc": "Scans by itself every {v}s"
+      "desc": "Auto scan: every {now}s › {next}s",
+      "descStart": "Scans by itself every {next}s",
+      "descMax": "Auto scan: every {now}s"
     },
     "autoMerge": {
       "name": "Gravity Well",
-      "desc": "Merges by itself every {v}s"
+      "desc": "Auto merge: every {now}s › {next}s",
+      "descStart": "Merges by itself every {next}s",
+      "descMax": "Auto merge: every {now}s"
     }
   },
   "hud": {
@@ -123,7 +130,7 @@
     "ok": "Got it",
     "star": "Catch the shooting star!",
     "full": "Board full. Merge, or drag a body onto the core for energy",
-    "probes": "Probes collect energy while you merge",
+    "probes": "Buy Probe Fleet: probes collect energy without tapping",
     "tapStill": "Tapping still adds a lot on top of probes",
     "rarity": "Rarer bodies give more energy. Merge two of the same rarity to keep it",
     "reward": "Free rewards come back every few minutes",

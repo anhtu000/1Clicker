@@ -12,19 +12,19 @@ const median = (xs: number[]) => (xs.length ? [...xs].sort((a, b) => a - b)[Math
 const KEYS = [
   'First comet (tier 4)',
   'First moon (tier 5)',
-  'Bought probes L1',
+  'Bought fleet L1',
   'First planet (tier 6)',
   'Bought slots L1',
   'Bought slots L4',
-  'Bought deepScan L1',
+  'Bought lens L3',
   'First gasGiant (tier 7)',
   'Bought autoScan L1',
   'First star (tier 8)',
-  'Bought deepScan L2',
+  'Bought lens L6',
   'Bought slots L8',
   'First blackHole (tier 9)',
   'Bought autoMerge L1',
-  'Bought deepScan L3',
+  'Bought lens L10',
   'First galaxy (tier 10)',
 ];
 

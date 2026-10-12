@@ -12,17 +12,16 @@ import type { Content } from '../../src/logic/content.ts';
 
 /** Minute each upgrade level should become affordable, for a player who never watches ads. */
 export const SCHEDULE: Record<string, number[]> = {
-  focus: [0.25, 0.6, 1, 1.6, 2.3, 3.2, 4.3, 5.8, 8, 11, 15, 20, 27, 36, 48],
+  // Upgrade rework 12/10 (user request): more levels, Probe Bay folded into Probe Fleet, no Deep Scanner.
+  focus: [0.25, 0.6, 1, 1.6, 2.3, 3.2, 4.3, 5.8, 8, 11, 15, 19, 24, 29, 35, 41, 48, 55, 62, 70],
   slots: [1.5, 2.2, 3, 4, 13, 16, 19, 22], // one slot per level (user request 12/10)
-  discount: [2, 6, 14, 26, 42], // cheaper than other lines on purpose (user request 11/10)
-  probes: [4.5],
-  crit: [5.2, 9.5, 17, 30, 46],
-  luck: [7, 15, 28, 43, 60],
-  fleet: [5, 6.2, 7.5, 9.5, 12.5, 17, 23, 31, 41, 53],
-  lens: [5.6, 12, 22, 35, 50],
+  discount: [2, 6, 12, 19, 27, 36, 46, 58], // cheaper than other lines on purpose (user request 11/10)
+  fleet: [4.5, 5, 6.2, 7.5, 9.5, 12, 15, 19, 23, 28, 34, 41, 49, 58, 68], // level 1 starts the probes
+  crit: [5.2, 9.5, 15, 22, 30, 39, 49, 60],
+  luck: [7, 12, 18, 25, 33, 42, 52, 63],
+  lens: [5.6, 8, 11, 15, 19, 24, 30, 37, 45, 54],
   binary: [6.5, 14, 26, 40, 57],
-  starMagnet: [8, 20, 38],
-  deepScan: [9, 28, 52],
+  starMagnet: [8, 13, 19, 26, 34, 43, 53, 64],
   relay: [11, 33, 62],
   autoScan: [18, 26, 36, 48, 64],
   autoMerge: [44, 54, 64, 74],
@@ -110,18 +109,17 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
   // Stage 1: coarse search of the global knobs. Skipped with --refine (start from the files as they are).
   const refineOnly = process.argv.includes('--refine');
-  let best = { err: Infinity, scale: 50, curve: 3.1, exp: scan.exponent, disc: scan.spawnDiscount, base: scan.baseCost };
-  for (const disc of refineOnly ? [] : [1]) {
+  let best = { err: Infinity, scale: 50, curve: 3.1, exp: scan.exponent, base: scan.baseCost };
+  for (const _ of refineOnly ? [] : [1]) {
     for (const curve of [3.0, 3.4, 3.8]) {
       for (const scale of [25, 50]) {
         price(content, scale, curve);
         for (const exp of [0.7, 0.9, 1.1].map((x) => Number((curve + x).toFixed(2)))) {
           scan.exponent = exp;
-          scan.spawnDiscount = disc;
           const m = solveBase(content);
           const err = m.tierErr + m.buyErr;
-          if (err < best.err) best = { err, scale, curve, exp, disc, base: scan.baseCost };
-          console.log(`disc ${disc} curve ${curve} scale ${scale} exp ${exp} base ${scan.baseCost.toPrecision(2)} | err ${err.toFixed(3)} (buy ${m.buyErr.toFixed(3)}) gap10 ${m.gap10.toFixed(1)} | ${showTiers(m.tiers)}`);
+          if (err < best.err) best = { err, scale, curve, exp, base: scan.baseCost };
+          console.log(`curve ${curve} scale ${scale} exp ${exp} base ${scan.baseCost.toPrecision(2)} | err ${err.toFixed(3)} (buy ${m.buyErr.toFixed(3)}) gap10 ${m.gap10.toFixed(1)} | ${showTiers(m.tiers)}`);
         }
       }
     }
@@ -130,7 +128,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     console.log('\nSTAGE 1 BEST', JSON.stringify(best));
     price(content, best.scale, best.curve);
     scan.exponent = best.exp;
-    scan.spawnDiscount = best.disc;
     scan.baseCost = best.base;
   }
 
@@ -191,7 +188,6 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   const eco = JSON.parse(readFileSync(economyPath, 'utf8'));
   eco.scan.baseCost = scan.baseCost;
   eco.scan.exponent = scan.exponent;
-  eco.scan.spawnDiscount = scan.spawnDiscount;
   // Number arrays (the merge bonus table) stay on one line each.
   const json = JSON.stringify(eco, null, 2).replace(/\[\s+([-0-9.,\s]+?)\s+\]/g, (_m, inner: string) => `[${inner.split(',').map((x) => x.trim()).join(', ')}]`);
   writeFileSync(economyPath, json + '\n');

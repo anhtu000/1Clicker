@@ -58,7 +58,6 @@ export const UPGRADE_ICONS: Record<string, GlyphDraw> = {
     g.strokeCircle(-s * 0.45, -s * 0.42, s * 0.2);
     g.strokeCircle(s * 0.45, s * 0.42, s * 0.2);
   },
-  probes: (g, size, c) => sat(g, 0, 0, size, c),
   fleet: (g, size, c) => {
     sat(g, -size * 0.18, -size * 0.18, size * 0.7, c);
     sat(g, size * 0.2, size * 0.2, size * 0.7, c);
@@ -102,13 +101,6 @@ export const UPGRADE_ICONS: Record<string, GlyphDraw> = {
     g.beginPath();
     g.arc(0, 0, s * 0.8, Math.PI * 0.15, Math.PI * 0.85);
     g.strokePath();
-  },
-  deepScan: (g, size, c) => {
-    const s = size / 2;
-    ring(g, s * 0.8, s * 0.1, c, 0.6);
-    ring(g, s * 0.5, s * 0.1, c, 0.8);
-    g.fillStyle(c, 1);
-    g.fillTriangle(0, 0, s * 0.8, -s * 0.3, s * 0.8, s * 0.3);
   },
   relay: (g, size, c) => {
     const s = size / 2;

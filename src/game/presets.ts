@@ -12,7 +12,7 @@ function showcase(): RunState {
     { t: 7, r: 2 }, { t: 7, r: 0 }, { t: 8, r: 4 }, { t: 9, r: 3 },
   ];
   bodies.forEach((b, i) => (run.board[i] = b));
-  run.levels = { slots: 4, focus: 6, probes: 1, fleet: 3, crit: 2, luck: 1, lens: 1 };
+  run.levels = { slots: 4, focus: 6, fleet: 4, crit: 2, luck: 1, lens: 2 };
   run.highestTier = 9;
   run.energy = 4.2e6;
   run.time = 20 * 60;

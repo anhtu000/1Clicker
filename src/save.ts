@@ -68,10 +68,25 @@ function fromV2(old: SaveData): SaveData {
   return old;
 }
 
+/**
+ * Version 3 to 4 (upgrade rework 12/10): Probe Bay folded into Probe Fleet (level 1 now starts the probes),
+ * Deep Scanner removed. Other lines keep their level; their effect per level changed with the rework.
+ */
+function fromV3(old: SaveData): SaveData {
+  for (const run of [old.run, old.speedrun]) {
+    if (!run?.levels) continue;
+    const { probes = 0, fleet = 0 } = run.levels;
+    run.levels.fleet = probes > 0 ? fleet + 1 : 0;
+    delete run.levels.probes;
+    delete run.levels.deepScan;
+  }
+  return old;
+}
+
 export const save = new SaveStore<SaveData>({
   key: preset ? `${__GAME_ID__}.preset.${preset}` : `${__GAME_ID__}.save`,
-  version: 3,
+  version: 4,
   defaults: fresh,
   // Version 1 was the framework demo: nothing to keep.
-  migrate: (old, from) => (from === 2 ? fromV2(old) : fresh()),
+  migrate: (old, from) => (from === 2 ? fromV3(fromV2(old)) : from === 3 ? fromV3(old) : fresh()),
 });
