@@ -75,6 +75,11 @@ export interface EconomyDef {
     /** Past this many units the price per unit grows slowly (softCapExponent), so the last tiers are not a wall. */
     softCapUnits?: number;
     softCapExponent?: number;
+    /**
+     * Main run after the Galaxy: the price climbs this much slower (0.5 = each scan moves the price
+     * half as far), so collecting hidden bodies stays affordable (user 13/10).
+     */
+    endlessGrowth?: number;
   };
   absorbTaps: number;
   /**
@@ -97,6 +102,10 @@ export interface EconomyDef {
     goldenMult: number;
     /** Denser stars early on, so a reward is never far away in the first minutes. */
     early?: { untilSec: number; everyMin: number; everyMax: number };
+    /** Stars come this much more often before the Galaxy and in timed runs (user 13/10: 1.4). */
+    freqMultBeforeGoal?: number;
+    /** Star value multiplier in the main run after the Galaxy, while hunting the collection (user 13/10: 2). */
+    valueMultEndless?: number;
   };
   script: { rareScan: number; rareMerge: number };
   offline: { efficiency: number; capHours: number; minSeconds: number };
@@ -199,6 +208,12 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   check.positive(economy?.scan?.baseCost, 'economy.scan.baseCost');
   check.positive(economy?.scan?.exponent, 'economy.scan.exponent');
   check.positive(economy?.stars?.everyMin, 'economy.stars.everyMin');
+  for (const key of ['freqMultBeforeGoal', 'valueMultEndless'] as const) {
+    const v = economy?.stars?.[key];
+    check.need(v === undefined || (typeof v === 'number' && v > 0), `economy.stars.${key}: a number above 0`);
+  }
+  const growth = economy?.scan?.endlessGrowth;
+  check.need(growth === undefined || (typeof growth === 'number' && growth > 0 && growth <= 1), 'economy.scan.endlessGrowth: above 0, at most 1');
   const tierOdds: unknown = economy?.scan?.tierOdds;
   check.need(Array.isArray(tierOdds) && tierOdds.length >= 1, 'economy.scan.tierOdds needs at least one row (lens level 0)');
   if (Array.isArray(tierOdds)) {

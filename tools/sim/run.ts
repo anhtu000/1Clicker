@@ -98,6 +98,18 @@ for (const profile of Object.values(PROFILES)) {
   }
 }
 
+// The rows above are timed runs (no collection bonus). A new player's first main run gets the
+// collection bonus (each new body adds energy for good), so it finishes much sooner.
+console.log('\n=== First main run (collection bonus), steady tapper ===');
+const mainRun: Record<string, { p10: number; p50: number; p90: number }> = {};
+for (const policy of AD_POLICIES) {
+  const times: number[] = [];
+  for (let i = 0; i < seeds; i++) times.push(simulate(content, 1000 + i, policy, PROFILES.normal, 3 * 3600, 0.1, { mode: 'main' }).finishSec);
+  mainRun[policy.id] = { p10: pct(times, 10), p50: pct(times, 50), p90: pct(times, 90) };
+  console.log(`${policy.label.padEnd(58)} finish p10 ${fmt(pct(times, 10))}  p50 ${fmt(pct(times, 50))}  p90 ${fmt(pct(times, 90))}`);
+}
+out.mainRun = mainRun;
+
 const detail = (out.policies as any).none?.median as RunReport | undefined;
 if (detail) {
   console.log('\n=== Milestones, median run without ads ===');

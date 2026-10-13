@@ -2,7 +2,7 @@
 // Everything about the player is an assumption (profiles, action times, saving habit);
 // real playtests replace it.
 import { checkContent, type Content } from '../../src/logic/content.ts';
-import { newRunState, Run, type MergeResult, type RewardId } from '../../src/logic/run.ts';
+import { newRunState, Run, type MergeResult, type RewardId, type RunMode } from '../../src/logic/run.ts';
 
 /** How the player uses rewarded buttons. */
 export interface AdPolicy {
@@ -104,9 +104,24 @@ export function loadContent(read: (path: string) => string): Content {
   );
 }
 
-export function simulate(content: Content, seed: number, policy: AdPolicy, profile: TapProfile, limitSec = 3 * 3600, dt = 0.1): RunReport {
-  const run = new Run(content, newRunState(content, 'speedrun', seed), { found: {} });
+/**
+ * opts.mode: 'speedrun' (default, the timed run) or 'main'. opts.endlessSec: in a main run, keep playing
+ * this long after the Galaxy (collecting hidden bodies) to see when the after-Galaxy levels get bought.
+ */
+export function simulate(
+  content: Content,
+  seed: number,
+  policy: AdPolicy,
+  profile: TapProfile,
+  limitSec = 3 * 3600,
+  dt = 0.1,
+  opts: { mode?: RunMode; endlessSec?: number } = {},
+): RunReport {
+  const run = new Run(content, newRunState(content, opts.mode ?? 'speedrun', seed), { found: {} });
   const s = run.s;
+  const endlessSec = opts.endlessSec ?? 0;
+  let finishClock: number | null = null;
+  const hiddenFound = new Set<string>();
   let clock = 0; // wall clock, includes ads
   let busyUntil = 0;
   let tapAcc = 0;
@@ -215,6 +230,27 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
       }
     }
 
+    // After the Galaxy: keep the best Galaxy for its power, fuse any other with a partner into a
+    // hidden body, then sell it (crystals). Fusing the only Galaxy would throw most of the income away.
+    if (s.finishedAt !== null) {
+      const goal = content.economy.goalTier;
+      const galaxies = [];
+      for (let i = 0; i < run.slots; i++) if (s.board[i] && !s.board[i]!.s && s.board[i]!.t === goal) galaxies.push(i);
+      galaxies.sort((x, y) => s.board[x]!.r - s.board[y]!.r);
+      for (const a of galaxies.length >= 2 ? galaxies.slice(0, -1) : []) {
+        for (let b = 0; b < run.slots; b++) {
+          if (!run.fusionOf(a, b)) continue;
+          const made = run.fuse(a, b)!;
+          hiddenFound.add(`${made.special.id}.${made.body.r}`);
+          mark(`hidden-${hiddenFound.size}`, `Hidden body ${hiddenFound.size}`);
+          run.removeBody(made.slot);
+          busyUntil = clock + ACTION_TIME.merge;
+          acted();
+          return true;
+        }
+      }
+    }
+
     const pair = run.findPair();
     if (pair) {
       afterMerge(run.merge(pair[0], pair[1])!);
@@ -270,7 +306,7 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
     return false;
   };
 
-  while (clock < limitSec && s.finishedAt === null) {
+  while (clock < limitSec && (finishClock === null || clock < finishClock + endlessSec)) {
     for (const ev of run.update(dt)) {
       if (ev.kind === 'scan') noteBody(ev.result.body.r, ev.result.body.t);
       else if (ev.kind === 'merge') afterMerge(ev.result);
@@ -295,6 +331,7 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
       }
     }
     if (auto()) mark('auto', 'Automation: probes start working');
+    if (finishClock === null && s.finishedAt !== null) finishClock = clock;
 
     if (Math.floor(clock / 10) > manualSeries.length - 1) {
       manualSeries.push(run.manualIncome(profile.tps(clock, auto())));
@@ -309,7 +346,7 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
     policy: policy.id,
     profile: profile.id,
     finished: s.finishedAt !== null,
-    finishSec: clock,
+    finishSec: finishClock ?? clock,
     milestones,
     maxGap,
     longGaps,

@@ -371,3 +371,61 @@ test('copies: Binary Merge up to its cap, the rewarded copy only up to the Aster
   const copy = run.duplicate(0, adMax)!;
   assert.deepEqual(copy.body, { t: adMax, r: 1 });
 });
+
+test('after the Galaxy (main run): stars worth double at the base pace, scans climb half as fast', () => {
+  const st = content.economy.stars;
+  assert.equal(st.freqMultBeforeGoal, 1.4);
+  assert.equal(st.valueMultEndless, 2);
+  const goal = content.economy.goalTier;
+  const finishOne = (run: Run) => {
+    run.s.board[0] = { t: goal - 1, r: 0 };
+    run.s.board[1] = { t: goal - 1, r: 0 };
+    run.s.units = 300;
+    assert.ok(run.merge(0, 1)!.finished);
+  };
+  const main = fresh('main');
+  const timed = fresh('speedrun');
+  assert.equal(main.endless, false);
+  const before = main.starValue();
+  // Past the denser opening stretch, so both use the base range.
+  main.s.time = timed.s.time = 9999;
+  finishOne(main);
+  finishOne(timed);
+  assert.equal(main.endless, true);
+  assert.equal(timed.endless, false, 'a timed run never turns endless');
+  assert.equal(main.s.endlessUnits, 300);
+  assert.ok(Math.abs(main.starValue() / main.activeIncome() - 2 * st.seconds) < 1e-9, 'endless star: double value');
+  assert.ok(Math.abs(timed.starValue() / timed.activeIncome() - st.seconds) < 1e-9);
+  assert.ok(before > 0);
+  // Star waits: base range in endless, 1.4x denser otherwise (no Star Magnet here).
+  const waits = (run: Run) => {
+    const out: number[] = [];
+    for (let i = 0; i < 200; i++) {
+      run.s.starTimer = -0.01;
+      run.update(0.02);
+      out.push(run.s.starTimer);
+    }
+    return out;
+  };
+  for (const w of waits(main)) assert.ok(w >= st.everyMin - 0.1 && w <= st.everyMax, `endless wait ${w}`);
+  for (const w of waits(timed)) assert.ok(w >= st.everyMin / 1.4 - 0.1 && w <= st.everyMax / 1.4 + 0.01, `timed wait ${w}`);
+  // Scan price: 100 scans after the Galaxy cost what 50 would in a timed run.
+  timed.s.units = 350;
+  const timedAt350 = timed.scanCost();
+  main.s.units = 400;
+  assert.equal(main.scanCost(), timedAt350);
+  // Saves from before endlessUnits: the slower climb starts where the save is.
+  const old = newRunState(content, 'main', 3);
+  old.finishedAt = 100;
+  old.units = 500;
+  assert.equal(new Run(content, old, { found: {} }).s.endlessUnits, 500);
+});
+
+test('Lean Optics: 8 levels before the Galaxy, 11 after', () => {
+  const run = fresh();
+  const u = run.upgrade('discount');
+  assert.equal(u.max, 11);
+  assert.equal(run.levelCap(u), 8);
+  run.s.highestTier = content.economy.goalTier;
+  assert.equal(run.levelCap(u), 11);
+});

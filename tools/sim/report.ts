@@ -11,6 +11,8 @@ const P = report.policies;
 const S = report.profiles.slow;
 const IDLE = report.profiles.idle;
 const NORMAL = report.profiles.normal;
+/** First main run (collection bonus), when the sim has it. */
+const MAIN = report.mainRun as Record<string, { p10: number; p50: number; p90: number }> | undefined;
 
 const mmss = (sec: number) => `${Math.floor(sec / 60)}:${String(Math.floor(sec % 60)).padStart(2, '0')}`;
 const num = (n: number) => formatNumber(n);
@@ -21,10 +23,10 @@ const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const TIER_VI = ['Bụi sao', 'Thiên thạch', 'Tiểu hành tinh', 'Sao chổi', 'Mặt trăng', 'Hành tinh', 'Khí khổng lồ', 'Ngôi sao', 'Hố đen', 'Thiên hà'];
 const RARITY_VI = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
 const UPGRADE_VI: Record<string, [string, string]> = {
-  focus: ['Core Focus', 'Nhấp tay: cấp 1 ×2,25, mỗi cấp sau ×1,5 (không tăng tàu thu), 25 cấp. Trước khi có Thiên hà chỉ tới cấp 17'],
+  focus: ['Core Focus', 'Nhấp tay: cấp 1 ×2,25, mỗi cấp sau ×1,5 (không tăng tàu thu), 25 cấp. Trước khi có Thiên hà chỉ tới cấp 17; từ cấp 21 giá tăng ×1,8 mỗi cấp'],
   slots: ['Orbit Ring', 'Hiện khi có Mặt trăng. +1 ô trên bảng mỗi cấp, 8 cấp (8 → 16 ô); giá từ 10M, mỗi cấp khoảng ×2,2'],
-  discount: ['Lean Optics', 'Hiện khi có Tiểu hành tinh. Giá quét ×0,88 mỗi cấp, 8 cấp'],
-  fleet: ['Probe Fleet', 'Hiện khi có Tiểu hành tinh. Cấp 1 mở tàu thu (tự kiếm năng lượng, không cần nhấp; không nhận bằng quảng cáo). Các cấp sau nhân thu nhập tàu thu khoảng ×1,6, 20 cấp; trước khi có Thiên hà chỉ tới cấp 13'],
+  discount: ['Lean Optics', 'Hiện khi có Tiểu hành tinh. Giá quét ×0,88 mỗi cấp, 11 cấp; trước khi có Thiên hà chỉ tới cấp 8'],
+  fleet: ['Probe Fleet', 'Hiện khi có Tiểu hành tinh. Cấp 1 mở tàu thu (tự kiếm năng lượng, không cần nhấp; không nhận bằng quảng cáo). Các cấp sau nhân thu nhập tàu thu khoảng ×1,6, 20 cấp; trước khi có Thiên hà chỉ tới cấp 13; từ cấp 16 giá tăng ×1,8 mỗi cấp'],
   crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 mỗi cấp, 8 cấp (chỉ nhấp tay)'],
   luck: ['Stellar Luck', 'Trọng số Rare trở lên +25% mỗi cấp, 8 cấp'],
   lens: ['Gravity Lens', 'Sau auto. Quét ra tối đa cấp 4 (Sao chổi). Tỉ lệ cấp 1/2/3/4: cấp 0 là 100/0/0/0%, cấp 10 là 40/30/20/10%'],
@@ -66,12 +68,22 @@ const verdict: [string, string, string, Status][] = [
     probes.every((t) => t >= 240 && t <= 300) ? 'ok' : probes.every((t) => t >= 210 && t <= 330) ? 'near' : 'miss',
   ],
   [
-    'Về đích, có quảng cáo',
+    'Về đích lượt tính giờ, có quảng cáo',
     'Dưới 60 phút',
     `Trung vị ${mmss(P.realistic.p50)} (xem quảng cáo thật) · ${mmss(P.basic.p50)} (Basic Launch)`,
     [P.realistic.p50, P.basic.p50].every((t) => t <= 3600) ? 'ok' : 'near',
   ],
-  ['Về đích, không quảng cáo', 'Dưới 60 phút', `Trung vị ${mmss(P.none.p50)}, 80% người chơi trong ${mmss(P.none.p10)}–${mmss(P.none.p90)}`, P.none.p50 <= 3600 ? 'ok' : P.none.p50 <= 3960 ? 'near' : 'miss'],
+  ['Về đích lượt tính giờ, không quảng cáo', 'Dưới 60 phút', `Trung vị ${mmss(P.none.p50)}, 80% người chơi trong ${mmss(P.none.p10)}–${mmss(P.none.p90)}`, P.none.p50 <= 3600 ? 'ok' : P.none.p50 <= 3960 ? 'near' : 'miss'],
+  ...(MAIN
+    ? [
+        [
+          'Lượt chính đầu tiên (người mới)',
+          'Tham khảo',
+          `Trung vị ${mmss(MAIN.none.p50)} không quảng cáo · ${mmss(MAIN.realistic.p50)} có quảng cáo · ${mmss(MAIN.basic.p50)} Basic Launch. Nhanh hơn lượt tính giờ vì có thưởng bộ sưu tập`,
+          'ok',
+        ] as [string, string, string, Status],
+      ]
+    : []),
   [
     'Nhấp đều so với chỉ để auto',
     'Thu nhập gấp khoảng 2 lần',
@@ -282,7 +294,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Thời gian về đích</h2>
-  <p class="muted">Vạch là khoảng 80% người chơi ở giữa (10% đến 90%), chấm là trung vị. Hàng nhạt: người nhấp chậm bằng nửa, và người chỉ thi thoảng nhấp sau khi có auto. Thời gian tính cả lúc xem quảng cáo.</p>
+  <p class="muted">Đây là lượt tính giờ (không có thưởng bộ sưu tập). ${MAIN ? `Lượt chính đầu tiên của người mới nhanh hơn: trung vị ${mmss(MAIN.none.p50)} không quảng cáo, ${mmss(MAIN.realistic.p50)} có quảng cáo, ${mmss(MAIN.basic.p50)} Basic Launch. ` : ''}Vạch là khoảng 80% người chơi ở giữa (10% đến 90%), chấm là trung vị. Hàng nhạt: người nhấp chậm bằng nửa, và người chỉ thi thoảng nhấp sau khi có auto. Thời gian tính cả lúc xem quảng cáo.</p>
   <div class="chart">${chart.svg}<ul class="legend">${chart.legend}</ul></div>
   <div class="scroll"><table>
     <thead><tr><th>Trường hợp</th><th>10%</th><th>Trung vị</th><th>90%</th><th>Thưởng đã dùng</th></tr></thead>
@@ -359,7 +371,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
     <li>Nhấp tay 6 lần/giây trong 5 phút đầu, 4,5 lần/giây đến phút 15, sau đó 3 lần/giây. Người nhấp chậm bằng một nửa.</li>
     <li>Mỗi thao tác tốn thời gian: quét 0,35 giây, ghép 1 giây, mua 0,6 giây. Lúc đó không nhấp.</li>
     <li>Luôn ghép ngay khi có cặp. Khi món rẻ nhất trong shop còn thiếu dưới 30 giây thu nhập thì ngừng quét để để dành.</li>
-    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng ${content.economy.stars.seconds} giây thu nhập, 1/10 là sao vàng x5. Sao xuất hiện mỗi 15–25 giây trong 10 phút đầu, sau đó 30–50 giây.</li>
+    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng ${content.economy.stars.seconds} giây thu nhập, 1/10 là sao vàng x5. Sao xuất hiện mỗi 15–25 giây trong 10 phút đầu, sau đó 12–50 giây; trước khi có Thiên hà và trong lượt tính giờ dày hơn ${Math.round(((content.economy.stars.freqMultBeforeGoal ?? 1) - 1) * 100)}%. Lượt chính sau Thiên hà: sao về nhịp gốc nhưng giá trị ×${content.economy.stars.valueMultEndless ?? 1}, giá quét tăng chậm ${Math.round(1 / (content.economy.scan.endlessGrowth ?? 1))} lần.</li>
     <li>Ba kiểu người chơi: nhấp đều (6, rồi 4,5, rồi 3 lần/giây), nhấp chậm bằng nửa, và thi thoảng nhấp (0,5 lần/giây sau khi có auto, không mua nâng cấp nhấp tay).</li>
     <li>Xem quảng cáo thật: bấm nút thưởng khoảng 1,5 phút sau khi nút sẵn sàng, mỗi quảng cáo 30 giây, game dừng trong lúc đó.</li>
     <li>Chơi liền một phiên. Chưa mô phỏng thu nhập khi vắng mặt và quà ngày.</li>

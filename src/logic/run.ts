@@ -35,6 +35,8 @@ export interface RunState {
   time: number;
   /** Run time when the goal tier was made. null until then. */
   finishedAt: number | null;
+  /** Main run: scan units when the Galaxy was made; past it the scan price climbs slower. */
+  endlessUnits?: number;
   autoScanAcc: number;
   /** The player switched Auto Scan off (to save up). Missing in older saves: on. */
   autoScanOff?: boolean;
@@ -138,6 +140,13 @@ export class Run {
     this.s = state;
     this.codex = codex;
     this.rng = new Rng(state.rng);
+    // Saves from before endlessUnits existed: the slower scan price starts from here.
+    if (this.endless && state.endlessUnits === undefined) state.endlessUnits = state.units;
+  }
+
+  /** Main run after the Galaxy: collecting hidden bodies (stars worth more, scans climb slower). */
+  get endless(): boolean {
+    return this.s.mode === 'main' && this.s.finishedAt !== null;
   }
 
   // ---------- stats ----------
@@ -242,7 +251,10 @@ export class Run {
    * so each scan costs a little more than the last. Bigger bodies from the Gravity Lens cost nothing extra.
    */
   scanCost(): number {
-    const u = this.s.units;
+    let u = this.s.units;
+    // After the Galaxy (main run) each scan moves the price only part of the way.
+    const from = this.s.endlessUnits;
+    if (this.endless && from !== undefined && u > from) u = from + (u - from) * (this.content.economy.scan.endlessGrowth ?? 1);
     const raw = this.unitsTotalCost(u + 1) - this.unitsTotalCost(u);
     return Math.ceil(raw * this.stat('scanCostMult'));
   }
@@ -410,7 +422,10 @@ export class Run {
     if (this.s.merges === this.content.economy.script.rareMerge) floor = Math.max(floor, 1);
     const result = this.place(b, { t: x.t + 1, r: this.rollRarity(floor) });
     const finished = result.body.t === this.content.economy.goalTier && this.s.finishedAt === null;
-    if (finished) this.s.finishedAt = this.s.time;
+    if (finished) {
+      this.s.finishedAt = this.s.time;
+      if (this.s.mode === 'main') this.s.endlessUnits = this.s.units;
+    }
     let twin: NewBody | null = null;
     if (this.canDuplicate(b) && this.rng.chance(this.stat('twinChance'))) twin = this.duplicate(b);
     this.syncRng();
@@ -686,7 +701,7 @@ export class Run {
   /** Energy a caught star gives right now. */
   starValue(): number {
     const st = this.content.economy.stars;
-    const base = st.seconds * this.activeIncome();
+    const base = st.seconds * this.activeIncome() * (this.endless ? (st.valueMultEndless ?? 1) : 1);
     return base * (this.s.starGolden ? st.goldenMult : 1);
   }
 
@@ -703,7 +718,9 @@ export class Run {
     const st = this.content.economy.stars;
     const range = st.early && this.s.time < st.early.untilSec ? st.early : st;
     // Star Magnet: stars come more often (starFreq 1.08 = 8% more stars), so the wait is divided by it.
-    this.s.starTimer = (range.everyMin + this.rng.next() * (range.everyMax - range.everyMin)) / this.stat('starFreq');
+    // Before the Galaxy and in timed runs they come more often still (freqMultBeforeGoal).
+    const freq = this.stat('starFreq') * (this.endless ? 1 : (st.freqMultBeforeGoal ?? 1));
+    this.s.starTimer = (range.everyMin + this.rng.next() * (range.everyMax - range.everyMin)) / freq;
     this.s.starGolden = false;
     this.syncRng();
   }

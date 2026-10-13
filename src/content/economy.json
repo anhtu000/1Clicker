@@ -14,6 +14,7 @@
     "exponent": 6.25,
     "softCapUnits": 260,
     "softCapExponent": 1.5,
+    "endlessGrowth": 0.5,
     "tierOdds": [
       [1.0, 0.0, 0.0, 0.0],
       [0.94, 0.03, 0.02, 0.01],
@@ -90,7 +91,7 @@
     "everyMin": 12,
     "everyMax": 50,
     "lifetime": 7,
-    "seconds": 7,
+    "seconds": 8,
     "activeTps": 5,
     "goldenChance": 0.1,
     "goldenMult": 5,
@@ -98,6 +99,8 @@
       "untilSec": 600,
       "everyMin": 15,
       "everyMax": 25
-    }
+    },
+    "freqMultBeforeGoal": 1.4,
+    "valueMultEndless": 2
   }
 }
