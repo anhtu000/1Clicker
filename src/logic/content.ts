@@ -122,7 +122,7 @@ export interface EconomyDef {
      * firstAt: seconds into a run before the button first appears, so the opening minutes are about tapping.
      * The free upgrade is the priciest one costing at most maxIncomeSeconds of an active player's income.
      */
-    freeUpgrade: { cooldown: number; firstAt: number; maxIncomeSeconds: number };
+    freeUpgrade: { cooldown: number; firstAt: number; maxIncomeSeconds: number; firstAtTier?: number };
     luckyScan: { cooldown: number; firstAt: number; tierBonus: number; rarityFloor: number };
     /** Rewarded copy of the body just merged, offered up to maxTier (user 13/10: Asteroid). */
     twin: { cooldown: number; firstAt: number; maxTier: number };

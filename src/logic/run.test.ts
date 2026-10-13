@@ -533,3 +533,30 @@ test('Stellar Luck and Gravity Lens (user 13/10): big steps first, then smaller 
   for (let i = 2; i < moved.length; i++) assert.ok(moved[i] - moved[i - 1] < moved[i - 1] - moved[i - 2] + 1e-9, `lens step ${i}`);
   assert.deepEqual(rows.at(-1), [0.4, 0.3, 0.2, 0.1], 'same last row as before');
 });
+
+test('free upgrade ad: first shows with the first Comet (user 13/10)', () => {
+  const cfg = content.economy.rewarded.freeUpgrade;
+  assert.equal(cfg.firstAtTier, 4);
+  const run = fresh();
+  run.s.time = 9999;
+  run.s.highestTier = 3;
+  assert.equal(run.rewardReady('freeUpgrade'), false, 'no Comet yet');
+  run.s.highestTier = 4;
+  assert.equal(run.rewardReady('freeUpgrade'), true, 'Comet made');
+  run.useReward('freeUpgrade');
+  assert.equal(run.rewardReady('freeUpgrade'), false);
+  assert.ok(Math.abs(run.rewardWait('freeUpgrade') - cfg.cooldown) < 1e-9, 'then the usual cooldown');
+  assert.equal(fresh().rewardReady('luckyScan'), false, 'other rewards keep their time gate');
+});
+
+test('shooting stars: twice as often in the first 2 minutes (user 13/10)', () => {
+  const st = content.economy.stars;
+  assert.deepEqual(st.early, { untilSec: 120, everyMin: st.everyMin / 2, everyMax: st.everyMax / 2 });
+  const run = fresh('speedrun');
+  for (const [time, lo, hi] of [[30, st.early!.everyMin, st.early!.everyMax], [200, st.everyMin, st.everyMax]] as const) {
+    run.s.time = time;
+    run.s.starTimer = -0.01;
+    run.update(0.02);
+    assert.ok(run.s.starTimer >= lo - 1e-9 && run.s.starTimer <= hi, `wait ${run.s.starTimer} at ${time} s`);
+  }
+});

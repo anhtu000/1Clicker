@@ -18,6 +18,8 @@ export interface Boost {
   wait: number;
   /** Ready, but cannot be used right now: this short reason replaces the price line (for example "Board full"). */
   blocked?: string;
+  /** A pulsing glow around the card: a suggestion, not a tutorial step (the copy offer, user 13/10). */
+  highlight?: boolean;
   onReward: () => void;
 }
 
@@ -111,6 +113,9 @@ export class UpgradeList {
   private moreZone: Phaser.GameObjects.Zone;
   /** Look the arrow was last baked for (cleared on layout so a new screen scale rebakes it). */
   private moreLook = '';
+  /** Glow around the boost card while its boost asks for attention (Boost.highlight). */
+  private glow: Phaser.GameObjects.Image;
+  private glowLook = '';
 
   constructor(scene: Phaser.Scene, options: UpgradeListOptions) {
     this.scene = scene;
@@ -136,6 +141,7 @@ export class UpgradeList {
     });
     this.free.setDepth(25);
     this.more = scene.add.image(0, 0, '__DEFAULT').setDepth(22).setVisible(false);
+    this.glow = scene.add.image(0, 0, '__DEFAULT').setDepth(19.5).setVisible(false).setBlendMode(Phaser.BlendModes.ADD);
     this.moreZone = scene.add.zone(0, 0, 10, 10).setDepth(23).setInteractive({ useHandCursor: true });
     this.moreZone.input!.enabled = false;
     // A drag that starts on the arrow still scrolls; a tap pages on.
@@ -171,6 +177,7 @@ export class UpgradeList {
     this.moreZone.setSize(mw, mh);
     (this.moreZone.input!.hitArea as Phaser.Geom.Rectangle).setSize(mw, mh);
     this.moreLook = '';
+    this.glowLook = '';
     this.refresh(true);
   }
 
@@ -513,6 +520,29 @@ export class UpgradeList {
     this.free.setVisible(showFree);
     if (target && showFree) this.free.setPosition(target.box.x + this.cardW / 2 - 70, target.box.y - this.cardH / 2 + 4);
     this.placeMore(hidden, buyable);
+    this.placeGlow();
+  }
+
+  /** Pulsing outline around the boost card while its boost is highlighted (a hint, it blocks nothing). */
+  private placeGlow() {
+    const card = this.cards.get(BOOST_CARD);
+    const on = !!this.boost?.highlight && !!card && card.box.visible && card.box.alpha > 0.5;
+    this.glow.setVisible(on);
+    if (!on) return;
+    const w = this.cardW + 16;
+    const h = this.cardH + 16;
+    const look = `${w}|${h}`;
+    if (look !== this.glowLook) {
+      this.glowLook = look;
+      const color = app.theme.reward;
+      setShape(this.glow, `boost-glow|${look}|${color}`, w, h, (g) => {
+        g.lineStyle(10, color, 0.35);
+        g.strokeRoundedRect(-w / 2, -h / 2, w, h, 26);
+        g.lineStyle(4, color, 1);
+        g.strokeRoundedRect(-w / 2 + 4, -h / 2 + 4, w - 8, h - 8, 23);
+      }, 10);
+    }
+    this.glow.setPosition(card!.box.x, card!.box.y).setAlpha(0.45 + 0.45 * Math.sin(this.scene.time.now / 180));
   }
 
   /**

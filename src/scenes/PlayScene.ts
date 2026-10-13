@@ -454,8 +454,6 @@ export class PlayScene extends BaseScene {
       for (const star of this.stars) if (star) star.hold = true;
       this.run.s.starTimer = Math.min(this.run.s.starTimer, -2);
     }
-    // The copy offer waits while its tutorial step is being read.
-    if (this.copyOffer && this.tutorial.currentId === 'twin') this.copyOffer.until = Math.max(this.copyOffer.until, this.run.s.time + 2);
   }
 
   private onStep() {
@@ -747,9 +745,12 @@ export class PlayScene extends BaseScene {
     if (!this.run.rewardReady('twin') || !this.run.canDuplicate(result.slot, this.run.adCopyMaxTier) || !app.ads.rewardedAvailable || app.clean) return;
     this.copyOffer = { slot: result.slot, until: this.run.s.time + COPY_OFFER_SEC };
     this.shop.refresh();
-    // Scroll the shop back to the front only the first time, so a player browsing upgrades is not interrupted.
-    if (!save.data.tutorial.includes('twin')) this.shop.reveal(BOOST_CARD);
-    this.queueOnce('twin', [{ id: 'twin', text: app.t('tut.twin'), target: () => this.shop.cardRect(BOOST_CARD), ack: app.t('tut.ok') }]);
+    // No tutorial step (user 13/10): the card glows while the offer lasts. The first time the shop
+    // also scrolls back to it; later a player browsing upgrades is not interrupted.
+    if (!save.data.tutorial.includes('twin')) {
+      this.shop.reveal(BOOST_CARD);
+      save.data.tutorial.push('twin');
+    }
   }
 
   /** Which boost the card shows: the copy offer right after a merge, else Lucky Scan. */
@@ -768,6 +769,7 @@ export class PlayScene extends BaseScene {
         desc: app.t('boost.copyDesc', { name }),
         icon: UPGRADE_ICONS.binary,
         wait: 0,
+        highlight: true,
         onReward: () => this.useCopy(offer.slot),
       };
     }

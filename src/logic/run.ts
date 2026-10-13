@@ -625,11 +625,16 @@ export class Run {
   // ---------- rewarded ads ----------
 
   rewardReady(id: RewardId): boolean {
-    return this.s.time >= (this.s.rewardReadyAt[id] ?? 0);
+    return this.rewardWait(id) <= 0;
   }
 
-  /** Seconds until a rewarded button is back. */
+  /**
+   * Seconds until a rewarded button is back. A reward with firstAtTier waits for that tier first
+   * (the free upgrade appears with the first Comet, user 13/10): a long wait until then.
+   */
   rewardWait(id: RewardId): number {
+    const tier = (this.content.economy.rewarded[id] as { firstAtTier?: number }).firstAtTier;
+    if (tier && this.s.highestTier < tier) return 24 * 3600;
     return Math.max(0, (this.s.rewardReadyAt[id] ?? 0) - this.s.time);
   }
 

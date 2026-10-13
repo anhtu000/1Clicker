@@ -62,7 +62,8 @@
     "freeUpgrade": {
       "cooldown": 265,
       "maxIncomeSeconds": 150,
-      "firstAt": 240
+      "firstAt": 0,
+      "firstAtTier": 4
     },
     "luckyScan": {
       "cooldown": 240,
@@ -95,6 +96,11 @@
   "stars": {
     "everyMin": 4,
     "everyMax": 8,
+    "early": {
+      "untilSec": 120,
+      "everyMin": 2,
+      "everyMax": 4
+    },
     "lifetime": 7,
     "seconds": 5.6,
     "activeTps": 5,
