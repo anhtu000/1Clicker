@@ -168,8 +168,8 @@ test('upgrades: visibility, price, purchase', () => {
   assert.equal(run.s.energy, 0);
   // Level 1 is 1.5x stronger than the old 1.5x per level (user request 13/10): 2.25, then x1.5 per level.
   assert.equal(run.stat('tapMult'), focus.values![0]);
-  // 13/10 (user): every level 20% stronger, twice, so level 1 is 2.25 x 1.2 x 1.2 = 3.24.
-  assert.equal(focus.values![0], 3.24);
+  // 13/10 (user): every level 20% stronger twice, then 30% more: level 1 is 2.25 x 1.2 x 1.2 x 1.3 = 4.212.
+  assert.equal(focus.values![0], 4.212);
   for (let i = 1; i < focus.max; i++) assert.ok(Math.abs(focus.values![i] / focus.values![i - 1] - 1.5) < 1e-3);
 });
 
