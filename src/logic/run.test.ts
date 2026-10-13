@@ -142,7 +142,7 @@ test('power and tap value follow the board', () => {
   run.s.board[1] = { t: 1, r: 0 };
   // Board changed directly: clear the cache the way place() does.
   (run as any).powerCache = null;
-  assert.equal(run.power(), 1 + (3 + 1) * content.economy.bodyValueScale!);
+  assert.ok(Math.abs(run.power() - (1 + (content.economy.tierValueGrowth + 1) * content.economy.bodyValueScale!)) < 1e-9);
   assert.ok(run.tapValue() > empty);
 });
 
@@ -168,8 +168,8 @@ test('upgrades: visibility, price, purchase', () => {
   assert.equal(run.s.energy, 0);
   // Level 1 is 1.5x stronger than the old 1.5x per level (user request 13/10): 2.25, then x1.5 per level.
   assert.equal(run.stat('tapMult'), focus.values![0]);
-  // 13/10 afternoon (user): every level 20% stronger, so level 1 is 2.7.
-  assert.equal(focus.values![0], 2.7);
+  // 13/10 (user): every level 20% stronger, twice, so level 1 is 2.25 x 1.2 x 1.2 = 3.24.
+  assert.equal(focus.values![0], 3.24);
   for (let i = 1; i < focus.max; i++) assert.ok(Math.abs(focus.values![i] / focus.values![i - 1] - 1.5) < 1e-3);
 });
 
@@ -266,7 +266,7 @@ test('personal records: fastest first, top 5, rank of the new run', async () => 
   assert.deepEqual(tie.list.map((r) => r.ms), [20, 30, 40, 40, 45]);
 });
 
-test('hidden bodies: Galaxy + planet tier makes one; it never merges, copies, or adds power', () => {
+test('hidden bodies: Galaxy + planet tier makes one; it never merges or copies, and keeps its Galaxy energy +10%', () => {
   const run = fresh();
   const goal = content.economy.goalTier;
   const [first] = content.specials;
@@ -287,11 +287,15 @@ test('hidden bodies: Galaxy + planet tier makes one; it never merges, copies, or
   assert.equal(codexKey(made.body), `s.${first.id}.${made.body.r}`);
   assert.equal(run.sellValue(made.body), Math.round(first.sell * content.rarities[made.body.r].mult));
   assert.equal(run.s.highestTier, highest);
-  // the Galaxy and the planet left the board; the hidden body counts as `power` Galaxies of its rarity
-  const e = content.economy;
-  const galaxyOf = (r: number) => e.tierValueGrowth ** (e.goalTier - 1) * content.rarities[r].mult * e.bodyValueScale!;
-  assert.ok(Math.abs(run.bodyValue(made.body) - first.power * galaxyOf(made.body.r)) < 1e-6);
-  assert.ok(Math.abs(powerBefore - run.power() - (galaxyOf(2) + run.bodyValue({ t: first.tier, r: 0 }) - run.bodyValue(made.body))) < 1e-6);
+  // The Galaxy and the planet left the board; the hidden body keeps the Epic Galaxy's energy x power
+  // (1.1, user 13/10), whatever rarity it rolled.
+  assert.equal(first.power, 1.1);
+  assert.equal(made.body.g, 2);
+  const galaxy = run.bodyValue({ t: goal, r: 2 });
+  assert.ok(Math.abs(run.bodyValue(made.body) - 1.1 * galaxy) < 1e-6);
+  assert.ok(Math.abs(powerBefore - run.power() - (galaxy + run.bodyValue({ t: first.tier, r: 0 }) - 1.1 * galaxy)) < 1e-6);
+  // Older saves: no g, the hidden body's own rarity stands in.
+  assert.ok(Math.abs(run.bodyValue({ t: first.tier, r: 1, s: first.id }) - 1.1 * run.bodyValue({ t: goal, r: 1 })) < 1e-6);
   run.s.board[1] = { t: first.tier, r: 2, s: first.id };
   assert.equal(run.canMerge(0, 1), false, 'two hidden bodies never merge');
   assert.equal(run.canMerge(0, 2), false, 'hidden + its tier never merges');
@@ -503,14 +507,28 @@ test('star waves: every 4 to 8 s, sometimes two stars, each caught once', () => 
   assert.equal(old.starUp, false);
 });
 
-test('board value (user 13/10): every body adds half of before', () => {
+test('board value (user 13/10): tiers closer together, Gas Giant as before, low tiers worth more, high less', () => {
   const e = content.economy;
-  assert.equal(e.bodyValueScale, 0.5);
+  assert.equal(e.tierValueGrowth, 2.5);
   const run = fresh();
-  for (const [t, r] of [[1, 0], [4, 2], [9, 4]]) {
-    assert.ok(Math.abs(run.bodyValue({ t, r }) - e.tierValueGrowth ** (t - 1) * content.rarities[r].mult * 0.5) < 1e-9);
-  }
+  const before = (t: number) => 0.5 * 3 ** (t - 1); // growth 3, half value (earlier on 13/10)
+  const now = (t: number) => run.bodyValue({ t, r: 0 });
+  assert.ok(Math.abs(now(7) / before(7) - 1) < 0.01, 'Gas Giant unchanged');
+  for (let t = 1; t < 7; t++) assert.ok(now(t) > before(t), `tier ${t} worth more`);
+  for (let t = 8; t <= 10; t++) assert.ok(now(t) < before(t), `tier ${t} worth less`);
+  for (let t = 2; t <= 10; t++) assert.ok(now(t) > 2 * now(t - 1), 'a merge still adds power (two bodies make one worth more than both)');
   run.s.board[0] = { t: 3, r: 1 };
   (run as any).powerCache = null;
-  assert.ok(Math.abs(run.power() - (1 + 9 * content.rarities[1].mult * 0.5)) < 1e-9, 'the empty-board 1 stays');
+  assert.ok(Math.abs(run.power() - (1 + run.bodyValue({ t: 3, r: 1 }))) < 1e-9, 'the empty-board 1 stays');
+});
+
+test('Stellar Luck and Gravity Lens (user 13/10): big steps first, then smaller and smaller', () => {
+  const luck = content.upgrades.find((u) => u.id === 'luck')!;
+  const steps = luck.values!.map((v, i) => v - (i ? luck.values![i - 1] : 1));
+  for (let i = 1; i < steps.length; i++) assert.ok(steps[i] < steps[i - 1], `luck step ${i + 1}`);
+  assert.equal(luck.values!.at(-1), 3, 'same top as before: +200% weight for Rare and up');
+  const rows = content.economy.scan.tierOdds;
+  const moved = rows.map((row) => 1 - row[0]);
+  for (let i = 2; i < moved.length; i++) assert.ok(moved[i] - moved[i - 1] < moved[i - 1] - moved[i - 2] + 1e-9, `lens step ${i}`);
+  assert.deepEqual(rows.at(-1), [0.4, 0.3, 0.2, 0.1], 'same last row as before');
 });

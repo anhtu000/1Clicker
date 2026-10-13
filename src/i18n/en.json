@@ -189,7 +189,7 @@
     },
     "title": "Hidden discovery!",
     "joins": "{name} joins your collection",
-    "only": "It does not merge, but on the board it gives the energy of {n} Galaxies. Tap it to sell it for crystals.",
+    "only": "It does not merge. On the board it keeps the energy of the Galaxy that made it, plus {n}%. Tap it to sell it for crystals.",
     "ok": "Nice!",
     "rowHint": "Galaxies are not the end. Some hide a secret when they meet another world.",
     "hidden": "Hidden"
@@ -275,8 +275,14 @@
     "makes": "Two of them make a {name}",
     "goal": "The end of the chain. Or is it?",
     "special": "Collectible. It does not merge",
-    "specialPower": "Gives the energy of {n} Galaxies",
+    "specialPower": "Energy: its Galaxy's, plus {n}%",
     "sell": "Sell"
+  },
+  "sellConfirm": {
+    "title": "Sell for crystals?",
+    "text": "You get {n} crystals, but you lose this body's energy: about {p}% less energy per tap and from probes.",
+    "sell": "Sell",
+    "keep": "Keep it"
   },
   "full": {
     "title": "Board full",

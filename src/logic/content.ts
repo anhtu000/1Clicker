@@ -60,7 +60,10 @@ export interface UpgradeDef {
 export interface EconomyDef {
   goalTier: number;
   tierValueGrowth: number;
-  /** Scales what every body on the board adds to a tap (user 13/10: 0.5, half of before). */
+  /**
+   * Scales what every body on the board adds to a tap. 13/10 (user): first 0.5 with growth 3; then the
+   * tiers closer together (growth 2.5, scale 1.493: Gas Giant unchanged, lower tiers worth more, higher less).
+   */
   bodyValueScale?: number;
   board: { maxSlots: number; startSlots: number };
   tap: { base: number; critMult: number };
@@ -145,7 +148,7 @@ export interface SpecialDef {
   id: string;
   tier: number;
   sell: number;
-  /** On the board it adds the energy of this many Galaxies of its rarity (user 13/10). */
+  /** On the board it gives the energy of the Galaxy that made it, times this (user 13/10: 1.1). */
   power: number;
 }
 

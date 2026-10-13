@@ -11,7 +11,10 @@ import type { Content, SpecialDef, StatId, UpgradeDef } from './content.ts';
 export interface Body {
   t: number;
   r: number;
+  /** Hidden body: its special id. */
   s?: string;
+  /** Hidden body: rarity of the Galaxy that made it (its energy follows that Galaxy). Older saves: r. */
+  g?: number;
 }
 
 export type RunMode = 'main' | 'speedrun';
@@ -183,18 +186,19 @@ export class Run {
   }
 
   /**
-   * What a body on the board adds to every tap: tierValueGrowth^(tier - 1) times its rarity's mult,
-   * times bodyValueScale (0.5 since 13/10). A hidden body counts as `power` Galaxies of its rarity
-   * (user 13/10: before that it added nothing, so making one threw a Galaxy's energy away).
+   * What a body on the board adds to every tap: bodyValueScale * tierValueGrowth^(tier - 1) times its
+   * rarity's mult. A hidden body keeps the energy of the Galaxy that made it, times its `power`
+   * (user 13/10: about +10%; before that it added nothing, so making one threw a Galaxy away).
    */
   bodyValue(body: Body): number {
     const e = this.content.economy;
-    const mult = this.content.rarities[body.r].mult * (e.bodyValueScale ?? 1);
+    const scale = e.bodyValueScale ?? 1;
     if (body.s) {
       const special = this.content.specials.find((sp) => sp.id === body.s);
-      return e.tierValueGrowth ** (e.goalTier - 1) * (special?.power ?? 0) * mult;
+      const galaxy = this.content.rarities[body.g ?? body.r].mult;
+      return scale * e.tierValueGrowth ** (e.goalTier - 1) * galaxy * (special?.power ?? 0);
     }
-    return e.tierValueGrowth ** (body.t - 1) * mult;
+    return scale * e.tierValueGrowth ** (body.t - 1) * this.content.rarities[body.r].mult;
   }
 
   /** Sum of the board. Energy per tap scales with it. */
@@ -405,7 +409,8 @@ export class Run {
     this.s.board[a] = null;
     const r = this.mergeRarity(x, y, false);
     this.syncRng();
-    return { ...this.place(b, { t: special.tier, r, s: special.id }), special };
+    const galaxy = x.t === this.content.economy.goalTier ? x : y;
+    return { ...this.place(b, { t: special.tier, r, s: special.id, g: galaxy.r }), special };
   }
 
   /** Crystals a hidden body sells for: its base price times its rarity's power multiplier. */

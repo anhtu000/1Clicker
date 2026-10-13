@@ -729,7 +729,7 @@ export class PlayScene extends BaseScene {
     const name = this.add.text(0, y0 + 140, label, { ...font, fontStyle: '900', fontSize: 40, color: RARITY_CSS[rarity] }).setOrigin(0.5);
     if (name.width > panel.panelWidth - 60) name.setScale((panel.panelWidth - 60) / name.width);
     const text = this.add
-      .text(0, y0 + 220, app.t('special.only', { n: special.power }), { ...font, fontStyle: '700', fontSize: 26, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
+      .text(0, y0 + 220, app.t('special.only', { n: Math.round((special.power - 1) * 100) }), { ...font, fontStyle: '700', fontSize: 26, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
       .setOrigin(0.5);
     const ok = new Button(this, 0, panel.bottom - 80, { label: app.t('special.ok'), width: 260, height: 96, fontSize: 34, onClick: () => panel.close() });
     panel.content.add([glow, img, name, text, ok]);
@@ -1256,9 +1256,9 @@ export class PlayScene extends BaseScene {
       title = `${rarity} ${app.t(`special.${body.s}.name`)}`;
       lines.push(app.t('info.special'));
       const special = content.specials.find((sp) => sp.id === body.s);
-      if (special) lines.push(app.t('info.specialPower', { n: special.power }));
+      if (special) lines.push(app.t('info.specialPower', { n: Math.round((special.power - 1) * 100) }));
       const value = this.run.sellValue(body);
-      action = { label: `${app.t('info.sell')}  ${value}`, icon: crystalIcon, onClick: () => this.sellBody(slot) };
+      action = { label: `${app.t('info.sell')}  ${value}`, icon: crystalIcon, onClick: () => this.askSell(slot) };
     } else {
       title = `${rarity} ${app.t(`tier.${content.tiers[body.t - 1].id}`)}`;
       lines.push(app.t('info.tier', { n: body.t, total: goal }));
@@ -1281,6 +1281,36 @@ export class PlayScene extends BaseScene {
   }
 
   /** Hidden body sold for crystals (CLAUDE.md 4b item 9). It stays in the collection. */
+  /**
+   * Selling a hidden body loses its energy (user 13/10): say how much and let the player keep it.
+   */
+  private askSell(slot: number) {
+    const body = this.run.s.board[slot];
+    if (!body?.s) return;
+    this.closeInfo();
+    const value = this.run.sellValue(body);
+    // Share of the board's power this body carries: taps and probes both scale with it.
+    const share = Math.max(1, Math.round((this.run.bodyValue(body) / this.run.power()) * 100));
+    const panel = this.openPanel({ title: app.t('sellConfirm.title'), width: 600, height: 420, closable: false });
+    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
+    const text = this.add
+      .text(0, panel.top + 70, app.t('sellConfirm.text', { n: value, p: share }), { ...font, fontStyle: '700', fontSize: 28, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 80 } })
+      .setOrigin(0.5);
+    panel.content.add(text);
+    this.panelButtons(
+      panel,
+      panel.bottom - 80,
+      {
+        label: app.t('sellConfirm.sell'),
+        onClick: () => {
+          panel.close();
+          this.sellBody(slot);
+        },
+      },
+      { label: app.t('sellConfirm.keep'), onClick: () => panel.close() },
+    );
+  }
+
   private sellBody(slot: number) {
     const body = this.run.s.board[slot];
     if (!body?.s) return;
@@ -1362,7 +1392,7 @@ export class PlayScene extends BaseScene {
         fontSize: 32,
         onClick: () => {
           panel.close();
-          this.sellBody(slot);
+          this.askSell(slot);
         },
       });
       panel.content.add(sell);

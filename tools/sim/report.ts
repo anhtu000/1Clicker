@@ -28,8 +28,8 @@ const UPGRADE_VI: Record<string, [string, string]> = {
   discount: ['Lean Optics', 'Hiện khi có Tiểu hành tinh. Giá quét ×0,88 mỗi cấp, 11 cấp; trước khi có Thiên hà chỉ tới cấp 8'],
   fleet: ['Probe Fleet', 'Hiện khi có Tiểu hành tinh. Cấp 1 mở tàu thu (tự kiếm năng lượng, không cần nhấp; không nhận bằng quảng cáo). Các cấp sau nhân thu nhập tàu thu khoảng ×1,6, 20 cấp; trước khi có Thiên hà chỉ tới cấp 13; từ cấp 16 giá tăng ×1,8 mỗi cấp'],
   crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 mỗi cấp, 8 cấp (chỉ nhấp tay)'],
-  luck: ['Stellar Luck', 'Trọng số Rare trở lên +25% mỗi cấp, 8 cấp'],
-  lens: ['Gravity Lens', 'Sau auto. Quét ra tối đa cấp 4 (Sao chổi). Tỉ lệ cấp 1/2/3/4: cấp 0 là 100/0/0/0%, cấp 10 là 40/30/20/10%'],
+  luck: ['Stellar Luck', `Trọng số Rare trở lên ×${content.upgrades.find((u) => u.id === 'luck')!.values!.map((v) => vi(v)).join(' / ')} ở cấp 1–8: tăng nhiều ở các cấp đầu, ít dần về sau`],
+  lens: ['Gravity Lens', `Sau auto. Quét ra tối đa cấp 4 (Sao chổi). Tỉ lệ cấp 1/2/3/4: cấp 0 là 100/0/0/0%, cấp 10 là 40/30/20/10%; tăng nhiều ở các cấp đầu (bụi sao còn ${content.economy.scan.tierOdds.slice(1, 4).map((r) => Math.round(r[0] * 100) + '%').join(', ')} ở cấp 1–3), ít dần về sau`],
   binary: ['Binary Merge', 'Sau auto. +3% cơ hội ghép ra thêm 1 bản giống hệt (tới Khí khổng lồ)'],
   starMagnet: ['Star Magnet', 'Sau auto. Sao băng nhiều hơn 8% mỗi cấp, 8 cấp'],
   relay: ['Deep Space Relay', '+2 giờ trần thu nhập khi vắng mặt (gốc 2 giờ)'],
@@ -315,7 +315,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Cấp thiên thể</h2>
-  <p class="muted">Ghép 2 thiên thể cùng cấp thành cấp sau. Sức mạnh mỗi cấp gấp ${content.economy.tierValueGrowth} cấp trước, nhân thêm theo độ hiếm, rồi ×${vi(content.economy.bodyValueScale ?? 1)} (từ 13/10). Năng lượng mỗi lần nhấp = (1 + tổng sức mạnh trên bảng) × nâng cấp. Thiên thể ẩn có sức mạnh bằng ${content.specials.map((sp) => vi(sp.power)).join(', ')} Thiên hà cùng độ hiếm (theo thứ tự ${content.specials.map((sp) => TIER_VI[sp.tier - 1]).join(', ')} + Thiên hà).</p>
+  <p class="muted">Ghép 2 thiên thể cùng cấp thành cấp sau. Sức mạnh mỗi cấp gấp ${content.economy.tierValueGrowth} cấp trước, nhân thêm theo độ hiếm, rồi ×${vi(content.economy.bodyValueScale ?? 1)} (từ 13/10). Năng lượng mỗi lần nhấp = (1 + tổng sức mạnh trên bảng) × nâng cấp. Thiên thể ẩn giữ sức mạnh của Thiên hà đã dùng để tạo ra nó, ×${vi(content.specials[0].power)}.</p>
   <p class="muted">Thưởng khi ghép: mỗi lần ghép trả một phần giá Scan hiện tại, theo cấp của cặp và độ hiếm của mảnh hiếm hơn (cấp 1 Common 0%, cấp 8 Legendary 100%).</p>
   <div class="scroll"><table>
     <thead><tr><th>Cấp</th>${content.rarities.map((r) => `<th>${r.id[0].toUpperCase()}${r.id.slice(1)}</th>`).join('')}</tr></thead>
