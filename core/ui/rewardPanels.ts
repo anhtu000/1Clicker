@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { app } from '../app';
 import { formatDuration, formatNumber } from '../format';
 import { burst, punch } from '../fx';
-import { claimDaily, dailyStatus, type DailyState } from '../time';
+import { claimDaily, dailyClaimedInCycle, dailyStatus, type DailyState } from '../time';
 import { Button } from './button';
 import { checkIcon, type IconDraw } from './icons';
 import { Panel } from './panel';
@@ -125,6 +125,8 @@ export function showDailyPanel(scene: Phaser.Scene, options: DailyPanelOptions):
   const mult = options.adMultiplier ?? 2;
   const cycle = options.rewards.length;
   const { index: today, canClaim } = dailyDayIndex(options.state, cycle);
+  // Ticked tiles. Once today is claimed, `today` already points at tomorrow's tile, so it is not ticked.
+  const claimedCount = dailyClaimedInCycle(options.state, cycle);
   // Landscape: one row of tiles, so the panel fits a 16:9 frame. Portrait: two rows (4 + 3).
   const wide = !app.viewport.info.portrait;
   const panel = new Panel(scene, { title: app.t('core.dailyTitle'), width: wide ? 1040 : 620, height: wide ? 600 : 760, onClose: options.onClose });
@@ -141,7 +143,7 @@ export function showDailyPanel(scene: Phaser.Scene, options: DailyPanelOptions):
     const col = row === 0 ? i : i - perRow;
     const x = (col - (inRow - 1) / 2) * (tileW + gap);
     const y = panel.top + 70 + row * (tileH + gap);
-    const done = i < today || (i === today && !canClaim);
+    const done = i < claimedCount;
     const isToday = i === today && canClaim;
     const g = scene.add.graphics();
     g.fillStyle(isToday ? theme.primary : 0xffffff, isToday ? 1 : done ? 0.05 : 0.1);

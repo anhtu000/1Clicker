@@ -226,6 +226,8 @@ export class PlayScene extends BaseScene {
     this.bestText = this.add.text(0, 0, '', { ...font, fontStyle: '700', fontSize: 22, color: '#b9b4d9' }).setDepth(30);
     this.timerText.setVisible(timed);
     this.bestText.setVisible(timed).setText(save.data.bestRunMs ? app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) }) : '');
+    // A new timed run on a computer: clicks and the Space bar both tap, together too (user 13/10).
+    if (timed && this.run.s.time < 1 && !app.platform.isMobile()) this.time.delayedCall(600, () => toast(this, app.t('finish.timedTip'), 4000));
     // Esc closes an open panel (the panel handles it) or ends arranging; otherwise it pauses.
     this.input.keyboard?.on('keydown-ESC', () => {
       if (this.decorFlow) return; // the guided decoration has to be finished

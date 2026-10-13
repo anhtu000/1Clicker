@@ -41,6 +41,16 @@ export function dailyStatus(state: DailyState, today = dayKey()) {
   return { canClaim: true, streak: gap === 1 ? state.streak + 1 : 1 };
 }
 
+/**
+ * Days of the current cycle already claimed (the tiles that show a tick). After claiming the last day
+ * of a cycle the whole cycle shows ticked until the next day starts a new one.
+ */
+export function dailyClaimedInCycle(state: DailyState, cycle: number, today = dayKey()): number {
+  const status = dailyStatus(state, today);
+  if (status.canClaim) return (status.streak - 1) % cycle;
+  return ((status.streak - 1) % cycle) + 1;
+}
+
 /** Marks today's reward as claimed. Returns the new state. Call only when dailyStatus says canClaim. */
 export function claimDaily(state: DailyState, today = dayKey()): DailyState {
   return { lastClaim: today, streak: dailyStatus(state, today).streak };

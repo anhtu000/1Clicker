@@ -60,7 +60,7 @@
   },
   "rewarded": {
     "freeUpgrade": {
-      "cooldown": 300,
+      "cooldown": 265,
       "maxIncomeSeconds": 150,
       "firstAt": 240
     },
@@ -101,6 +101,6 @@
     "goldenChance": 0.1,
     "goldenMult": 5,
     "doubleChance": 0.2,
-    "valueMultEndless": 3
+    "valueMultEndless": 2
   }
 }

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { formatClock, formatCountdown, formatDuration, formatNumber } from '../core/format.ts';
-import { claimDaily, dailyStatus, FixedStep, secondsAway } from '../core/time.ts';
+import { claimDaily, dailyClaimedInCycle, dailyStatus, FixedStep, secondsAway } from '../core/time.ts';
 import { contentChecker, indexById } from '../core/content.ts';
 import { pickWeighted, pityLeft, rarityOdds, Rng, rollRarity } from '../core/rng.ts';
 
@@ -47,6 +47,16 @@ test('secondsAway is capped and ignores clock going backwards', () => {
 test('daily reward streak', () => {
   let state = { lastClaim: null as string | null, streak: 0 };
   assert.deepEqual(dailyStatus(state, '2026-10-12'), { canClaim: true, streak: 1 });
+
+test('daily gift: ticked days (bug 13/10: day 1 claimed showed day 2 ticked too)', () => {
+  const day1 = claimDaily({ lastClaim: null, streak: 0 }, '2026-10-13');
+  assert.equal(dailyClaimedInCycle({ lastClaim: null, streak: 0 }, 7, '2026-10-13'), 0, 'nothing claimed yet');
+  assert.equal(dailyClaimedInCycle(day1, 7, '2026-10-13'), 1, 'day 1 claimed today: only day 1 ticked');
+  assert.equal(dailyClaimedInCycle(day1, 7, '2026-10-14'), 1, 'next day, before claiming: day 1 ticked, day 2 to claim');
+  assert.equal(dailyClaimedInCycle({ lastClaim: '2026-10-13', streak: 7 }, 7, '2026-10-13'), 7, 'day 7 claimed: whole week ticked');
+  assert.equal(dailyClaimedInCycle({ lastClaim: '2026-10-13', streak: 7 }, 7, '2026-10-14'), 0, 'a new week starts');
+  assert.equal(dailyClaimedInCycle({ lastClaim: '2026-10-11', streak: 4 }, 7, '2026-10-13'), 0, 'missed a day: back to day 1');
+});
   state = claimDaily(state, '2026-10-12');
   assert.deepEqual(dailyStatus(state, '2026-10-12'), { canClaim: false, streak: 1 });
   state = claimDaily(state, '2026-10-13');

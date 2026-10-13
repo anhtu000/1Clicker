@@ -170,7 +170,8 @@ test('upgrades: visibility, price, purchase', () => {
   assert.equal(run.stat('tapMult'), focus.values![0]);
   // 13/10 (user): every level 20% stronger twice, then 30% more: level 1 is 2.25 x 1.2 x 1.2 x 1.3 = 4.212.
   assert.equal(focus.values![0], 4.212);
-  for (let i = 1; i < focus.max; i++) assert.ok(Math.abs(focus.values![i] / focus.values![i - 1] - 1.5) < 1e-3);
+  // x1.5 per level; levels 21+ give 20% less than that (user 13/10), so level 21 is only x1.2 over level 20.
+  for (let i = 1; i < focus.max; i++) assert.ok(Math.abs(focus.values![i] / focus.values![i - 1] - (i === 20 ? 1.2 : 1.5)) < 1e-3, `level ${i + 1}`);
 });
 
 test('free upgrade target never gives the first probes, and stays within the income cap', () => {
@@ -412,7 +413,7 @@ test('copies: Binary Merge up to its cap, the rewarded copy only up to the Aster
 
 test('after the Galaxy (main run): stars worth double, scans climb half as fast', () => {
   const st = content.economy.stars;
-  assert.equal(st.valueMultEndless, 3);
+  assert.equal(st.valueMultEndless, 2);
   assert.equal(st.seconds, 5.6, 'user 13/10: 8 s less 30%');
   const goal = content.economy.goalTier;
   const finishOne = (run: Run) => {
@@ -432,7 +433,7 @@ test('after the Galaxy (main run): stars worth double, scans climb half as fast'
   assert.equal(main.endless, true);
   assert.equal(timed.endless, false, 'a timed run never turns endless');
   assert.equal(main.s.endlessUnits, 300);
-  assert.ok(Math.abs(main.starValue() / main.activeIncome() - 3 * st.seconds) < 1e-9, 'endless star: three times the value');
+  assert.ok(Math.abs(main.starValue() / main.activeIncome() - 2 * st.seconds) < 1e-9, 'endless star: twice the value');
   assert.ok(Math.abs(timed.starValue() / timed.activeIncome() - st.seconds) < 1e-9);
   assert.ok(before > 0);
   // Star waits: the same range everywhere (user 13/10: 4 to 8 s), no Star Magnet here.

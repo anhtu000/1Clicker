@@ -156,6 +156,7 @@
     "again": "Try again",
     "home": "My galaxy",
     "timedText": "Race from stardust to a Galaxy against the clock. Your own galaxy stays saved.",
+    "timedTip": "Tip: click the core and press Space at the same time to tap faster",
     "start": "Start",
     "cancel": "Cancel",
     "leaveTitle": "Leave this run?",

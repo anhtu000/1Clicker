@@ -164,9 +164,18 @@ export class HomeScene extends BaseScene {
     open();
   }
 
+  /**
+   * Continue always opens the main run (bug 13/10: it resumed an unfinished or finished timed run).
+   * A timed run left open is dropped, as "Leave timed run" does; probes kept earning meanwhile.
+   */
   private go() {
     if (this.busy) return;
     this.busy = true;
+    if (save.data.mode === 'speedrun') {
+      save.data.mode = 'main';
+      save.data.speedrun = null;
+      save.flush();
+    }
     this.scene.start('Play');
   }
 
