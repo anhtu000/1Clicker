@@ -85,8 +85,11 @@
   "scan": {
     "button": "Scan",
     "full": "Board full",
-    "autoOn": "Auto: On",
-    "autoOff": "Auto: Off"
+    "autoScan": "Auto Scan",
+    "autoMerge": "Auto Merge",
+    "autoState": "{name}\n{state}",
+    "on": "On",
+    "off": "Off"
   },
   "shop": {
     "title": "Upgrades",
@@ -132,10 +135,11 @@
     "full": "Board full. Merge, or drag a body onto the core for energy",
     "probes": "Buy Probe Fleet: probes collect energy without tapping",
     "tapStill": "Tapping still adds a lot on top of probes",
-    "rarity": "Merge two of the same rarity to keep it in the next stage",
+    "rarity": "Merge two rare bodies for a 50% chance to keep their rarity",
     "reward": "Free rewards come back every few minutes",
     "twin": "Watch an ad to copy what you just merged",
-    "autoScan": "Auto Scan buys scans for you. Turn it off to save up for an upgrade"
+    "autoScan": "Auto Scan buys scans for you. Turn it off to save up for an upgrade",
+    "autoMerge": "Auto Merge merges pairs for you. Turn it off to keep a pair, for example for a hidden body"
   },
   "finish": {
     "title": "Galaxy complete!",
@@ -198,7 +202,6 @@
     "title": "Collection",
     "bodies": "Bodies {n}/{total}",
     "hidden": "Hidden {n}/{total}",
-    "bonus": "Your finds give +{n}% energy",
     "odds": "1 in {n}",
     "pity": "{rarity} or better guaranteed within {n} scans or merges",
     "pityNote": "Odds per scan or merge, with your luck upgrades"

@@ -24,12 +24,19 @@ export class ShootingStar extends Phaser.GameObjects.Container {
    */
   hold = false;
 
-  constructor(scene: Phaser.Scene, area: { x: number; y: number; w: number; h: number }, lifetime: number, golden: boolean, onCatch: () => void) {
+  /** leftToRight: direction (random if not given; the second star of a wave goes the other way). */
+  constructor(
+    scene: Phaser.Scene,
+    area: { x: number; y: number; w: number; h: number },
+    lifetime: number,
+    golden: boolean,
+    onCatch: () => void,
+    leftToRight = Math.random() < 0.5,
+  ) {
     super(scene, 0, 0);
     this.golden = golden;
     this.life = lifetime;
     // Diagonal path across the given area, slower than it looks so it can be caught.
-    const leftToRight = Math.random() < 0.5;
     this.from.set(leftToRight ? area.x - 40 : area.x + area.w + 40, area.y + Math.random() * area.h * 0.5);
     this.to.set(leftToRight ? area.x + area.w + 40 : area.x - 40, this.from.y + area.h * (0.25 + Math.random() * 0.3));
     this.trail = scene.add.graphics().setBlendMode(Phaser.BlendModes.ADD);

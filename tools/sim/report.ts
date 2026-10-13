@@ -79,7 +79,7 @@ const verdict: [string, string, string, Status][] = [
         [
           'Lượt chính đầu tiên (người mới)',
           'Tham khảo',
-          `Trung vị ${mmss(MAIN.none.p50)} không quảng cáo · ${mmss(MAIN.realistic.p50)} có quảng cáo · ${mmss(MAIN.basic.p50)} Basic Launch. Nhanh hơn lượt tính giờ vì có thưởng bộ sưu tập`,
+          `Trung vị ${mmss(MAIN.none.p50)} không quảng cáo · ${mmss(MAIN.realistic.p50)} có quảng cáo · ${mmss(MAIN.basic.p50)} Basic Launch. Từ 13/10 không còn thưởng bộ sưu tập, nên gần như bằng lượt tính giờ`,
           'ok',
         ] as [string, string, string, Status],
       ]
@@ -193,7 +193,7 @@ const rarityRows = content.rarities
   .map((r, i) => {
     const p = r.weight / total;
     const pl = (i === 0 ? r.weight : r.weight * luckMax) / totalLuck;
-    return `<tr><td><span class="rar" style="--rc:${r.color}"></span>${RARITY_VI[i]}</td><td class="n">${vi((p * 100).toFixed(1))}%</td><td class="n">${oneIn(p)}</td><td class="n">${oneIn(pl)}</td><td class="n">×${String(r.mult).replace('.', ',')}</td><td class="n">+${Math.round(r.codexBonus * 100)}%</td><td>${pityText(i)}</td></tr>`;
+    return `<tr><td><span class="rar" style="--rc:${r.color}"></span>${RARITY_VI[i]}</td><td class="n">${vi((p * 100).toFixed(1))}%</td><td class="n">${oneIn(p)}</td><td class="n">${oneIn(pl)}</td><td class="n">×${String(r.mult).replace('.', ',')}</td><td>${pityText(i)}</td></tr>`;
   })
   .join('');
 
@@ -294,7 +294,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Thời gian về đích</h2>
-  <p class="muted">Đây là lượt tính giờ (không có thưởng bộ sưu tập). ${MAIN ? `Lượt chính đầu tiên của người mới nhanh hơn: trung vị ${mmss(MAIN.none.p50)} không quảng cáo, ${mmss(MAIN.realistic.p50)} có quảng cáo, ${mmss(MAIN.basic.p50)} Basic Launch. ` : ''}Vạch là khoảng 80% người chơi ở giữa (10% đến 90%), chấm là trung vị. Hàng nhạt: người nhấp chậm bằng nửa, và người chỉ thi thoảng nhấp sau khi có auto. Thời gian tính cả lúc xem quảng cáo.</p>
+  <p class="muted">Đây là lượt tính giờ. ${MAIN ? `Lượt chính đầu tiên của người mới (kiểm tra chéo): trung vị ${mmss(MAIN.none.p50)} không quảng cáo, ${mmss(MAIN.realistic.p50)} có quảng cáo, ${mmss(MAIN.basic.p50)} Basic Launch. ` : ''}Vạch là khoảng 80% người chơi ở giữa (10% đến 90%), chấm là trung vị. Hàng nhạt: người nhấp chậm bằng nửa, và người chỉ thi thoảng nhấp sau khi có auto. Thời gian tính cả lúc xem quảng cáo.</p>
   <div class="chart">${chart.svg}<ul class="legend">${chart.legend}</ul></div>
   <div class="scroll"><table>
     <thead><tr><th>Trường hợp</th><th>10%</th><th>Trung vị</th><th>90%</th><th>Thưởng đã dùng</th></tr></thead>
@@ -329,9 +329,9 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Độ hiếm và tỉ lệ</h2>
-  <p class="muted">Mỗi lần quét và mỗi lần ghép đều quay độ hiếm. Ghép hai thiên thể thì kết quả không thấp hơn trung bình cộng độ hiếm của cặp (làm tròn xuống), rồi vẫn quay để có thể lên cao hơn: hai Epic giữ ít nhất Epic, Epic với Common giữ ít nhất Rare. 5 bậc × 10 cấp = 50 thiên thể để sưu tầm; mỗi thiên thể mới cộng năng lượng vĩnh viễn (không áp dụng ở chế độ chơi lại).</p>
+  <p class="muted">Mỗi lần quét và mỗi lần ghép đều quay độ hiếm. Ghép hai thiên thể: ${Math.round(content.economy.mergeRarity.keepAverage * 100)}% ra đúng trung bình cộng độ hiếm của cặp (làm tròn xuống, ví dụ Epic với Common ra Rare), còn lại quay theo tỉ lệ gốc có Stellar Luck, nên có thể thấp hơn hoặc cao hơn. Ghép lên ${TIER_VI[content.economy.mergeRarity.rollFromTier - 1]} và ${TIER_VI[content.economy.goalTier - 1]} luôn quay theo tỉ lệ gốc. 5 bậc × 10 cấp = 50 thiên thể để sưu tầm; từ 13/10 thiên thể mới không cộng năng lượng.</p>
   <div class="scroll"><table>
-    <thead><tr><th>Độ hiếm</th><th>Tỉ lệ</th><th>Hiện trong game</th><th>Stellar Luck tối đa</th><th>Sức mạnh</th><th>Thưởng sưu tầm</th><th>Bảo hiểm</th></tr></thead>
+    <thead><tr><th>Độ hiếm</th><th>Tỉ lệ</th><th>Hiện trong game</th><th>Stellar Luck tối đa</th><th>Sức mạnh</th><th>Bảo hiểm</th></tr></thead>
     <tbody>${rarityRows}</tbody>
   </table></div>
   <p class="muted">Bảo hiểm Legendary tính cho Legendary hoặc cao hơn. Lượt quét thứ ${content.economy.script.rareScan} và lần ghép đầu tiên luôn ra Rare trở lên. Trung vị người chơi sưu tầm được ${P.none.codexP50}/50 lúc về đích.</p>
@@ -371,7 +371,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
     <li>Nhấp tay 6 lần/giây trong 5 phút đầu, 4,5 lần/giây đến phút 15, sau đó 3 lần/giây. Người nhấp chậm bằng một nửa.</li>
     <li>Mỗi thao tác tốn thời gian: quét 0,35 giây, ghép 1 giây, mua 0,6 giây. Lúc đó không nhấp.</li>
     <li>Luôn ghép ngay khi có cặp. Khi món rẻ nhất trong shop còn thiếu dưới 30 giây thu nhập thì ngừng quét để để dành.</li>
-    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng ${content.economy.stars.seconds} giây thu nhập, 1/10 là sao vàng x5. Sao xuất hiện mỗi 15–25 giây trong 10 phút đầu, sau đó 12–50 giây; trước khi có Thiên hà và trong lượt tính giờ dày hơn ${Math.round(((content.economy.stars.freqMultBeforeGoal ?? 1) - 1) * 100)}%. Lượt chính sau Thiên hà: sao về nhịp gốc nhưng giá trị ×${content.economy.stars.valueMultEndless ?? 1}, giá quét tăng chậm ${Math.round(1 / (content.economy.scan.endlessGrowth ?? 1))} lần.</li>
+    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng ${content.economy.stars.seconds} giây thu nhập, 1/10 là sao vàng x5. Sao xuất hiện ${content.economy.stars.everyMin}–${content.economy.stars.everyMax} giây sau khi đợt trước hết (bắt xong hoặc bay mất), ${Math.round((content.economy.stars.doubleChance ?? 0) * 100)}% số đợt có 2 sao. Lượt chính sau Thiên hà: sao giá trị ×${content.economy.stars.valueMultEndless ?? 1}, giá quét tăng chậm ${Math.round(1 / (content.economy.scan.endlessGrowth ?? 1))} lần.</li>
     <li>Ba kiểu người chơi: nhấp đều (6, rồi 4,5, rồi 3 lần/giây), nhấp chậm bằng nửa, và thi thoảng nhấp (0,5 lần/giây sau khi có auto, không mua nâng cấp nhấp tay).</li>
     <li>Xem quảng cáo thật: bấm nút thưởng khoảng 1,5 phút sau khi nút sẵn sàng, mỗi quảng cáo 30 giây, game dừng trong lúc đó.</li>
     <li>Chơi liền một phiên. Chưa mô phỏng thu nhập khi vắng mặt và quà ngày.</li>

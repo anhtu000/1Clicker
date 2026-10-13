@@ -19,7 +19,7 @@ function showcase(): RunState {
   return run;
 }
 
-const ALL_STEPS = ['tap', 'scan', 'scan2', 'merge', 'rarities', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin', 'autoScan', 'decorGift', 'decorBuy', 'decorArrange', 'decorDrag', 'decor'];
+const ALL_STEPS = ['tap', 'scan', 'scan2', 'merge', 'rarities', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin', 'autoScan', 'autoMerge', 'decorGift', 'decorBuy', 'decorArrange', 'decorDrag', 'decor'];
 
 /** Two Asteroids to merge into the first Comet (checks the guided first decoration). */
 function comet(): RunState {

@@ -131,6 +131,9 @@ export function simulate(
   let twins = 0;
   let lastAction = 0;
   let rollN = 0;
+  /** Waves of shooting stars seen, and the last one the player reacted to. */
+  let waveN = 0;
+  let rolledWave = 0;
   const maxGap = { first10: 0, to30: 0, after30: 0 };
   const longGaps: [number, number][] = [];
   const rewards: Record<string, number> = { freeUpgrade: 0, luckyScan: 0, twin: 0 };
@@ -310,16 +313,23 @@ export function simulate(
     for (const ev of run.update(dt)) {
       if (ev.kind === 'scan') noteBody(ev.result.body.r, ev.result.body.t);
       else if (ev.kind === 'merge') afterMerge(ev.result);
+      else if (ev.kind === 'star') waveN += 1;
     }
     clock += dt;
     for (const u of content.upgrades) if (run.isVisible(u)) mark(`show-${u.id}`, `Shop shows ${u.id}`);
 
-    // Catch a shooting star after a short reaction time; the player misses about 1 in 6.
-    if (run.starUp && s.starTimer > -content.economy.stars.lifetime + 1.5 && roll01(seed, rollN++) > 1 / 6) {
-      run.catchStar();
-      stars += 1;
-      mark('star', 'First shooting star caught');
-      acted();
+    // Each star of a wave is caught after a short reaction time, or missed (about 1 in 6).
+    // (Before 13/10 the roll was retried every step, so almost every star was caught.)
+    if (run.starUp && s.starTimer > -content.economy.stars.lifetime + 1.5 && rolledWave !== waveN) {
+      rolledWave = waveN;
+      const up = run.starWave.map((st, i) => (st.caught ? -1 : i)).filter((i) => i >= 0);
+      for (const i of up) {
+        if (roll01(seed, rollN++) <= 1 / 6) continue;
+        run.catchStar(i);
+        stars += 1;
+        mark('star', 'First shooting star caught');
+        acted();
+      }
     }
 
     if (clock >= busyUntil && !decide()) {

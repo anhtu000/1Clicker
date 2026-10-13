@@ -44,7 +44,7 @@ test('board fills up, then scanning stops', () => {
   assert.equal(run.canScan(), false);
 });
 
-test('merge needs the same tier; two Epics stay at least Epic', () => {
+test('merge needs the same tier', () => {
   const run = fresh();
   run.s.board[0] = { t: 3, r: 2 };
   run.s.board[1] = { t: 3, r: 2 };
@@ -52,22 +52,51 @@ test('merge needs the same tier; two Epics stay at least Epic', () => {
   assert.equal(run.canMerge(0, 2), false);
   const result = run.merge(0, 1)!;
   assert.equal(result.body.t, 4);
-  assert.ok(result.body.r >= 2);
   assert.equal(run.s.board[0], null);
   assert.equal(run.s.highestTier, 4);
 });
 
-test('merge keeps at least the average rarity of the pair, rounded down', () => {
-  for (let seed = 1; seed <= 40; seed++) {
+test('merge rarity (user 13/10): half the time the average rounded down, else a normal roll; last stages always roll', () => {
+  const rule = content.economy.mergeRarity;
+  assert.deepEqual(rule, { keepAverage: 0.5, rollFromTier: 9 });
+  // Epic + Common (average Rare) into tier 4, many seeds: about half exactly Rare from the rule,
+  // and the rolled half follows the base odds (mostly Common, so the result can drop).
+  const n = 2000;
+  let rare = 0;
+  let common = 0;
+  for (let seed = 1; seed <= n; seed++) {
     const run = fresh('main', seed);
     run.s.merges = 5; // past the scripted Rare merge
     run.s.board[0] = { t: 3, r: 2 };
     run.s.board[1] = { t: 3, r: 0 };
-    assert.ok(run.merge(0, 1)!.body.r >= 1, 'Epic + Common gives at least Rare');
-    run.s.board[2] = { t: 2, r: 4 };
-    run.s.board[3] = { t: 2, r: 1 };
-    assert.ok(run.merge(2, 3)!.body.r >= 2, 'Mythic + Rare gives at least Epic');
+    const r = run.merge(0, 1)!.body.r;
+    if (r === 1) rare += 1;
+    if (r === 0) common += 1;
   }
+  const odds = fresh().rarityOdds();
+  const expectRare = (rule.keepAverage + (1 - rule.keepAverage) * odds[1]) * n;
+  const expectCommon = (1 - rule.keepAverage) * odds[0] * n;
+  assert.ok(Math.abs(rare - expectRare) < 0.06 * n, `Rare ${rare}, expected about ${Math.round(expectRare)}`);
+  assert.ok(Math.abs(common - expectCommon) < 0.06 * n, `Common ${common}, expected about ${Math.round(expectCommon)}`);
+  // Two Mythic Black Holes into the Galaxy: always a roll, so rarely Mythic.
+  let mythic = 0;
+  for (let seed = 1; seed <= 400; seed++) {
+    const run = fresh('main', seed);
+    run.s.merges = 5;
+    run.s.board[0] = { t: 8, r: 4 };
+    run.s.board[1] = { t: 8, r: 4 };
+    if (run.merge(0, 1)!.body.r === 4) mythic += 1;
+  }
+  assert.ok(mythic < 400 * 0.05, `tier 9 from two Mythics: ${mythic} of 400 Mythic`);
+  // Pity still holds: a due Epic+ rule forces the roll even when the average would be Common.
+  const run = fresh('main', 3);
+  run.s.merges = 5;
+  const epicRule = content.pity.findIndex((p) => p.minTier === 2);
+  run.s.pity[epicRule] = content.pity[epicRule].within - 1;
+  run.s.board[0] = { t: 2, r: 0 };
+  run.s.board[1] = { t: 2, r: 0 };
+  assert.ok(run.merge(0, 1)!.body.r >= 2, 'pity Epic');
+  assert.equal(run.s.pity[epicRule], 0);
 });
 
 test('merge bonus: share of the scan price by tier and rarer rarity', () => {
@@ -117,14 +146,15 @@ test('power and tap value follow the board', () => {
   assert.ok(run.tapValue() > empty);
 });
 
-test('codex bonus applies in main mode only', () => {
+test('discoveries give no energy bonus: the first run plays like a timed run (user 13/10)', () => {
   const main = fresh('main');
   const speed = fresh('speedrun');
+  for (const run of [main, speed]) run.s.board[0] = { t: 3, r: 1 };
   main.codex.found['1.0'] = 1;
   main.codex.found['2.3'] = 1;
-  speed.codex.found['1.0'] = 1;
-  assert.ok(main.codexMult() > 1);
-  assert.equal(speed.codexMult(), 1);
+  main.codex.found['5.4'] = 1;
+  assert.equal(main.tapValue(), speed.tapValue());
+  assert.equal(main.autoIncome(), speed.autoIncome());
 });
 
 test('upgrades: visibility, price, purchase', () => {
@@ -138,7 +168,8 @@ test('upgrades: visibility, price, purchase', () => {
   assert.equal(run.s.energy, 0);
   // Level 1 is 1.5x stronger than the old 1.5x per level (user request 13/10): 2.25, then x1.5 per level.
   assert.equal(run.stat('tapMult'), focus.values![0]);
-  assert.equal(focus.values![0], 2.25);
+  // 13/10 afternoon (user): every level 20% stronger, so level 1 is 2.7.
+  assert.equal(focus.values![0], 2.7);
   for (let i = 1; i < focus.max; i++) assert.ok(Math.abs(focus.values![i] / focus.values![i - 1] - 1.5) < 1e-3);
 });
 
@@ -252,7 +283,7 @@ test('hidden bodies: Galaxy + planet tier makes one; it never merges, copies, or
   assert.equal(made.body.s, first.id);
   assert.ok(made.isNew);
   assert.equal(run.s.board[1], null);
-  assert.ok(made.body.r >= 1, 'Epic Galaxy + Common planet: at least Rare, like a merge');
+  assert.ok(made.body.r >= 0 && made.body.r < content.rarities.length, 'rarity as in a merge: the average (Rare) half the time, else a roll');
   assert.equal(codexKey(made.body), `s.${first.id}.${made.body.r}`);
   assert.equal(run.sellValue(made.body), Math.round(first.sell * content.rarities[made.body.r].mult));
   assert.equal(run.s.highestTier, highest);
@@ -372,9 +403,8 @@ test('copies: Binary Merge up to its cap, the rewarded copy only up to the Aster
   assert.deepEqual(copy.body, { t: adMax, r: 1 });
 });
 
-test('after the Galaxy (main run): stars worth double at the base pace, scans climb half as fast', () => {
+test('after the Galaxy (main run): stars worth double, scans climb half as fast', () => {
   const st = content.economy.stars;
-  assert.equal(st.freqMultBeforeGoal, 1.4);
   assert.equal(st.valueMultEndless, 2);
   const goal = content.economy.goalTier;
   const finishOne = (run: Run) => {
@@ -397,7 +427,7 @@ test('after the Galaxy (main run): stars worth double at the base pace, scans cl
   assert.ok(Math.abs(main.starValue() / main.activeIncome() - 2 * st.seconds) < 1e-9, 'endless star: double value');
   assert.ok(Math.abs(timed.starValue() / timed.activeIncome() - st.seconds) < 1e-9);
   assert.ok(before > 0);
-  // Star waits: base range in endless, 1.4x denser otherwise (no Star Magnet here).
+  // Star waits: the same range everywhere (user 13/10: 4 to 8 s), no Star Magnet here.
   const waits = (run: Run) => {
     const out: number[] = [];
     for (let i = 0; i < 200; i++) {
@@ -407,10 +437,10 @@ test('after the Galaxy (main run): stars worth double at the base pace, scans cl
     }
     return out;
   };
-  for (const w of waits(main)) assert.ok(w >= st.everyMin - 0.1 && w <= st.everyMax, `endless wait ${w}`);
-  for (const w of waits(timed)) assert.ok(w >= st.everyMin / 1.4 - 0.1 && w <= st.everyMax / 1.4 + 0.01, `timed wait ${w}`);
-  // Scan price: 100 scans after the Galaxy cost what 50 would in a timed run.
-  timed.s.units = 350;
+  for (const run of [main, timed]) for (const w of waits(run)) assert.ok(w >= st.everyMin - 0.1 && w <= st.everyMax, `wait ${w}`);
+  // Scan price: 100 scans after the Galaxy move the price as far as 25 would in a timed run (endlessGrowth 0.25).
+  assert.equal(content.economy.scan.endlessGrowth, 0.25);
+  timed.s.units = 325;
   const timedAt350 = timed.scanCost();
   main.s.units = 400;
   assert.equal(main.scanCost(), timedAt350);
@@ -428,4 +458,43 @@ test('Lean Optics: 8 levels before the Galaxy, 11 after', () => {
   assert.equal(run.levelCap(u), 8);
   run.s.highestTier = content.economy.goalTier;
   assert.equal(run.levelCap(u), 11);
+});
+
+test('star waves: every 4 to 8 s, sometimes two stars, each caught once', () => {
+  const st = content.economy.stars;
+  assert.equal(st.everyMin, 4);
+  assert.equal(st.everyMax, 8);
+  assert.equal(st.doubleChance, 0.2);
+  const run = fresh('speedrun', 9);
+  run.s.time = 9999;
+  let waves = 0;
+  let doubles = 0;
+  for (let i = 0; i < 60000 && waves < 300; i++) {
+    for (const ev of run.update(0.1)) {
+      if (ev.kind !== 'star') continue;
+      waves += 1;
+      assert.ok(ev.stars.length === 1 || ev.stars.length === 2);
+      if (ev.stars.length === 1) continue;
+      doubles += 1;
+      // Two stars: the next wave waits until both are caught (or the time is up).
+      assert.ok(run.catchStar(1) > 0);
+      assert.equal(run.catchStar(1), 0, 'caught once');
+      assert.ok(run.starUp, 'the other star is still up');
+      assert.ok(run.catchStar() > 0);
+      assert.equal(run.starUp, false);
+      assert.ok(run.s.starTimer >= st.everyMin - 1e-9);
+    }
+  }
+  assert.equal(waves, 300);
+  assert.ok(doubles > 30 && doubles < 95, `${doubles} double waves of 300`);
+  // A golden star is worth goldenMult times a plain one.
+  assert.ok(Math.abs(run.starValue(true) / run.starValue(false) - st.goldenMult) < 1e-9);
+  // Older saves: a star up with no wave list is one star.
+  const old = fresh();
+  old.s.starTimer = -3;
+  old.s.starGolden = true;
+  delete old.s.wave;
+  assert.equal(old.starWave.length, 1);
+  assert.ok(Math.abs(old.catchStar() / old.starValue(false) - st.goldenMult) < 1e-9);
+  assert.equal(old.starUp, false);
 });

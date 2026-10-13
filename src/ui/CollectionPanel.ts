@@ -15,8 +15,6 @@ export interface CollectionData {
   odds: number[];
   /** Rolls left before each pity rule kicks in. */
   pity: { rarity: number; left: number }[];
-  /** Energy bonus from discoveries, e.g. 0.34 = +34%. */
-  bonus: number;
 }
 
 /** Opens the collection. onClose runs when it closes. startTab: 0 bodies, 1 hidden bodies. */
@@ -116,12 +114,11 @@ export function showCollection(scene: Phaser.Scene, data: CollectionData, onClos
         }
       }
     }
-    // Footer: discovery bonus and pity.
+    // Footer: pity.
     const pity = data.pity.map((p) => app.t('collection.pity', { rarity: rarityLabel(p.rarity), n: p.left })).join(wide ? '  ·  ' : '\n');
-    const bonus = app.t('collection.bonus', { n: Math.round(data.bonus * 100) });
     grid.add(
       scene.add
-        .text(0, panel.bottom - (wide ? 42 : 50), `${bonus}\n${pity}`, { ...font, fontStyle: '700', fontSize: 20, color: app.theme.textDim, align: 'center', lineSpacing: 4, wordWrap: { width: W - 40 } })
+        .text(0, panel.bottom - (wide ? 42 : 50), pity, { ...font, fontStyle: '700', fontSize: 20, color: app.theme.textDim, align: 'center', lineSpacing: 4, wordWrap: { width: W - 40 } })
         .setOrigin(0.5, 0.5),
     );
   };

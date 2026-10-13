@@ -13,8 +13,6 @@ export interface RarityDef {
   weight: number;
   /** Multiplies the body's power. */
   mult: number;
-  /** Permanent energy bonus for discovering a body of this rarity (0.02 = +2%). */
-  codexBonus: number;
   color: string;
 }
 
@@ -102,12 +100,17 @@ export interface EconomyDef {
     goldenMult: number;
     /** Denser stars early on, so a reward is never far away in the first minutes. */
     early?: { untilSec: number; everyMin: number; everyMax: number };
-    /** Stars come this much more often before the Galaxy and in timed runs (user 13/10: 1.4). */
-    freqMultBeforeGoal?: number;
+    /** Chance that a wave brings two stars at once (user 13/10). */
+    doubleChance?: number;
     /** Star value multiplier in the main run after the Galaxy, while hunting the collection (user 13/10: 2). */
     valueMultEndless?: number;
   };
   script: { rareScan: number; rareMerge: number };
+  /**
+   * Rarity of a merge result (user 13/10): keepAverage is the chance it is exactly the pair's average
+   * rarity rounded down, else a normal roll. Merges into rollFromTier and up always roll.
+   */
+  mergeRarity: { keepAverage: number; rollFromTier: number };
   offline: { efficiency: number; capHours: number; minSeconds: number };
   rewarded: {
     /**
@@ -208,10 +211,14 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   check.positive(economy?.scan?.baseCost, 'economy.scan.baseCost');
   check.positive(economy?.scan?.exponent, 'economy.scan.exponent');
   check.positive(economy?.stars?.everyMin, 'economy.stars.everyMin');
-  for (const key of ['freqMultBeforeGoal', 'valueMultEndless'] as const) {
-    const v = economy?.stars?.[key];
-    check.need(v === undefined || (typeof v === 'number' && v > 0), `economy.stars.${key}: a number above 0`);
-  }
+  const keep = economy?.mergeRarity?.keepAverage;
+  check.need(typeof keep === 'number' && keep >= 0 && keep <= 1, 'economy.mergeRarity.keepAverage: 0 to 1');
+  const rollFrom = economy?.mergeRarity?.rollFromTier;
+  check.need(Number.isInteger(rollFrom) && rollFrom >= 2 && rollFrom <= tiers.length, 'economy.mergeRarity.rollFromTier: a tier from 2 to the goal');
+  const valueMult = economy?.stars?.valueMultEndless;
+  check.need(valueMult === undefined || (typeof valueMult === 'number' && valueMult > 0), 'economy.stars.valueMultEndless: a number above 0');
+  const double = economy?.stars?.doubleChance;
+  check.need(double === undefined || (typeof double === 'number' && double >= 0 && double <= 1), 'economy.stars.doubleChance: 0 to 1');
   const growth = economy?.scan?.endlessGrowth;
   check.need(growth === undefined || (typeof growth === 'number' && growth > 0 && growth <= 1), 'economy.scan.endlessGrowth: above 0, at most 1');
   const tierOdds: unknown = economy?.scan?.tierOdds;

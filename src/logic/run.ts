@@ -40,11 +40,18 @@ export interface RunState {
   autoScanAcc: number;
   /** The player switched Auto Scan off (to save up). Missing in older saves: on. */
   autoScanOff?: boolean;
+  /** The player switched Auto Merge off (to keep pairs, for example for hidden bodies). Missing: on. */
+  autoMergeOff?: boolean;
   autoMergeAcc: number;
   /** Seconds until the next shooting star. While a star is up: negative, counting the seconds it has left. */
   starTimer: number;
-  /** The star on screen is golden. */
+  /** The first star of the wave on screen is golden. */
   starGolden: boolean;
+  /**
+   * Stars of the wave on screen: one, sometimes two (user 13/10). Missing in older saves and
+   * between waves (the getter starWave rebuilds a one-star wave from starGolden).
+   */
+  wave?: StarState[];
   /** Run time when each rewarded button can be used again. */
   rewardReadyAt: Record<string, number>;
   totalEarned: number;
@@ -72,10 +79,16 @@ export interface MergeResult extends NewBody {
   bonus: number;
 }
 
+export interface StarState {
+  golden: boolean;
+  caught: boolean;
+}
+
 export type RunEvent =
   | { kind: 'scan'; result: NewBody }
   | { kind: 'merge'; result: MergeResult }
-  | { kind: 'star'; golden: boolean }
+  /** A wave of shooting stars: one entry per star, true if golden. */
+  | { kind: 'star'; stars: boolean[] }
   | { kind: 'starGone' };
 
 const BASE_STATS: Record<StatId, number> = {
@@ -133,7 +146,6 @@ export class Run {
   private rng: Rng;
   private statCache: Record<StatId, number> | null = null;
   private powerCache: number | null = null;
-  private codexCache: number | null = null;
 
   constructor(content: Content, state: RunState, codex: Codex) {
     this.content = content;
@@ -185,24 +197,12 @@ export class Run {
     return this.powerCache;
   }
 
-  /** Permanent bonus from discoveries. Not used in speedrun, so records stay comparable. */
-  codexMult(): number {
-    if (this.s.mode === 'speedrun') return 1;
-    if (this.codexCache === null) {
-      let bonus = 1;
-      for (const key of Object.keys(this.codex.found)) {
-        if (isSpecialKey(key)) continue;
-        const r = Number(key.split('.')[1]);
-        bonus += this.content.rarities[r]?.codexBonus ?? 0;
-      }
-      this.codexCache = bonus;
-    }
-    return this.codexCache;
-  }
-
-  /** Energy from the board for one tap, before tap upgrades. Probes collect this much per probe tap. */
+  /**
+   * Energy from the board for one tap, before tap upgrades. Probes collect this much per probe tap.
+   * Discoveries give no energy bonus (removed 13/10, user): the first run plays like a timed run.
+   */
   baseTapValue(): number {
-    return this.content.economy.tap.base * this.power() * this.codexMult();
+    return this.content.economy.tap.base * this.power();
   }
 
   /** Energy for one tap by hand. Tap upgrades (tapMult) and crits only help hand taps. */
@@ -312,6 +312,23 @@ export class Run {
 
   private luckMult = (tier: number) => (tier > 0 ? this.stat('luck') : 1);
 
+  /**
+   * Rarity of a merge result (user 13/10): with chance keepAverage it is exactly the pair's average
+   * rarity rounded down (Epic + Common gives Rare); otherwise an ordinary roll with the base odds and
+   * Stellar Luck, which can come out lower or higher. alwaysRoll: merges into the last stages
+   * (rollFromTier and up) always roll. Pity counts every merge, and a due pity forces a roll.
+   */
+  private mergeRarity(x: Body, y: Body, alwaysRoll: boolean): number {
+    const average = Math.floor((x.r + y.r) / 2);
+    const pityDue = this.content.pity.some((rule, i) => (this.s.pity[i] ?? 0) + 1 >= rule.within && average < rule.minTier);
+    if (alwaysRoll || pityDue || !this.rng.chance(this.content.economy.mergeRarity.keepAverage)) return this.rollRarity(0);
+    this.syncRng();
+    this.content.pity.forEach((rule, i) => {
+      this.s.pity[i] = average >= rule.minTier ? 0 : (this.s.pity[i] ?? 0) + 1;
+    });
+    return average;
+  }
+
   private rollRarity(floor: number): number {
     const r = rollRarity(
       this.rng,
@@ -332,7 +349,6 @@ export class Run {
     const isNew = !(key in this.codex.found);
     if (isNew) {
       this.codex.found[key] = 1;
-      this.codexCache = null;
     } else {
       this.codex.found[key] += 1;
     }
@@ -369,7 +385,7 @@ export class Run {
 
   /**
    * Galaxy + partner: both leave the board, the hidden body takes b's slot. Not done by Auto Merge.
-   * Rarity works as in a merge: at least the average of the pair, rounded down, then rolled.
+   * Rarity works as in a merge (mergeRarity), without the last-stages exception.
    */
   fuse(a: number, b: number): (NewBody & { special: SpecialDef }) | null {
     const special = this.fusionOf(a, b);
@@ -377,7 +393,7 @@ export class Run {
     const x = this.s.board[a]!;
     const y = this.s.board[b]!;
     this.s.board[a] = null;
-    const r = this.rollRarity(Math.floor((x.r + y.r) / 2));
+    const r = this.mergeRarity(x, y, false);
     this.syncRng();
     return { ...this.place(b, { t: special.tier, r, s: special.id }), special };
   }
@@ -405,10 +421,8 @@ export class Run {
   }
 
   /**
-   * Merges body a into body b. The result is one tier higher, in b's slot.
-   * Its rarity is rolled, and is never below the average rarity of the pair rounded down,
-   * so merging two Epics always keeps at least Epic, and Epic + Common keeps at least Rare.
-   * Every merge also pays a bonus that grows with tier and with the rarer body's rarity.
+   * Merges body a into body b. The result is one tier higher, in b's slot; its rarity comes from
+   * mergeRarity. Every merge also pays a bonus that grows with tier and with the rarer body's rarity.
    */
   merge(a: number, b: number): MergeResult | null {
     if (!this.canMerge(a, b)) return null;
@@ -418,9 +432,11 @@ export class Run {
     this.s.board[a] = null;
     this.s.merges += 1;
     if (bonus > 0) this.gain(bonus);
-    let floor = Math.floor((x.r + y.r) / 2);
-    if (this.s.merges === this.content.economy.script.rareMerge) floor = Math.max(floor, 1);
-    const result = this.place(b, { t: x.t + 1, r: this.rollRarity(floor) });
+    const tier = x.t + 1;
+    let r = this.mergeRarity(x, y, tier >= this.content.economy.mergeRarity.rollFromTier);
+    // The scripted first merge is at least Rare (it introduces rarity).
+    if (this.s.merges === this.content.economy.script.rareMerge) r = Math.max(r, 1);
+    const result = this.place(b, { t: tier, r });
     const finished = result.body.t === this.content.economy.goalTier && this.s.finishedAt === null;
     if (finished) {
       this.s.finishedAt = this.s.time;
@@ -657,10 +673,13 @@ export class Run {
     if (this.s.starTimer > 0) {
       this.s.starTimer -= dt;
       if (this.s.starTimer <= 0) {
-        this.s.starGolden = this.rng.chance(stars.goldenChance);
+        // Sometimes two at once (doubleChance); each can be golden.
+        const count = this.rng.chance(stars.doubleChance ?? 0) ? 2 : 1;
+        this.s.wave = Array.from({ length: count }, () => ({ golden: this.rng.chance(stars.goldenChance), caught: false }));
+        this.s.starGolden = this.s.wave[0].golden;
         this.syncRng();
         this.s.starTimer = -stars.lifetime;
-        events.push({ kind: 'star', golden: this.s.starGolden });
+        events.push({ kind: 'star', stars: this.s.wave.map((st) => st.golden) });
       }
     } else {
       this.s.starTimer += dt;
@@ -680,7 +699,7 @@ export class Run {
         if (result) events.push({ kind: 'scan', result });
       }
     }
-    const mergeEvery = this.stat('autoMergeEvery');
+    const mergeEvery = this.s.autoMergeOff ? 0 : this.stat('autoMergeEvery');
     if (mergeEvery > 0) {
       this.s.autoMergeAcc += dt;
       while (this.s.autoMergeAcc >= mergeEvery) {
@@ -693,24 +712,37 @@ export class Run {
     return events;
   }
 
-  /** A shooting star is on screen. */
+  /** Stars of the wave on screen (caught ones included); empty between waves. */
+  get starWave(): StarState[] {
+    if (this.s.starTimer >= 0) return [];
+    this.s.wave ??= [{ golden: this.s.starGolden, caught: false }];
+    return this.s.wave;
+  }
+
+  /** A shooting star is on screen, not caught yet. */
   get starUp(): boolean {
-    return this.s.starTimer < 0;
+    return this.starWave.some((st) => !st.caught);
   }
 
   /** Energy a caught star gives right now. */
-  starValue(): number {
+  starValue(golden = false): number {
     const st = this.content.economy.stars;
     const base = st.seconds * this.activeIncome() * (this.endless ? (st.valueMultEndless ?? 1) : 1);
-    return base * (this.s.starGolden ? st.goldenMult : 1);
+    return base * (golden ? st.goldenMult : 1);
   }
 
-  /** Player tapped the star. Returns the energy given, 0 if no star was up. */
-  catchStar(): number {
-    if (!this.starUp) return 0;
-    const value = this.starValue();
+  /**
+   * Player tapped star i of the wave (default: the first one still up). Returns the energy given,
+   * 0 if that star is not up. The next wave is timed from when the last star of this one is caught.
+   */
+  catchStar(i = this.starWave.findIndex((st) => !st.caught)): number {
+    const wave = this.starWave;
+    const star = wave[i];
+    if (!star || star.caught) return 0;
+    star.caught = true;
+    const value = this.starValue(star.golden);
     this.gain(value);
-    this.nextStar();
+    if (wave.every((st) => st.caught)) this.nextStar();
     return value;
   }
 
@@ -718,10 +750,9 @@ export class Run {
     const st = this.content.economy.stars;
     const range = st.early && this.s.time < st.early.untilSec ? st.early : st;
     // Star Magnet: stars come more often (starFreq 1.08 = 8% more stars), so the wait is divided by it.
-    // Before the Galaxy and in timed runs they come more often still (freqMultBeforeGoal).
-    const freq = this.stat('starFreq') * (this.endless ? 1 : (st.freqMultBeforeGoal ?? 1));
-    this.s.starTimer = (range.everyMin + this.rng.next() * (range.everyMax - range.everyMin)) / freq;
+    this.s.starTimer = (range.everyMin + this.rng.next() * (range.everyMax - range.everyMin)) / this.stat('starFreq');
     this.s.starGolden = false;
+    delete this.s.wave;
     this.syncRng();
   }
 

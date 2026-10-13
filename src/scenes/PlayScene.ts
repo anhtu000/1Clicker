@@ -52,6 +52,9 @@ const STEP_SEC = 0.1;
 const COPY_OFFER_SEC = 8;
 
 /** Main screen: core to tap, board to merge, shop, and the systems around them. */
+/** The Auto Scan and Auto Merge switches under Scan: two lines of text (name, On/Off). */
+const AUTO_BTN = { w: 176, h: 64, gap: 10 };
+
 export class PlayScene extends BaseScene {
   private run!: Run;
   private bg!: SpaceBackground;
@@ -66,7 +69,9 @@ export class PlayScene extends BaseScene {
   private chainMarker!: Phaser.GameObjects.Image;
   private scanBtn!: Button;
   /** Auto Scan on/off, shown once Auto Scan is bought (CLAUDE.md 4b). */
-  private autoBtn!: Button;
+  /** On/off switches under Scan, each shown once its upgrade is bought (user 13/10). */
+  private autoScanBtn!: Button;
+  private autoMergeBtn!: Button;
   private autoShown = '';
   private pauseBtn!: Button;
   private soundBtn!: Button;
@@ -96,7 +101,8 @@ export class PlayScene extends BaseScene {
   private switching = false;
   /** Rewarded copy of the body just merged, offered on the boost card for a few seconds. */
   private copyOffer: { slot: number; until: number } | null = null;
-  private star: ShootingStar | null = null;
+  /** Shooting stars on screen, by their index in the run's wave (null once caught). */
+  private stars: (ShootingStar | null)[] = [];
   private tutorial!: Tutorial;
   /** Second tutorial, above panels: walks through the decor shop (user request 12/10). */
   private guide!: Tutorial;
@@ -119,7 +125,7 @@ export class PlayScene extends BaseScene {
     this.chain = [];
     this.autoShown = '';
     this.copyOffer = null;
-    this.star = null;
+    this.stars = [];
     this.step = new FixedStep(STEP_SEC * 1000, () => this.onStep());
     this.refreshTimer = 0;
     this.tapsInStep = 0;
@@ -186,8 +192,10 @@ export class PlayScene extends BaseScene {
 
     this.scanBtn = new Button(this, 0, 0, { label: '', icon: scanIcon, width: 300, height: 108, fontSize: 36, sound: false, onClick: () => this.scan() });
     this.scanBtn.setDepth(30);
-    this.autoBtn = new Button(this, 0, 0, { label: '', icon: UPGRADE_ICONS.autoScan, width: 176, height: 88, fontSize: 26, onClick: () => this.toggleAutoScan() });
-    this.autoBtn.setDepth(30).setVisible(false);
+    const toggle = { label: '', width: AUTO_BTN.w, height: AUTO_BTN.h, fontSize: 21 };
+    this.autoScanBtn = new Button(this, 0, 0, { ...toggle, icon: UPGRADE_ICONS.autoScan, onClick: () => this.toggleAuto('scan') });
+    this.autoMergeBtn = new Button(this, 0, 0, { ...toggle, icon: UPGRADE_ICONS.autoMerge, onClick: () => this.toggleAuto('merge') });
+    for (const b of [this.autoScanBtn, this.autoMergeBtn]) b.setDepth(30).setVisible(false);
 
     this.pauseBtn = new Button(this, 0, 0, {
       icon: icons.pauseIcon,
@@ -279,7 +287,10 @@ export class PlayScene extends BaseScene {
       const top = Math.max(0, s.y - 60);
       const stripH = 184;
       const stripTop = vp.height - stripH - 16;
-      const rowY = stripTop - 70;
+      // With the Auto switches the Scan button moves up to make room for them underneath.
+      const toggles = this.autoToggles();
+      const toggleY = stripTop - 12 - AUTO_BTN.h / 2;
+      const rowY = toggles.length ? toggleY - AUTO_BTN.h / 2 - 6 - 54 : stripTop - 70;
       const boardBottom = rowY - 72;
       // energy, rate, core, goal chain in two rows and the label under it (its bottom is at y0 + 504), plus a gap
       const headH = 520;
@@ -296,10 +307,8 @@ export class PlayScene extends BaseScene {
       this.placeChain(cx, y0 + 352, 540, 80);
       const size = cell * 4 + 3 * Math.round(cell * 0.08);
       this.board.layout(cx, boardBottom - size / 2, cell);
-      // Scan alone is centered; with the Auto switch the pair is centered together.
-      const withAuto = this.run.level('autoScan') > 0;
-      this.scanBtn.setPosition(withAuto ? cx - 94 : cx, rowY);
-      this.autoBtn.setPosition(cx + 156, rowY);
+      this.scanBtn.setPosition(cx, rowY);
+      this.placeToggles(toggles, cx, toggleY);
       this.shop.layout(0, stripTop, vp.width, stripH, true);
       this.shopRect = { x: 0, y: stripTop, w: vp.width, h: vp.height - stripTop };
       // Pause and sound together in the top-left corner, clear of the centered energy counter.
@@ -333,7 +342,7 @@ export class PlayScene extends BaseScene {
       const leftX = x0 + colW / 2;
       // Below the pause row on 16:9; centered with the board when the screen is taller.
       const colTop = Math.max(s.y + 4, 100);
-      // Kept inside 720 high: the Auto switch under Scan ends at colTop + 606.
+      // Kept inside 720 high: the Auto switches under Scan end at colTop + 594.
       this.placeEnergy(leftX, colTop + 34);
       this.rateText.setPosition(leftX, colTop + 76);
       this.rateRoom = colW - 10;
@@ -341,7 +350,7 @@ export class PlayScene extends BaseScene {
       this.core.setRadius(70);
       this.placeChain(leftX, colTop + 276, 370, 62);
       this.scanBtn.setPosition(leftX, colTop + 462);
-      this.autoBtn.setPosition(leftX, colTop + 562);
+      this.placeToggles(this.autoToggles(), leftX, colTop + 562);
       this.board.layout(x0 + colW + 24 + size / 2, Math.max(s.y + s.height / 2, colTop + size / 2 - 40), cell);
     }
     this.energyY = this.energyText.y;
@@ -438,8 +447,8 @@ export class PlayScene extends BaseScene {
       this.refreshUi();
     }
     // Tutorial star: keep it on screen until it is caught.
-    if (this.star && this.tutorial.currentId === 'star') {
-      this.star.hold = true;
+    if (this.firstStar && this.tutorial.currentId === 'star') {
+      for (const star of this.stars) if (star) star.hold = true;
       this.run.s.starTimer = Math.min(this.run.s.starTimer, -2);
     }
     // The copy offer waits while its tutorial step is being read.
@@ -447,6 +456,10 @@ export class PlayScene extends BaseScene {
   }
 
   private onStep() {
+    // No shooting stars until the opening steps are done: they come every few seconds and would
+    // cross the first tutorial (main run only; a timed run starts after it).
+    const stars = content.economy.stars;
+    if (this.run.s.starTimer > 0 && !save.data.tutorial.includes('goal')) this.run.s.starTimer = Math.max(this.run.s.starTimer, stars.everyMin);
     for (const ev of this.run.update(STEP_SEC)) {
       if (ev.kind === 'scan') {
         this.board.sync([ev.result.slot]);
@@ -455,9 +468,9 @@ export class PlayScene extends BaseScene {
         this.board.sync([ev.result.slot, ...(ev.result.twin ? [ev.result.twin.slot] : [])]);
         this.mergeFx(ev.result);
       } else if (ev.kind === 'star') {
-        this.spawnStar(ev.golden);
+        this.spawnStars(ev.stars);
       } else if (ev.kind === 'starGone') {
-        this.removeStar(false);
+        this.removeStars();
       }
     }
   }
@@ -667,8 +680,6 @@ export class PlayScene extends BaseScene {
   /** Collection screen: odds and pity follow the run on screen; the bonus is the collection's. */
   private showCollectionPanel(options: { tab?: number; onClose?: () => void } = {}) {
     const found = save.data.codex.found;
-    let bonus = 0;
-    for (const key of Object.keys(found)) if (!isSpecialKey(key)) bonus += content.rarities[Number(key.split('.')[1])]?.codexBonus ?? 0;
     this.openPanels += 1;
     showCollection(
       this,
@@ -677,7 +688,6 @@ export class PlayScene extends BaseScene {
         found,
         odds: this.run.rarityOdds(),
         pity: content.pity.map((rule, i) => ({ rarity: rule.minTier, left: this.run.pityLeft(i) })),
-        bonus,
       },
       () => {
         this.openPanels = Math.max(0, this.openPanels - 1);
@@ -774,25 +784,50 @@ export class PlayScene extends BaseScene {
     };
   }
 
-  private toggleAutoScan() {
-    this.run.s.autoScanOff = !this.run.s.autoScanOff;
-    this.run.s.autoScanAcc = 0;
+  /** The Auto switches to show, in order: Auto Scan, then Auto Merge, each once bought. */
+  private autoToggles(): Button[] {
+    const list: Button[] = [];
+    if (this.run.level('autoScan') > 0) list.push(this.autoScanBtn);
+    if (this.run.level('autoMerge') > 0) list.push(this.autoMergeBtn);
+    return list;
+  }
+
+  /** Side by side, centered on x. */
+  private placeToggles(toggles: Button[], x: number, y: number) {
+    toggles.forEach((b, i) => b.setPosition(x + (i - (toggles.length - 1) / 2) * (AUTO_BTN.w + AUTO_BTN.gap), y));
+  }
+
+  private toggleAuto(which: 'scan' | 'merge') {
+    const s = this.run.s;
+    if (which === 'scan') {
+      s.autoScanOff = !s.autoScanOff;
+      s.autoScanAcc = 0;
+    } else {
+      s.autoMergeOff = !s.autoMergeOff;
+      s.autoMergeAcc = 0;
+    }
     this.refreshAutoButton();
   }
 
   private refreshAutoButton() {
-    const has = this.run.level('autoScan') > 0;
-    const on = !this.run.s.autoScanOff;
-    const state = `${has}|${on}`;
+    const s = this.run.s;
+    const scan = { has: this.run.level('autoScan') > 0, on: !s.autoScanOff };
+    const merge = { has: this.run.level('autoMerge') > 0, on: !s.autoMergeOff };
+    const state = `${scan.has}|${scan.on}|${merge.has}|${merge.on}`;
     if (state === this.autoShown) return;
-    const appeared = has && !this.autoBtn.visible;
+    const appeared = (scan.has && !this.autoScanBtn.visible) || (merge.has && !this.autoMergeBtn.visible);
     this.autoShown = state;
-    this.autoBtn.setVisible(has);
-    if (appeared && this.vp.portrait) this.layout(this.vp);
-    else if (appeared) this.decorLayer.layout();
-    this.autoBtn.setLabel(app.t(on ? 'scan.autoOn' : 'scan.autoOff'));
-    // Green while it spends energy on its own; plain when off.
-    this.autoBtn.setColor(on ? app.theme.reward : app.theme.surface, on ? app.theme.rewardText : app.theme.surfaceText);
+    for (const [btn, name, sw] of [
+      [this.autoScanBtn, 'scan.autoScan', scan],
+      [this.autoMergeBtn, 'scan.autoMerge', merge],
+    ] as const) {
+      btn.setVisible(sw.has);
+      // Two lines: the name, then On or Off. Green while it works on its own; plain when off.
+      btn.setLabel(app.t('scan.autoState', { name: app.t(name), state: app.t(sw.on ? 'scan.on' : 'scan.off') }));
+      btn.setColor(sw.on ? app.theme.reward : app.theme.surface, sw.on ? app.theme.rewardText : app.theme.surfaceText);
+    }
+    // A new switch: the column (landscape) or the Scan row and board (portrait) make room for it.
+    if (appeared) this.layout(this.vp);
   }
 
   private useLucky() {
@@ -818,29 +853,39 @@ export class PlayScene extends BaseScene {
     this.refreshUi();
   }
 
-  private spawnStar(golden: boolean) {
-    this.removeStar(false);
+  /** First star still on screen (tutorial target). */
+  private get firstStar(): ShootingStar | null {
+    return this.stars.find((star) => star?.active) ?? null;
+  }
+
+  /** A wave: one star, sometimes two crossing the other way. goldens: one entry per star. */
+  private spawnStars(goldens: boolean[]) {
+    this.removeStars();
     const vp = this.vp;
     const area = vp.portrait ? { x: 0, y: vp.safe.y + 160, w: vp.width, h: 700 } : { x: 0, y: vp.safe.y + 120, w: vp.width, h: 480 };
-    this.star = new ShootingStar(this, area, content.economy.stars.lifetime, golden, () => this.catchStar());
+    const leftToRight = Math.random() < 0.5;
+    this.stars = goldens.map((golden, i) => new ShootingStar(this, area, content.economy.stars.lifetime, golden, () => this.catchStar(i), i === 0 ? leftToRight : !leftToRight));
     if (!save.data.tutorial.includes('star') && save.data.tutorial.includes('goal')) {
       // Points at whichever star is up: if this one leaves before the step starts, the next one is used.
       this.queueOnce('star', [
         {
           id: 'star',
           text: app.t('tut.star'),
-          target: () => (this.star?.active ? { x: this.star.x, y: this.star.y, w: 110, h: 110 } : null),
+          target: () => {
+            const star = this.firstStar;
+            return star ? { x: star.x, y: star.y, w: 110, h: 110 } : null;
+          },
           done: () => this.starsCaught > 0,
         },
       ]);
     }
   }
 
-  private catchStar() {
-    const star = this.star;
+  private catchStar(i: number) {
+    const star = this.stars[i];
     if (!star) return;
-    const golden = this.run.s.starGolden;
-    const value = this.run.catchStar();
+    const golden = this.run.starWave[i]?.golden ?? false;
+    const value = this.run.catchStar(i);
     if (!value) return;
     this.starsCaught += 1;
     floatText(this, star.x, star.y - 20, `+${formatNumber(value)}`, { color: golden ? '#ffd166' : '#cfe8ff', size: golden ? 64 : 50 });
@@ -848,15 +893,14 @@ export class PlayScene extends BaseScene {
     burst(this, star.x, star.y, golden ? 0xffd166 : 0x9fd8ff, golden ? 30 : 18, 380);
     app.audio.play('reward', { volume: 0.8 });
     app.haptic(20);
-    this.removeStar(true);
+    this.stars[i] = null;
+    star.destroy();
   }
 
-  private removeStar(caught: boolean) {
-    const star = this.star;
-    if (!star) return;
-    this.star = null;
-    if (caught) star.destroy();
-    else this.tweens.add({ targets: star, alpha: 0, duration: 300, onComplete: () => star.destroy() });
+  /** The wave's time is up: stars not caught fade out. */
+  private removeStars() {
+    for (const star of this.stars) if (star) this.tweens.add({ targets: star, alpha: 0, duration: 300, onComplete: () => star.destroy() });
+    this.stars = [];
   }
 
   private finish(rarity: number) {
@@ -1177,7 +1221,7 @@ export class PlayScene extends BaseScene {
       box(this.menuBtn.x, this.menuBtn.y, 88, 88),
     ];
     // Shown only in some runs: items there move aside for that run and come back after (saved spots stay).
-    if (this.autoBtn.visible) list.push(box(this.autoBtn.x, this.autoBtn.y, 176, 88));
+    for (const b of [this.autoScanBtn, this.autoMergeBtn]) if (b.visible) list.push(box(b.x, b.y, AUTO_BTN.w, AUTO_BTN.h));
     if (this.timerText.visible) {
       if (vp.portrait) list.push({ x: vp.width - 240, y: this.timerText.y - 30, w: 240, h: 96 });
       else list.push({ x: this.timerText.x - pad, y: 10, w: 230, h: 96 });
@@ -1509,7 +1553,13 @@ export class PlayScene extends BaseScene {
     }
     if (run.level('autoScan') > 0 && !save.data.tutorial.includes('autoScan')) {
       this.queueOnce('autoScan', [
-        { id: 'autoScan', text: app.t('tut.autoScan'), target: () => ({ x: this.autoBtn.x, y: this.autoBtn.y, w: 176, h: 88 }), ack: app.t('tut.ok') },
+        { id: 'autoScan', text: app.t('tut.autoScan'), target: () => ({ x: this.autoScanBtn.x, y: this.autoScanBtn.y, w: AUTO_BTN.w, h: AUTO_BTN.h }), ack: app.t('tut.ok') },
+      ]);
+      return;
+    }
+    if (run.level('autoMerge') > 0 && !save.data.tutorial.includes('autoMerge')) {
+      this.queueOnce('autoMerge', [
+        { id: 'autoMerge', text: app.t('tut.autoMerge'), target: () => ({ x: this.autoMergeBtn.x, y: this.autoMergeBtn.y, w: AUTO_BTN.w, h: AUTO_BTN.h }), ack: app.t('tut.ok') },
       ]);
       return;
     }

@@ -14,7 +14,7 @@
     "exponent": 6.25,
     "softCapUnits": 260,
     "softCapExponent": 1.5,
-    "endlessGrowth": 0.5,
+    "endlessGrowth": 0.25,
     "tierOdds": [
       [1.0, 0.0, 0.0, 0.0],
       [0.94, 0.03, 0.02, 0.01],
@@ -42,6 +42,10 @@
       [0.5, 0.6, 0.66, 0.8, 0.94],
       [0.57, 0.67, 0.72, 0.86, 0.99]
     ]
+  },
+  "mergeRarity": {
+    "keepAverage": 0.5,
+    "rollFromTier": 9
   },
   "twinMaxTier": 7,
   "script": {
@@ -88,19 +92,14 @@
     { "crystals": 40 }
   ],
   "stars": {
-    "everyMin": 12,
-    "everyMax": 50,
+    "everyMin": 4,
+    "everyMax": 8,
     "lifetime": 7,
     "seconds": 8,
     "activeTps": 5,
     "goldenChance": 0.1,
     "goldenMult": 5,
-    "early": {
-      "untilSec": 600,
-      "everyMin": 15,
-      "everyMax": 25
-    },
-    "freqMultBeforeGoal": 1.4,
+    "doubleChance": 0.2,
     "valueMultEndless": 2
   }
 }

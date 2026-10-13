@@ -98,9 +98,9 @@ for (const profile of Object.values(PROFILES)) {
   }
 }
 
-// The rows above are timed runs (no collection bonus). A new player's first main run gets the
-// collection bonus (each new body adds energy for good), so it finishes much sooner.
-console.log('\n=== First main run (collection bonus), steady tapper ===');
+// The rows above are timed runs. Cross-check: a new player's first main run. Since 13/10 there is
+// no collection bonus, so it should take about as long (it once took half as long).
+console.log('\n=== First main run, steady tapper ===');
 const mainRun: Record<string, { p10: number; p50: number; p90: number }> = {};
 for (const policy of AD_POLICIES) {
   const times: number[] = [];

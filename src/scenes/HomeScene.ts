@@ -190,11 +190,9 @@ export class HomeScene extends BaseScene {
     this.panel(() => {
       const run = this.mainRun();
       const found = save.data.codex.found;
-      let bonus = 0;
-      for (const key of Object.keys(found)) if (!isSpecialKey(key)) bonus += content.rarities[Number(key.split('.')[1])]?.codexBonus ?? 0;
       showCollection(
         this,
-        { content, found, odds: run.rarityOdds(), pity: content.pity.map((rule, i) => ({ rarity: rule.minTier, left: run.pityLeft(i) })), bonus },
+        { content, found, odds: run.rarityOdds(), pity: content.pity.map((rule, i) => ({ rarity: rule.minTier, left: run.pityLeft(i) })) },
         () => (this.busy = false),
       );
     });
