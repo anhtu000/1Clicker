@@ -22,7 +22,7 @@ const TIER_VI = ['Bụi sao', 'Thiên thạch', 'Tiểu hành tinh', 'Sao chổi
 const RARITY_VI = ['Common', 'Rare', 'Epic', 'Legendary', 'Mythic'];
 const UPGRADE_VI: Record<string, [string, string]> = {
   focus: ['Core Focus', 'Nhấp tay: cấp 1 ×2,25, mỗi cấp sau ×1,5 (không tăng tàu thu), 25 cấp. Trước khi có Thiên hà chỉ tới cấp 17'],
-  slots: ['Orbit Ring', 'Hiện khi có Tiểu hành tinh. +1 ô trên bảng mỗi cấp, 8 cấp (8 → 16 ô)'],
+  slots: ['Orbit Ring', 'Hiện khi có Mặt trăng. +1 ô trên bảng mỗi cấp, 8 cấp (8 → 16 ô); giá từ 10M, mỗi cấp khoảng ×2,2'],
   discount: ['Lean Optics', 'Hiện khi có Tiểu hành tinh. Giá quét ×0,88 mỗi cấp, 8 cấp'],
   fleet: ['Probe Fleet', 'Hiện khi có Tiểu hành tinh. Cấp 1 mở tàu thu (tự kiếm năng lượng, không cần nhấp; không nhận bằng quảng cáo). Các cấp sau nhân thu nhập tàu thu khoảng ×1,6, 20 cấp; trước khi có Thiên hà chỉ tới cấp 13'],
   crit: ['Supernova Tap', '+4% cơ hội nhấp chí mạng ×6 mỗi cấp, 8 cấp (chỉ nhấp tay)'],

@@ -56,11 +56,30 @@ export const BOOST_CARD = '__boost';
 
 const REWARD_TEXT = '#7ff0b8';
 
+/** Press id of the "more" arrow (not a card). */
+const MORE = '__more';
+
+/** Round badge with a chevron pointing right; the column turns it to point down. */
+function drawMore(g: Phaser.GameObjects.Graphics, r: number, color: number) {
+  g.fillStyle(0x0d0b26, 0.92);
+  g.fillCircle(0, 0, r);
+  g.lineStyle(2.5, color, 0.95);
+  g.strokeCircle(0, 0, r);
+  const a = r * 0.34;
+  g.lineStyle(4, color, 1);
+  g.beginPath();
+  g.moveTo(-a * 0.6, -a * 1.25);
+  g.lineTo(a * 0.75, 0);
+  g.lineTo(-a * 0.6, a * 1.25);
+  g.strokePath();
+}
+
 /**
  * The shop, always on screen and never over the board (CLAUDE.md 4.2):
  * a horizontal strip under the board on phones, a column on the right on desktop.
  * Cards scroll with a drag or the mouse wheel. Order is fixed, so a card stays put when bought;
- * the rewarded boost, when there is one, comes first.
+ * the rewarded boost, when there is one, comes first. While cards are out of view past the end, a
+ * small arrow there says so (players did not notice the list goes on); tapping it scrolls a screenful.
  */
 export class UpgradeList {
   private scene: Phaser.Scene;
@@ -85,6 +104,13 @@ export class UpgradeList {
   private dragStart: { pos: number; scroll: number } | null = null;
   /** True while the finger is scrolling, so the card under it does not get bought. */
   private scrolled = false;
+  /** Scroll position an arrow tap glides to. */
+  private glide: number | null = null;
+  /** "More cards this way" arrow at the end of the list, and its (larger) tap area. */
+  private more: Phaser.GameObjects.Image;
+  private moreZone: Phaser.GameObjects.Zone;
+  /** Look the arrow was last baked for (cleared on layout so a new screen scale rebakes it). */
+  private moreLook = '';
 
   constructor(scene: Phaser.Scene, options: UpgradeListOptions) {
     this.scene = scene;
@@ -109,6 +135,17 @@ export class UpgradeList {
       },
     });
     this.free.setDepth(25);
+    this.more = scene.add.image(0, 0, '__DEFAULT').setDepth(22).setVisible(false);
+    this.moreZone = scene.add.zone(0, 0, 10, 10).setDepth(23).setInteractive({ useHandCursor: true });
+    this.moreZone.input!.enabled = false;
+    // A drag that starts on the arrow still scrolls; a tap pages on.
+    this.moreZone.on('pointerdown', (p: Phaser.Input.Pointer) => {
+      this.startDrag(p);
+      this.downOn = MORE;
+    });
+    this.moreZone.on('pointerup', () => {
+      if (!this.scrolled && this.downOn === MORE) this.page();
+    });
     scene.events.on(Phaser.Scenes.Events.UPDATE, this.tick, this);
     scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => scene.events.off(Phaser.Scenes.Events.UPDATE, this.tick, this));
   }
@@ -129,6 +166,11 @@ export class UpgradeList {
     this.area = { x, y, w, h };
     this.zone.setPosition(x, y).setSize(w, h);
     (this.zone.input!.hitArea as Phaser.Geom.Rectangle).setSize(w, h);
+    // Strip: a finger-sized area at the right edge. Column: a band across the bottom edge.
+    const [mw, mh] = horizontal ? [56, 76] : [80, 44];
+    this.moreZone.setSize(mw, mh);
+    (this.moreZone.input!.hitArea as Phaser.Geom.Rectangle).setSize(mw, mh);
+    this.moreLook = '';
     this.refresh(true);
   }
 
@@ -143,7 +185,17 @@ export class UpgradeList {
   reveal(id: string) {
     const i = this.list.indexOf(id);
     if (i < 0) return;
+    this.glide = null;
     this.scroll = Phaser.Math.Clamp(i * (this.span + this.gap) - this.gap, 0, this.maxScroll());
+  }
+
+  /** Arrow tap: on by a screenful, keeping the last card that was in view as context. */
+  private page() {
+    const step = this.span + this.gap;
+    const shown = Math.max(1, Math.floor((this.length - this.gap) / step));
+    const from = Math.round((this.glide ?? this.scroll) / step) * step;
+    this.velocity = 0;
+    this.glide = Phaser.Math.Clamp(from + Math.max(1, shown - 1) * step, 0, this.maxScroll());
   }
 
   /** The boost on show, if any. */
@@ -168,6 +220,7 @@ export class UpgradeList {
     this.dragStart = { pos: this.horizontal ? p.worldX : p.worldY, scroll: this.scroll };
     this.scrolled = false;
     this.velocity = 0;
+    this.glide = null;
   }
 
   private moveDrag(p: Phaser.Input.Pointer) {
@@ -204,6 +257,7 @@ export class UpgradeList {
     if (!delta) return;
     const step = this.span + this.gap;
     this.velocity = 0;
+    this.glide = null;
     this.scroll = Phaser.Math.Clamp(this.scroll + Math.sign(delta) * step * Math.max(1, Math.round(Math.abs(delta) / 100)), 0, this.maxScroll());
   }
 
@@ -315,8 +369,8 @@ export class UpgradeList {
     card.name.setScale(card.name.width > room ? room / card.name.width : 1);
     if (this.horizontal) {
       // Phone strip: the description gets two lines above the price. Fonts differ a little between
-      // phones (a Samsung wrapped "Rare bodies more often when scanning" to three lines over the price),
-      // so the font steps down until the text fits in two.
+      // phones (a Samsung wrapped the old Stellar Luck text "Rare bodies more often when scanning"
+      // to three lines over the price), so the font steps down until the text fits in two.
       const key = `${card.desc.text}|${card.layout}`;
       if (card.descFit !== key) {
         card.descFit = key;
@@ -405,8 +459,15 @@ export class UpgradeList {
   }
 
   private tick(_t: number, delta: number) {
-    // Inertia after a flick, and a soft pull back inside the bounds.
-    if (!this.dragStart) {
+    if (!this.dragStart && this.glide !== null) {
+      // Arrow tap: ease to the next screenful.
+      this.scroll += (this.glide - this.scroll) * (1 - Math.pow(0.78, delta / 16.7));
+      if (Math.abs(this.glide - this.scroll) < 0.5) {
+        this.scroll = this.glide;
+        this.glide = null;
+      }
+    } else if (!this.dragStart) {
+      // Inertia after a flick, and a soft pull back inside the bounds.
       this.scroll += this.velocity;
       this.velocity *= Math.pow(0.88, delta / 16.7);
       const max = this.maxScroll();
@@ -421,9 +482,16 @@ export class UpgradeList {
       }
     }
     const { x, y, w, h } = this.area;
+    // Cards cut off or out of view past the end, and whether one of them can be bought now.
+    let hidden = false;
+    let buyable = false;
     this.list.forEach((id, i) => {
       const card = this.cards.get(id)!;
       const offset = this.gap + i * (this.span + this.gap) - this.scroll;
+      if (offset + this.span > this.length + 1) {
+        hidden = true;
+        if (id !== BOOST_CARD && this.opts.run.canBuy(id)) buyable = true;
+      }
       if (this.horizontal) {
         // The strip spans the screen width, so the screen edge clips it.
         card.box.setPosition(x + offset + this.cardW / 2, y + h / 2);
@@ -444,5 +512,37 @@ export class UpgradeList {
     const showFree = fullyShown && app.ads.rewardedAvailable && !app.clean && this.opts.freeCooldown() <= 0;
     this.free.setVisible(showFree);
     if (target && showFree) this.free.setPosition(target.box.x + this.cardW / 2 - 70, target.box.y - this.cardH / 2 + 4);
+    this.placeMore(hidden, buyable);
+  }
+
+  /**
+   * The "more" arrow: at the right edge of the strip or the bottom edge of the column while cards
+   * are out of view there. Gold and bobbing a little more when one of those cards can be bought.
+   */
+  private placeMore(hidden: boolean, buyable: boolean) {
+    this.more.setVisible(hidden);
+    this.moreZone.input!.enabled = hidden;
+    if (!hidden) return;
+    const r = this.horizontal ? 18 : 16;
+    const color = buyable ? 0xffc23d : 0x9f97d9;
+    const look = `${r}|${color}`;
+    if (look !== this.moreLook) {
+      this.moreLook = look;
+      setShape(this.more, `more|${look}`, r * 2, r * 2, (g) => drawMore(g, r, color));
+    }
+    const bob = Math.sin(this.scene.time.now / 240) * (buyable ? 4 : 2.5);
+    const { x, y, w, h } = this.area;
+    if (this.horizontal) {
+      const cx = x + w - r - 7;
+      const cy = y + h / 2;
+      this.more.setRotation(0).setPosition(cx + bob, cy);
+      this.moreZone.setPosition(cx - 8, cy);
+    } else {
+      // On the bottom edge, between the last card's price line and the screen edge.
+      const cx = x + w / 2;
+      const cy = y + h - 2;
+      this.more.setRotation(Math.PI / 2).setPosition(cx, cy + bob);
+      this.moreZone.setPosition(cx, cy);
+    }
   }
 }
