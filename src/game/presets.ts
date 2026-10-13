@@ -1,3 +1,4 @@
+import { claimDaily } from '@core';
 import { content } from './content';
 import { newRunState, type Body, type RunState } from '../logic/run.ts';
 import type { SaveData } from '../save';
@@ -16,6 +17,31 @@ function showcase(): RunState {
   run.highestTier = 9;
   run.energy = 4.2e6;
   run.time = 20 * 60;
+  return run;
+}
+
+/**
+ * Mid-game board for the store preview video (tools/capture/video.py): a chain to merge from Stardust
+ * up to a Moon, a Moon to pair with it, two Black Holes for the Galaxy, two free slots for scans.
+ * No Auto Scan or Auto Merge, so nothing moves unless the script does it. Stars only when the script calls them.
+ */
+function video(): RunState {
+  const run = newRunState(content, 'main', 2026);
+  const bodies: (Body | null)[] = [
+    { t: 1, r: 0 }, { t: 3, r: 1 }, { t: 2, r: 0 }, { t: 4, r: 2 },
+    { t: 5, r: 1 }, { t: 7, r: 0 }, { t: 6, r: 3 }, { t: 8, r: 0 },
+    { t: 7, r: 2 }, { t: 4, r: 0 }, { t: 8, r: 4 }, { t: 9, r: 1 },
+    { t: 9, r: 3 }, { t: 6, r: 0 }, null, null,
+  ];
+  bodies.forEach((b, i) => (run.board[i] = b));
+  run.levels = { slots: 8, focus: 15, fleet: 10, crit: 5, luck: 4, lens: 9, discount: 5, binary: 4, starMagnet: 5, relay: 2 };
+  run.highestTier = 9;
+  run.energy = 0;
+  run.time = 24 * 60;
+  run.scans = 160;
+  run.units = 165;
+  run.merges = 170;
+  run.starTimer = 9999;
   return run;
 }
 
@@ -128,6 +154,12 @@ export function applyPreset(name: string, data: SaveData) {
     data.crystals = 300;
     data.firstFinishMs = 30 * 60 * 1000;
     data.tutorial = [...ALL_STEPS];
+    for (const b of data.run.board) if (b) data.codex.found[`${b.t}.${b.r}`] = 1;
+  }
+  if (name === 'video') {
+    data.run = video();
+    data.tutorial = [...ALL_STEPS, 'collectionTour'];
+    data.daily = claimDaily(data.daily);
     for (const b of data.run.board) if (b) data.codex.found[`${b.t}.${b.r}`] = 1;
   }
   if (name === 'showcase') {
