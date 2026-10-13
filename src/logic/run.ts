@@ -437,15 +437,23 @@ export class Run {
     return true;
   }
 
-  /** A copy of this body can be made: low enough tier, and a free slot. */
-  canDuplicate(slot: number): boolean {
+  /**
+   * A copy of this body can be made: low enough tier, and a free slot.
+   * maxTier: Binary Merge's cap by default; the rewarded copy passes its own (adCopyMaxTier).
+   */
+  canDuplicate(slot: number, maxTier = this.content.economy.twinMaxTier): boolean {
     const body = this.s.board[slot];
-    return !!body && !body.s && body.t <= this.content.economy.twinMaxTier && this.freeSlot() >= 0;
+    return !!body && !body.s && body.t <= maxTier && this.freeSlot() >= 0;
+  }
+
+  /** Highest tier the rewarded copy offers (lower than Binary Merge's cap). */
+  get adCopyMaxTier(): number {
+    return this.content.economy.rewarded.twin.maxTier;
   }
 
   /** Puts an identical copy of the body in the first free slot (Binary Merge, or the rewarded twin). */
-  duplicate(slot: number): NewBody | null {
-    if (!this.canDuplicate(slot)) return null;
+  duplicate(slot: number, maxTier = this.content.economy.twinMaxTier): NewBody | null {
+    if (!this.canDuplicate(slot, maxTier)) return null;
     const body = this.s.board[slot]!;
     return this.place(this.freeSlot(), { t: body.t, r: body.r });
   }

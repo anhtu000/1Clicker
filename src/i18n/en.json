@@ -162,7 +162,9 @@
     "rank": "#{n} in your top 5",
     "records": "Your records",
     "noRecords": "No timed runs yet. Your fastest five will show here.",
-    "viewRecords": "Your records ›"
+    "viewRecords": "Your records ›",
+    "hiddenHint": "Now try to find every hidden body to complete your collection",
+    "seeCollection": "See collection"
   },
   "special": {
     "cradleWorld": {

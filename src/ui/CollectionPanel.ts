@@ -19,8 +19,8 @@ export interface CollectionData {
   bonus: number;
 }
 
-/** Opens the collection. onClose runs when it closes. */
-export function showCollection(scene: Phaser.Scene, data: CollectionData, onClose?: () => void): Panel {
+/** Opens the collection. onClose runs when it closes. startTab: 0 bodies, 1 hidden bodies. */
+export function showCollection(scene: Phaser.Scene, data: CollectionData, onClose?: () => void, startTab = 0): Panel {
   const vp = app.viewport.info;
   const wide = !vp.portrait;
   const panel = new Panel(scene, {
@@ -169,6 +169,6 @@ export function showCollection(scene: Phaser.Scene, data: CollectionData, onClos
     if (i === 0) showBodies();
     else showHidden();
   };
-  show(0);
+  show(startTab === 1 ? 1 : 0);
   return panel;
 }

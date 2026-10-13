@@ -169,8 +169,8 @@ export function simulate(content: Content, seed: number, policy: AdPolicy, profi
       noteBody(result.twin.body.r, result.twin.body.t);
     }
     // Rewarded copy of what was just merged, offered right after the merge.
-    if (adReady('twin') && run.canDuplicate(result.slot)) {
-      const copy = run.duplicate(result.slot);
+    if (adReady('twin') && run.canDuplicate(result.slot, run.adCopyMaxTier)) {
+      const copy = run.duplicate(result.slot, run.adCopyMaxTier);
       if (copy) {
         noteBody(copy.body.r, copy.body.t);
         watchAd('twin');

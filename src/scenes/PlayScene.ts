@@ -665,7 +665,7 @@ export class PlayScene extends BaseScene {
   }
 
   /** Collection screen: odds and pity follow the run on screen; the bonus is the collection's. */
-  private showCollectionPanel() {
+  private showCollectionPanel(options: { tab?: number; onClose?: () => void } = {}) {
     const found = save.data.codex.found;
     let bonus = 0;
     for (const key of Object.keys(found)) if (!isSpecialKey(key)) bonus += content.rarities[Number(key.split('.')[1])]?.codexBonus ?? 0;
@@ -679,7 +679,11 @@ export class PlayScene extends BaseScene {
         pity: content.pity.map((rule, i) => ({ rarity: rule.minTier, left: this.run.pityLeft(i) })),
         bonus,
       },
-      () => (this.openPanels = Math.max(0, this.openPanels - 1)),
+      () => {
+        this.openPanels = Math.max(0, this.openPanels - 1);
+        options.onClose?.();
+      },
+      options.tab,
     );
   }
 
@@ -727,7 +731,7 @@ export class PlayScene extends BaseScene {
   /** After a merge: the boost card offers a copy of the result for a few seconds. */
   private offerCopy(result: MergeResult) {
     this.copyOffer = null;
-    if (!this.run.rewardReady('twin') || !this.run.canDuplicate(result.slot) || !app.ads.rewardedAvailable || app.clean) return;
+    if (!this.run.rewardReady('twin') || !this.run.canDuplicate(result.slot, this.run.adCopyMaxTier) || !app.ads.rewardedAvailable || app.clean) return;
     this.copyOffer = { slot: result.slot, until: this.run.s.time + COPY_OFFER_SEC };
     this.shop.refresh();
     // Scroll the shop back to the front only the first time, so a player browsing upgrades is not interrupted.
@@ -742,7 +746,7 @@ export class PlayScene extends BaseScene {
     const rw = content.economy.rewarded;
 
     const offer = this.copyOffer;
-    if (offer && run.s.time < offer.until && run.rewardReady('twin') && run.canDuplicate(offer.slot)) {
+    if (offer && run.s.time < offer.until && run.rewardReady('twin') && run.canDuplicate(offer.slot, run.adCopyMaxTier)) {
       const b = run.s.board[offer.slot]!;
       const name = app.t(`tier.${content.tiers[b.t - 1].id}`);
       return {
@@ -802,7 +806,7 @@ export class PlayScene extends BaseScene {
   }
 
   private useCopy(slot: number) {
-    const copy = this.run.duplicate(slot);
+    const copy = this.run.duplicate(slot, this.run.adCopyMaxTier);
     this.run.useReward('twin', app.ads.rewardsAreFree);
     this.copyOffer = null;
     if (copy) {
@@ -904,11 +908,19 @@ export class PlayScene extends BaseScene {
     panel.content.add([ring, a, b]);
   }
 
-  private showFinishPanel(runMs: number, rank: number | null, rarity: number) {
+  /**
+   * again: shown a second time, after the collection tour (no celebration).
+   * The first finish takes the player to the collection first (user 13/10): the panel says hidden
+   * bodies are still out there and has one button to the collection; closing the collection brings
+   * this panel back with the usual choices.
+   */
+  private showFinishPanel(runMs: number, rank: number | null, rarity: number, again = false) {
     const run = this.run;
     const timed = run.s.mode === 'speedrun';
     const record = timed && rank === 1;
     const hasRecords = save.data.records.length > 0;
+    const { hidden, hiddenTotal } = this.collectionCount();
+    const tour = !again && !save.data.tutorial.includes('collectionTour') && hidden < hiddenTotal;
     // Wide screens get the stats in one row, so everything fits in a 16:9 frame.
     const wide = !this.vp.portrait;
     const panel = this.openPanel({ title: app.t('finish.title'), width: wide ? 900 : 640, height: wide ? 680 : 880, closable: false });
@@ -921,7 +933,7 @@ export class PlayScene extends BaseScene {
     const statsH = rows * statH + (rows - 1) * 12;
     // Space between the title and the buttons, shared out; the Galaxy takes what is left.
     const avail = H - 120 - 150;
-    const fixed = 8 + 36 + 22 + statsH + 22 + 48 + (hasRecords ? 36 : 0);
+    const fixed = 8 + 36 + 22 + statsH + 22 + 48 + (tour ? 34 : hasRecords ? 36 : 0);
     const size = Phaser.Math.Clamp(avail - fixed, 90, 220);
     let y = panel.top - 14 + size / 2;
 
@@ -963,10 +975,13 @@ export class PlayScene extends BaseScene {
     y += statsH + 22 + 24;
     const recordY = y;
 
-    // Record line.
+    // Record line (on the first finish: the hidden bodies hint instead).
     let recordText: string;
     let recordColor = app.theme.textDim;
-    if (record) {
+    if (tour) {
+      recordText = app.t('finish.hiddenHint');
+      recordColor = '#ffd166';
+    } else if (record) {
       recordText = app.t('finish.record');
       recordColor = '#ffd166';
     } else if (timed && rank) {
@@ -977,10 +992,12 @@ export class PlayScene extends BaseScene {
     } else {
       recordText = app.t('finish.noBest');
     }
-    const rec = this.add.text(0, recordY, recordText, { ...font, fontStyle: '900', fontSize: record ? 40 : 26, color: recordColor, align: 'center', wordWrap: { width: panel.panelWidth - 80 } }).setOrigin(0.5);
+    const rec = this.add
+      .text(0, recordY + (tour ? 16 : 0), recordText, { ...font, fontStyle: '900', fontSize: record ? 40 : tour ? 28 : 26, color: recordColor, align: 'center', wordWrap: { width: tour ? Math.min(panel.panelWidth - 80, 580) : panel.panelWidth - 80 } })
+      .setOrigin(0.5);
     panel.content.add(rec);
     if (record) this.tweens.add({ targets: rec, scale: 1.08, duration: 500, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    if (hasRecords) {
+    if (hasRecords && !tour) {
       const link = this.add
         .text(0, recordY + 38, app.t('finish.viewRecords'), { ...font, fontStyle: '900', fontSize: 24, color: '#9fd8ff' })
         .setOrigin(0.5)
@@ -991,7 +1008,21 @@ export class PlayScene extends BaseScene {
     }
 
     const buttonsY = panel.bottom - 80;
-    if (timed) {
+    if (tour) {
+      const see = new Button(this, 0, buttonsY, {
+        label: app.t('finish.seeCollection'),
+        width: Math.min(420, panel.panelWidth - 72),
+        height: 96,
+        fontSize: 32,
+        onClick: () => {
+          if (!save.data.tutorial.includes('collectionTour')) save.data.tutorial.push('collectionTour');
+          save.flush();
+          panel.close();
+          this.showCollectionPanel({ tab: 1, onClose: () => this.showFinishPanel(runMs, rank, rarity, true) });
+        },
+      });
+      panel.content.add(see);
+    } else if (timed) {
       this.panelButtons(panel, buttonsY, { label: app.t('finish.home'), onClick: () => this.leaveTimedRun() }, { label: app.t('finish.again'), onClick: () => void this.startTimedRun() });
     } else {
       this.panelButtons(
@@ -1008,6 +1039,7 @@ export class PlayScene extends BaseScene {
       );
     }
 
+    if (again) return;
     // Celebration around the panel.
     const vp = this.vp;
     for (let i = 0; i < 6; i++) {

@@ -345,7 +345,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
     <ul class="plain">
       <li><b>Nâng cấp miễn phí</b>: gắn trên món đắt nhất chưa mua được, trong tầm ${vi(reward.freeUpgrade.maxIncomeSeconds / 60)} phút thu nhập. Hồi ${vi(reward.freeUpgrade.cooldown / 60)} phút.</li>
       <li><b>Lượt quét may mắn</b>: cao hơn ${reward.luckyScan.tierBonus} cấp so với một lần quét thường, ít nhất Rare, không làm tăng giá quét. Hồi ${vi(reward.luckyScan.cooldown / 60)} phút.</li>
-      <li><b>Thêm 1 bản sau khi ghép</b>: thẻ thưởng đầu bảng nâng cấp đổi thành "Copy" trong 8 giây sau mỗi lần ghép, tới cấp Khí khổng lồ. Hồi ${vi(reward.twin.cooldown / 60)} phút.</li>
+      <li><b>Thêm 1 bản sau khi ghép</b>: thẻ thưởng đầu bảng nâng cấp đổi thành "Copy" trong 8 giây sau mỗi lần ghép, tới cấp ${TIER_VI[reward.twin.maxTier - 1]}. Hồi ${vi(reward.twin.cooldown / 60)} phút.</li>
       <li>Mọi nút thưởng chỉ xuất hiện sau vài phút đầu (quét may mắn từ phút ${vi(reward.luckyScan.firstAt / 60)}, nâng cấp miễn phí từ phút ${vi(reward.freeUpgrade.firstAt / 60)}).</li>
       <li><b>Khi portal tắt quảng cáo</b> (Basic Launch): thưởng vẫn trao, thời gian hồi ×${String(reward.freeCooldownMult).replace('.', ',')}.</li>
       <li>Ngoài màn chơi: x${reward.offlineMult} thu nhập khi vắng mặt, x${reward.dailyMult} quà ngày.</li>
@@ -359,7 +359,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
     <li>Nhấp tay 6 lần/giây trong 5 phút đầu, 4,5 lần/giây đến phút 15, sau đó 3 lần/giây. Người nhấp chậm bằng một nửa.</li>
     <li>Mỗi thao tác tốn thời gian: quét 0,35 giây, ghép 1 giây, mua 0,6 giây. Lúc đó không nhấp.</li>
     <li>Luôn ghép ngay khi có cặp. Khi món rẻ nhất trong shop còn thiếu dưới 30 giây thu nhập thì ngừng quét để để dành.</li>
-    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng 10 giây thu nhập, 1/10 là sao vàng x5. Sao xuất hiện mỗi 15–25 giây trong 10 phút đầu, sau đó 30–50 giây.</li>
+    <li>Bắt 5/6 số sao băng. Mỗi sao cho khoảng ${content.economy.stars.seconds} giây thu nhập, 1/10 là sao vàng x5. Sao xuất hiện mỗi 15–25 giây trong 10 phút đầu, sau đó 30–50 giây.</li>
     <li>Ba kiểu người chơi: nhấp đều (6, rồi 4,5, rồi 3 lần/giây), nhấp chậm bằng nửa, và thi thoảng nhấp (0,5 lần/giây sau khi có auto, không mua nâng cấp nhấp tay).</li>
     <li>Xem quảng cáo thật: bấm nút thưởng khoảng 1,5 phút sau khi nút sẵn sàng, mỗi quảng cáo 30 giây, game dừng trong lúc đó.</li>
     <li>Chơi liền một phiên. Chưa mô phỏng thu nhập khi vắng mặt và quà ngày.</li>

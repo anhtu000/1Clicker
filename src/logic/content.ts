@@ -82,7 +82,7 @@ export interface EconomyDef {
    * scanShare[tier - 1][rarity]: tier of the pair, rarity of the rarer body (CLAUDE.md 4b).
    */
   mergeBonus: { scanShare: number[][] };
-  /** Highest tier that can be copied (Binary Merge upgrade and the rewarded twin). */
+  /** Highest tier the Binary Merge upgrade can copy. The rewarded copy has its own, lower cap (rewarded.twin.maxTier). */
   twinMaxTier: number;
   /** Shooting stars: tap one for a burst of energy. Fills the wait between purchases. */
   stars: {
@@ -107,8 +107,8 @@ export interface EconomyDef {
      */
     freeUpgrade: { cooldown: number; firstAt: number; maxIncomeSeconds: number };
     luckyScan: { cooldown: number; firstAt: number; tierBonus: number; rarityFloor: number };
-    /** Rewarded copy of the body just merged. */
-    twin: { cooldown: number; firstAt: number };
+    /** Rewarded copy of the body just merged, offered up to maxTier (user 13/10: Asteroid). */
+    twin: { cooldown: number; firstAt: number; maxTier: number };
     /** Cooldown multiplier while the portal gives rewards without an ad (CrazyGames Basic Launch). */
     freeCooldownMult: number;
     offlineMult: number;
@@ -189,6 +189,8 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   });
   check.need(new Set(specials.map((sp) => sp.tier)).size === specials.length, 'specials: one per tier');
   check.positive(economy?.rewarded?.clearSlot?.energyMult, 'economy.rewarded.clearSlot.energyMult');
+  const adCopyMax = economy?.rewarded?.twin?.maxTier;
+  check.need(Number.isInteger(adCopyMax) && adCopyMax >= 1 && adCopyMax < tiers.length, 'economy.rewarded.twin.maxTier: a tier below the goal tier');
   const daily: unknown = economy?.daily;
   check.need(Array.isArray(daily) && daily.length >= 2, 'economy.daily needs at least 2 days');
   if (Array.isArray(daily)) {

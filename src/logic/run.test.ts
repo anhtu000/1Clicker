@@ -74,7 +74,8 @@ test('merge bonus: share of the scan price by tier and rarer rarity', () => {
   const run = fresh();
   const table = content.economy.mergeBonus.scanShare;
   assert.equal(table[0][0], 0, 'tier 1 Common pays nothing');
-  assert.equal(table[7][3], 1, 'tier 8 Legendary pays a full scan');
+  // 13/10 (user): Rare x0.9, Epic and above x0.8, so tier 8 Legendary pays 0.8 of a scan.
+  assert.equal(table[7][3], 0.8, 'tier 8 Legendary pays 0.8 of a scan');
   // grows along both directions
   for (let t = 0; t < table.length; t++) for (let r = 1; r < table[t].length; r++) assert.ok(table[t][r] > table[t][r - 1]);
   for (let t = 1; t < table.length; t++) for (let r = 0; r < table[t].length; r++) assert.ok(table[t][r] > table[t - 1][r]);
@@ -83,8 +84,8 @@ test('merge bonus: share of the scan price by tier and rarer rarity', () => {
   run.s.board[1] = { t: 8, r: 0 };
   const price = run.scanCost();
   const result = run.merge(0, 1)!;
-  assert.equal(result.bonus, price);
-  assert.equal(run.s.energy, price);
+  assert.equal(result.bonus, Math.round(0.8 * price));
+  assert.equal(run.s.energy, Math.round(0.8 * price));
   run.s.board[2] = { t: 1, r: 0 };
   run.s.board[3] = { t: 1, r: 0 };
   assert.equal(run.merge(2, 3)!.bonus, 0);
@@ -354,4 +355,19 @@ test('Core Focus and Probe Fleet keep their last levels until the Galaxy is made
   assert.equal(run.levelCap(focus), focus.max);
   assert.ok(run.canBuy('focus'));
   assert.equal(run.waitsForGoal(focus), false);
+});
+
+test('copies: Binary Merge up to its cap, the rewarded copy only up to the Asteroid', () => {
+  const run = fresh();
+  const adMax = run.adCopyMaxTier;
+  assert.equal(adMax, 3, 'user 13/10: the rewarded copy stops at the Asteroid');
+  assert.ok(content.economy.twinMaxTier > adMax);
+  run.s.board[0] = { t: adMax, r: 1 };
+  run.s.board[1] = { t: adMax + 1, r: 1 };
+  assert.ok(run.canDuplicate(0, adMax));
+  assert.equal(run.canDuplicate(1, adMax), false, 'a Comet is not offered');
+  assert.equal(run.duplicate(1, adMax), null);
+  assert.ok(run.canDuplicate(1), 'Binary Merge still copies it');
+  const copy = run.duplicate(0, adMax)!;
+  assert.deepEqual(copy.body, { t: adMax, r: 1 });
 });
