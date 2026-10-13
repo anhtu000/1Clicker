@@ -60,6 +60,8 @@ export interface UpgradeDef {
 export interface EconomyDef {
   goalTier: number;
   tierValueGrowth: number;
+  /** Scales what every body on the board adds to a tap (user 13/10: 0.5, half of before). */
+  bodyValueScale?: number;
   board: { maxSlots: number; startSlots: number };
   tap: { base: number; critMult: number };
   scan: {
@@ -143,6 +145,8 @@ export interface SpecialDef {
   id: string;
   tier: number;
   sell: number;
+  /** On the board it adds the energy of this many Galaxies of its rarity (user 13/10). */
+  power: number;
 }
 
 export interface Content {
@@ -198,6 +202,7 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   specials.forEach((sp) => {
     check.need(sp.tier >= 1 && sp.tier < tiers.length, `special ${sp.id}: tier must be below the goal tier`);
     check.positive(sp.sell, `special ${sp.id}: sell`);
+    check.positive(sp.power, `special ${sp.id}: power`);
   });
   check.need(new Set(specials.map((sp) => sp.tier)).size === specials.length, 'specials: one per tier');
   check.positive(economy?.rewarded?.clearSlot?.energyMult, 'economy.rewarded.clearSlot.energyMult');
@@ -215,6 +220,8 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   check.need(typeof keep === 'number' && keep >= 0 && keep <= 1, 'economy.mergeRarity.keepAverage: 0 to 1');
   const rollFrom = economy?.mergeRarity?.rollFromTier;
   check.need(Number.isInteger(rollFrom) && rollFrom >= 2 && rollFrom <= tiers.length, 'economy.mergeRarity.rollFromTier: a tier from 2 to the goal');
+  const scale = economy?.bodyValueScale;
+  check.need(scale === undefined || (typeof scale === 'number' && scale > 0), 'economy.bodyValueScale: a number above 0');
   const valueMult = economy?.stars?.valueMultEndless;
   check.need(valueMult === undefined || (typeof valueMult === 'number' && valueMult > 0), 'economy.stars.valueMultEndless: a number above 0');
   const double = economy?.stars?.doubleChance;

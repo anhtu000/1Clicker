@@ -233,8 +233,8 @@ export function simulate(
       }
     }
 
-    // After the Galaxy: keep the best Galaxy for its power, fuse any other with a partner into a
-    // hidden body, then sell it (crystals). Fusing the only Galaxy would throw most of the income away.
+    // After the Galaxy: keep the best Galaxy, fuse any other with a partner into a hidden body and
+    // keep it (it adds `power` Galaxies of energy since 13/10; sold only when the board is stuck).
     if (s.finishedAt !== null) {
       const goal = content.economy.goalTier;
       const galaxies = [];
@@ -246,7 +246,6 @@ export function simulate(
           const made = run.fuse(a, b)!;
           hiddenFound.add(`${made.special.id}.${made.body.r}`);
           mark(`hidden-${hiddenFound.size}`, `Hidden body ${hiddenFound.size}`);
-          run.removeBody(made.slot);
           busyUntil = clock + ACTION_TIME.merge;
           acted();
           return true;
@@ -290,12 +289,22 @@ export function simulate(
       acted();
       return true;
     }
-    // Stuck: board full and nothing pairs. Feed the lowest body to the core.
+    // Stuck: board full and nothing pairs. Feed the lowest body to the core (the core does not take
+    // hidden bodies: when only those are left, sell one).
     if (run.freeSlot() < 0) {
       let lowest = -1;
       for (let i = 0; i < run.slots; i++) {
         const b = s.board[i];
-        if (b && (lowest < 0 || b.t < s.board[lowest]!.t || (b.t === s.board[lowest]!.t && b.r < s.board[lowest]!.r))) lowest = i;
+        if (b && !b.s && (lowest < 0 || b.t < s.board[lowest]!.t || (b.t === s.board[lowest]!.t && b.r < s.board[lowest]!.r))) lowest = i;
+      }
+      if (lowest < 0) {
+        const hidden = s.board.findIndex((b, i) => i < run.slots && !!b?.s);
+        if (hidden >= 0) {
+          run.removeBody(hidden);
+          busyUntil = clock + ACTION_TIME.absorb;
+          acted();
+          return true;
+        }
       }
       if (lowest >= 0) {
         run.absorb(lowest);

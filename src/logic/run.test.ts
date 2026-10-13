@@ -142,7 +142,7 @@ test('power and tap value follow the board', () => {
   run.s.board[1] = { t: 1, r: 0 };
   // Board changed directly: clear the cache the way place() does.
   (run as any).powerCache = null;
-  assert.equal(run.power(), 1 + 3 + 1);
+  assert.equal(run.power(), 1 + (3 + 1) * content.economy.bodyValueScale!);
   assert.ok(run.tapValue() > empty);
 });
 
@@ -287,8 +287,11 @@ test('hidden bodies: Galaxy + planet tier makes one; it never merges, copies, or
   assert.equal(codexKey(made.body), `s.${first.id}.${made.body.r}`);
   assert.equal(run.sellValue(made.body), Math.round(first.sell * content.rarities[made.body.r].mult));
   assert.equal(run.s.highestTier, highest);
-  // the Galaxy (and the planet) left the board, the hidden body adds nothing
-  assert.ok(run.power() < powerBefore);
+  // the Galaxy and the planet left the board; the hidden body counts as `power` Galaxies of its rarity
+  const e = content.economy;
+  const galaxyOf = (r: number) => e.tierValueGrowth ** (e.goalTier - 1) * content.rarities[r].mult * e.bodyValueScale!;
+  assert.ok(Math.abs(run.bodyValue(made.body) - first.power * galaxyOf(made.body.r)) < 1e-6);
+  assert.ok(Math.abs(powerBefore - run.power() - (galaxyOf(2) + run.bodyValue({ t: first.tier, r: 0 }) - run.bodyValue(made.body))) < 1e-6);
   run.s.board[1] = { t: first.tier, r: 2, s: first.id };
   assert.equal(run.canMerge(0, 1), false, 'two hidden bodies never merge');
   assert.equal(run.canMerge(0, 2), false, 'hidden + its tier never merges');
@@ -405,7 +408,8 @@ test('copies: Binary Merge up to its cap, the rewarded copy only up to the Aster
 
 test('after the Galaxy (main run): stars worth double, scans climb half as fast', () => {
   const st = content.economy.stars;
-  assert.equal(st.valueMultEndless, 2);
+  assert.equal(st.valueMultEndless, 3);
+  assert.equal(st.seconds, 5.6, 'user 13/10: 8 s less 30%');
   const goal = content.economy.goalTier;
   const finishOne = (run: Run) => {
     run.s.board[0] = { t: goal - 1, r: 0 };
@@ -424,7 +428,7 @@ test('after the Galaxy (main run): stars worth double, scans climb half as fast'
   assert.equal(main.endless, true);
   assert.equal(timed.endless, false, 'a timed run never turns endless');
   assert.equal(main.s.endlessUnits, 300);
-  assert.ok(Math.abs(main.starValue() / main.activeIncome() - 2 * st.seconds) < 1e-9, 'endless star: double value');
+  assert.ok(Math.abs(main.starValue() / main.activeIncome() - 3 * st.seconds) < 1e-9, 'endless star: three times the value');
   assert.ok(Math.abs(timed.starValue() / timed.activeIncome() - st.seconds) < 1e-9);
   assert.ok(before > 0);
   // Star waits: the same range everywhere (user 13/10: 4 to 8 s), no Star Magnet here.
@@ -497,4 +501,16 @@ test('star waves: every 4 to 8 s, sometimes two stars, each caught once', () => 
   assert.equal(old.starWave.length, 1);
   assert.ok(Math.abs(old.catchStar() / old.starValue(false) - st.goldenMult) < 1e-9);
   assert.equal(old.starUp, false);
+});
+
+test('board value (user 13/10): every body adds half of before', () => {
+  const e = content.economy;
+  assert.equal(e.bodyValueScale, 0.5);
+  const run = fresh();
+  for (const [t, r] of [[1, 0], [4, 2], [9, 4]]) {
+    assert.ok(Math.abs(run.bodyValue({ t, r }) - e.tierValueGrowth ** (t - 1) * content.rarities[r].mult * 0.5) < 1e-9);
+  }
+  run.s.board[0] = { t: 3, r: 1 };
+  (run as any).powerCache = null;
+  assert.ok(Math.abs(run.power() - (1 + 9 * content.rarities[1].mult * 0.5)) < 1e-9, 'the empty-board 1 stays');
 });

@@ -182,9 +182,19 @@ export class Run {
     return Math.min(this.content.economy.board.maxSlots, this.stat('slots'));
   }
 
+  /**
+   * What a body on the board adds to every tap: tierValueGrowth^(tier - 1) times its rarity's mult,
+   * times bodyValueScale (0.5 since 13/10). A hidden body counts as `power` Galaxies of its rarity
+   * (user 13/10: before that it added nothing, so making one threw a Galaxy's energy away).
+   */
   bodyValue(body: Body): number {
-    if (body.s) return 0; // hidden bodies are for the collection only
-    return this.content.economy.tierValueGrowth ** (body.t - 1) * this.content.rarities[body.r].mult;
+    const e = this.content.economy;
+    const mult = this.content.rarities[body.r].mult * (e.bodyValueScale ?? 1);
+    if (body.s) {
+      const special = this.content.specials.find((sp) => sp.id === body.s);
+      return e.tierValueGrowth ** (e.goalTier - 1) * (special?.power ?? 0) * mult;
+    }
+    return e.tierValueGrowth ** (body.t - 1) * mult;
   }
 
   /** Sum of the board. Energy per tap scales with it. */

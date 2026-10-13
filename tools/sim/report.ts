@@ -176,7 +176,7 @@ const tierRows = content.tiers
       const v = median(tierWhat(t), p);
       return `<td class="n">${v === undefined ? '–' : mmss(v)}</td>`;
     });
-    return `<tr><td>${t}</td><td>${TIER_VI[i]}</td><td class="n">${num(3 ** i)}</td>${cells.join('')}</tr>`;
+    return `<tr><td>${t}</td><td>${TIER_VI[i]}</td><td class="n">${num(content.economy.tierValueGrowth ** i * (content.economy.bodyValueScale ?? 1))}</td>${cells.join('')}</tr>`;
   })
   .join('');
 
@@ -315,7 +315,7 @@ code { font: 13px var(--mono); background: var(--band); padding: 1px 5px; border
 
 <section>
   <h2>Cấp thiên thể</h2>
-  <p class="muted">Ghép 2 thiên thể cùng cấp thành cấp sau. Sức mạnh mỗi cấp gấp 3 cấp trước, nhân thêm theo độ hiếm. Năng lượng mỗi lần nhấp = (1 + tổng sức mạnh trên bảng) × nâng cấp.</p>
+  <p class="muted">Ghép 2 thiên thể cùng cấp thành cấp sau. Sức mạnh mỗi cấp gấp ${content.economy.tierValueGrowth} cấp trước, nhân thêm theo độ hiếm, rồi ×${vi(content.economy.bodyValueScale ?? 1)} (từ 13/10). Năng lượng mỗi lần nhấp = (1 + tổng sức mạnh trên bảng) × nâng cấp. Thiên thể ẩn có sức mạnh bằng ${content.specials.map((sp) => vi(sp.power)).join(', ')} Thiên hà cùng độ hiếm (theo thứ tự ${content.specials.map((sp) => TIER_VI[sp.tier - 1]).join(', ')} + Thiên hà).</p>
   <p class="muted">Thưởng khi ghép: mỗi lần ghép trả một phần giá Scan hiện tại, theo cấp của cặp và độ hiếm của mảnh hiếm hơn (cấp 1 Common 0%, cấp 8 Legendary 100%).</p>
   <div class="scroll"><table>
     <thead><tr><th>Cấp</th>${content.rarities.map((r) => `<th>${r.id[0].toUpperCase()}${r.id.slice(1)}</th>`).join('')}</tr></thead>

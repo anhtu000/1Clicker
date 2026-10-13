@@ -55,6 +55,7 @@ const COPY_OFFER_SEC = 8;
 /** The Auto Scan and Auto Merge switches under Scan: two lines of text (name, On/Off). */
 const AUTO_BTN = { w: 176, h: 64, gap: 10 };
 
+
 export class PlayScene extends BaseScene {
   private run!: Run;
   private bg!: SpaceBackground;
@@ -728,7 +729,7 @@ export class PlayScene extends BaseScene {
     const name = this.add.text(0, y0 + 140, label, { ...font, fontStyle: '900', fontSize: 40, color: RARITY_CSS[rarity] }).setOrigin(0.5);
     if (name.width > panel.panelWidth - 60) name.setScale((panel.panelWidth - 60) / name.width);
     const text = this.add
-      .text(0, y0 + 220, app.t('special.only'), { ...font, fontStyle: '700', fontSize: 26, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
+      .text(0, y0 + 220, app.t('special.only', { n: special.power }), { ...font, fontStyle: '700', fontSize: 26, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
       .setOrigin(0.5);
     const ok = new Button(this, 0, panel.bottom - 80, { label: app.t('special.ok'), width: 260, height: 96, fontSize: 34, onClick: () => panel.close() });
     panel.content.add([glow, img, name, text, ok]);
@@ -1254,6 +1255,8 @@ export class PlayScene extends BaseScene {
     if (body.s) {
       title = `${rarity} ${app.t(`special.${body.s}.name`)}`;
       lines.push(app.t('info.special'));
+      const special = content.specials.find((sp) => sp.id === body.s);
+      if (special) lines.push(app.t('info.specialPower', { n: special.power }));
       const value = this.run.sellValue(body);
       action = { label: `${app.t('info.sell')}  ${value}`, icon: crystalIcon, onClick: () => this.sellBody(slot) };
     } else {

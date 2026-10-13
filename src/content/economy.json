@@ -1,6 +1,7 @@
 {
   "goalTier": 10,
   "tierValueGrowth": 3,
+  "bodyValueScale": 0.5,
   "board": {
     "maxSlots": 16,
     "startSlots": 8
@@ -95,11 +96,11 @@
     "everyMin": 4,
     "everyMax": 8,
     "lifetime": 7,
-    "seconds": 8,
+    "seconds": 5.6,
     "activeTps": 5,
     "goldenChance": 0.1,
     "goldenMult": 5,
     "doubleChance": 0.2,
-    "valueMultEndless": 2
+    "valueMultEndless": 3
   }
 }
