@@ -254,14 +254,14 @@ class App extends Emitter<{ language: [lang: string] }> {
 
   /** Shows or hides the debug box. Also: ?debug or #debug in the URL, or tap the menu title 5 times. */
   toggleDebug() {
-    // Poki wants a clean build with no debug tools (Poki guide, section 4).
-    if (__TARGET__ === 'poki') return;
-    if (this.clean) return;
+    // Poki wants a clean build with no debug tools (Poki guide, section 4): the overlay is not even bundled there.
+    const Overlay = __TARGET__ === 'poki' ? null : DebugOverlay;
+    if (!Overlay || this.clean) return;
     if (this.debug) {
       this.debug.destroy();
       this.debug = null;
     } else {
-      this.debug = new DebugOverlay(this);
+      this.debug = new Overlay(this);
       (window as any).__app = this;
     }
   }
