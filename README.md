@@ -16,6 +16,8 @@ Hiện repo chứa bộ khung chung (`core/`) và một màn demo (`src/`) để
 | `npm run dev` | Chạy thử, không có SDK portal. Mở link `Local` trên máy tính |
 | `npm run dev:cg` | Chạy thử với SDK CrazyGames v3 ở chế độ local (quảng cáo hiện dòng chữ thay cho quảng cáo thật) |
 | `npm run build` | Build cho CrazyGames vào `dist/crazygames`, rồi kiểm tra kích thước và request ra ngoài |
+| `npm run build:poki` | Build cho Poki vào `dist/poki` (nạp Poki SDK v2 trong `<head>`); báo `FAIL` nếu tổng trên 8 MB |
+| `npm run dev:poki` | Chạy thử với Poki SDK (thử quảng cáo bằng Poki Inspector) |
 | `npm run build:web` | Build không có SDK vào `dist/web` (để đăng artifact, chạy thử trên điện thoại) |
 | `npm run preview` | Phục vụ bản build CrazyGames để thử |
 | `npm test` | Test các hàm định dạng số, thời gian, quà hằng ngày |
@@ -61,7 +63,7 @@ Lần đầu mở một preset là người chơi mới nên vào thẳng màn c
 core/        Bộ khung chung. Giống hệt nhau ở 2 repo
   app.ts       Khởi động game, các dịch vụ dùng chung (app.audio, app.save, app.ads, app.t ...)
   viewport.ts  Co giãn 16:9 và màn dọc, nét ở mọi devicePixelRatio
-  platform/    Adapter portal: crazygames.ts (SDK v3), local.ts (chạy thử, giả lập quảng cáo)
+  platform/    Adapter portal: crazygames.ts (SDK v3), poki.ts (SDK v2), local.ts (chạy thử, giả lập quảng cáo)
   ads.ts       Quảng cáo có thưởng và quảng cáo giữa chừng, tạm dừng và tắt tiếng khi chạy
   save.ts      Lưu tiến trình, tự lưu, đổi phiên bản dữ liệu
   i18n.ts      Chuỗi chữ theo ngôn ngữ, tự nhận ngôn ngữ (RU/BE/KK/UK/UZ dùng tiếng Nga)
