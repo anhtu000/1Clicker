@@ -645,7 +645,8 @@ export class Run {
    */
   useReward(id: RewardId, free = false) {
     const cfg = this.content.economy.rewarded;
-    this.s.rewardReadyAt[id] = this.s.time + cfg[id].cooldown * (free ? cfg.freeCooldownMult : 1);
+    const own = (cfg[id] as { freeCooldownMult?: number }).freeCooldownMult;
+    this.s.rewardReadyAt[id] = this.s.time + cfg[id].cooldown * (free ? (own ?? cfg.freeCooldownMult) : 1);
   }
 
   /** Income of a player tapping at a steady pace, plus probes. Used to size rewards. */

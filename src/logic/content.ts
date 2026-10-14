@@ -123,7 +123,8 @@ export interface EconomyDef {
      * The free upgrade is the priciest one costing at most maxIncomeSeconds of an active player's income.
      */
     freeUpgrade: { cooldown: number; firstAt: number; maxIncomeSeconds: number; firstAtTier?: number };
-    luckyScan: { cooldown: number; firstAt: number; tierBonus: number; rarityFloor: number };
+    /** freeCooldownMult: own multiplier without an ad (user 14/10: 1, so it stays 4 minutes in Basic Launch). */
+    luckyScan: { cooldown: number; firstAt: number; tierBonus: number; rarityFloor: number; freeCooldownMult?: number };
     /** Rewarded copy of the body just merged, offered up to maxTier (user 13/10: Asteroid). */
     twin: { cooldown: number; firstAt: number; maxTier: number };
     /** Cooldown multiplier while the portal gives rewards without an ad (CrazyGames Basic Launch). */

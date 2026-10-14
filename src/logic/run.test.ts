@@ -190,12 +190,21 @@ test('free upgrade target never gives the first probes, and stays within the inc
 
 test('reward cooldown is longer when the reward came without an ad', () => {
   const run = fresh();
-  run.useReward('luckyScan');
-  const normal = run.rewardWait('luckyScan');
+  run.useReward('twin');
+  const normal = run.rewardWait('twin');
   const run2 = fresh();
-  run2.useReward('luckyScan', true);
-  assert.equal(run2.rewardWait('luckyScan'), normal * content.economy.rewarded.freeCooldownMult);
-  assert.equal(run.rewardReady('luckyScan'), false);
+  run2.useReward('twin', true);
+  assert.equal(run2.rewardWait('twin'), normal * content.economy.rewarded.freeCooldownMult);
+  assert.equal(run.rewardReady('twin'), false);
+});
+
+test('Lucky Scan recharges in 4 minutes with or without an ad (user 14/10)', () => {
+  const run = fresh();
+  run.useReward('luckyScan', true);
+  assert.equal(run.rewardWait('luckyScan'), 240);
+  const run2 = fresh();
+  run2.useReward('luckyScan');
+  assert.equal(run2.rewardWait('luckyScan'), 240);
 });
 
 test('lucky scan is free, higher tier, at least Rare', () => {

@@ -69,7 +69,8 @@
       "cooldown": 240,
       "tierBonus": 1,
       "rarityFloor": 1,
-      "firstAt": 150
+      "firstAt": 150,
+      "freeCooldownMult": 1
     },
     "offlineMult": 2,
     "dailyMult": 2,

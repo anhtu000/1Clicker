@@ -53,7 +53,9 @@ const COPY_OFFER_SEC = 8;
 
 /** Main screen: core to tap, board to merge, shop, and the systems around them. */
 /** The Auto Scan and Auto Merge switches under Scan: two lines of text (name, On/Off). */
-const AUTO_BTN = { w: 176, h: 64, gap: 10 };
+const AUTO_BTN = { w: 164, h: 64, gap: 10 };
+/** Desktop: width kept free between the board and the shop for decorations (one item and its margins). */
+const DECOR_LANE = 96;
 
 
 export class PlayScene extends BaseScene {
@@ -193,7 +195,7 @@ export class PlayScene extends BaseScene {
 
     this.scanBtn = new Button(this, 0, 0, { label: '', icon: scanIcon, width: 300, height: 108, fontSize: 36, sound: false, onClick: () => this.scan() });
     this.scanBtn.setDepth(30);
-    const toggle = { label: '', width: AUTO_BTN.w, height: AUTO_BTN.h, fontSize: 21 };
+    const toggle = { label: '', width: AUTO_BTN.w, height: AUTO_BTN.h, fontSize: 19 };
     this.autoScanBtn = new Button(this, 0, 0, { ...toggle, icon: UPGRADE_ICONS.autoScan, onClick: () => this.toggleAuto('scan') });
     this.autoMergeBtn = new Button(this, 0, 0, { ...toggle, icon: UPGRADE_ICONS.autoMerge, onClick: () => this.toggleAuto('merge') });
     for (const b of [this.autoScanBtn, this.autoMergeBtn]) b.setDepth(30).setVisible(false);
@@ -334,26 +336,30 @@ export class PlayScene extends BaseScene {
       this.shop.layout(shopX, 16, shopW, vp.height - 32, false);
       this.shopRect = { x: shopX, y: 0, w: vp.width - shopX, h: vp.height };
 
-      const colW = 380; // energy, core, goal chain, scan
+      // Sized to leave room for decorations (user 14/10: the CrazyGames frame, a bit wider than 16:9, had
+      // about 8 free spots, 3 with the Auto switches): a band above and below the board, and a lane
+      // between the board and the shop.
+      const colW = 340; // energy, core, goal chain, scan, Auto switches (2 x 164 + 10)
       const playRight = shopX - 20;
-      const boardMax = Math.min(561, s.height - 40);
-      const boardSize = Math.min(boardMax, playRight - colW - 24);
+      const boardMax = Math.min(460, s.height - 240);
+      const boardSize = Math.min(boardMax, playRight - colW - 24 - DECOR_LANE);
       const cell = Math.floor(boardSize / (4 + 3 * 0.08));
       const size = cell * 4 + 3 * Math.round(cell * 0.08);
       const used = colW + 24 + size;
-      const x0 = Math.max(0, (playRight - used) / 2);
+      // Centered in what is left once the decoration lane next to the shop is kept free; never at the very edge.
+      const x0 = Math.max(16, (playRight - DECOR_LANE - used) / 2);
       const leftX = x0 + colW / 2;
       // Below the pause row on 16:9; centered with the board when the screen is taller.
       const colTop = Math.max(s.y + 4, 100);
-      // Kept inside 720 high: the Auto switches under Scan end at colTop + 594.
+      // The Auto switches under Scan end at colTop + 558.
       this.placeEnergy(leftX, colTop + 34);
       this.rateText.setPosition(leftX, colTop + 76);
       this.rateRoom = colW - 10;
-      this.core.setPosition(leftX, colTop + 172);
-      this.core.setRadius(70);
-      this.placeChain(leftX, colTop + 276, 370, 62);
-      this.scanBtn.setPosition(leftX, colTop + 462);
-      this.placeToggles(this.autoToggles(), leftX, colTop + 562);
+      this.core.setPosition(leftX, colTop + 160);
+      this.core.setRadius(60);
+      this.placeChain(leftX, colTop + 254, 320, 54);
+      this.scanBtn.setPosition(leftX, colTop + 426);
+      this.placeToggles(this.autoToggles(), leftX, colTop + 526);
       this.board.layout(x0 + colW + 24 + size / 2, Math.max(s.y + s.height / 2, colTop + size / 2 - 40), cell);
     }
     this.energyY = this.energyText.y;
@@ -1215,8 +1221,9 @@ export class PlayScene extends BaseScene {
     const list: Rect[] = [
       box(this.board.x, this.board.y, this.board.size, this.board.size),
       box(this.core.x, this.core.y, this.core.radius * 2.5, this.core.radius * 2.5),
-      box(this.energyX, this.energyY, 420, 92),
-      box(this.rateText.x, this.rateText.y, Math.max(380, this.rateText.displayWidth), 44),
+      // Wide enough for a longer number later; on desktop no wider than the core column (the rate line shrinks to fit it).
+      box(this.energyX, this.energyY, vp.portrait ? 420 : 330, 92),
+      box(this.rateText.x, this.rateText.y, vp.portrait ? Math.max(380, this.rateText.displayWidth) : this.rateRoom, 44),
       // both rows of the chain (as drawn: the outer stages are narrower than their slots) and the goal line under them
       box(this.chainCenter.x, this.chainCenter.y + 18, this.chainCenter.w * 0.8 + this.chainCenter.art + 10, this.chainCenter.h + 36),
       box(this.scanBtn.x, this.scanBtn.y, 300, 108),
