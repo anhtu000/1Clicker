@@ -243,6 +243,7 @@ class App extends Emitter<{ language: [lang: string] }> {
     this.platform.onMuteChange((muted) => this.audio.setPortalMuted(muted));
     this.wirePause();
     this.startAutosave(config.autosaveSec ?? 5);
+    blockPageScroll();
 
     // #debug works where a query string is dropped (artifact pages); it can follow a preset: #showcase+debug.
     const hashDebug = /^#(?:[a-z]+\+)*debug(?:\+|$)/.test(location.hash);
@@ -253,6 +254,8 @@ class App extends Emitter<{ language: [lang: string] }> {
 
   /** Shows or hides the debug box. Also: ?debug or #debug in the URL, or tap the menu title 5 times. */
   toggleDebug() {
+    // Poki wants a clean build with no debug tools (Poki guide, section 4).
+    if (__TARGET__ === 'poki') return;
     if (this.clean) return;
     if (this.debug) {
       this.debug.destroy();
@@ -285,6 +288,24 @@ class App extends Emitter<{ language: [lang: string] }> {
     window.addEventListener('pagehide', () => this.save.flush(true));
     this.pause.on('pause', () => this.save.flush(true));
   }
+}
+
+/**
+ * Arrow keys, Space and the mouse wheel must not scroll the portal page around the game
+ * (Poki requirement; harmless elsewhere). Phaser still receives the keys.
+ */
+function blockPageScroll() {
+  const keys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', ' ', 'Spacebar', 'PageUp', 'PageDown']);
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (keys.has(e.key)) e.preventDefault();
+    },
+    { passive: false },
+  );
+  window.addEventListener('wheel', (e) => e.preventDefault(), { passive: false });
 }
 
 export const app = new App();
