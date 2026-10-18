@@ -22,6 +22,8 @@ export class Core extends Phaser.GameObjects.Container {
   private ringRes = 1;
   private time = 0;
   private kick = 0;
+  /** Rings that spread out from the core on each tap (reused). */
+  private waves: Phaser.GameObjects.Image[] = [];
 
   constructor(scene: Phaser.Scene, onTap: (x: number, y: number) => void) {
     super(scene, 0, 0);
@@ -69,9 +71,32 @@ export class Core extends Phaser.GameObjects.Container {
     this.halo.setScale((r * 5) / 64);
   }
 
-  /** Squash and flash on a tap. Stronger for critical taps. */
+  /** Squash, flash and a ring spreading out on a tap. Stronger (and gold) for critical taps. */
   hit(strength = 1) {
     this.kick = Math.min(1.6, this.kick + 0.5 * strength);
+    const tex = shapeTexture(this.scene, 'core-wave', RING_BASE * 2 + 8, RING_BASE * 2 + 8, (g) => {
+      g.lineStyle(6, 0xffffff, 1);
+      g.strokeCircle(0, 0, RING_BASE);
+    });
+    let wave = this.waves.find((w) => !w.visible);
+    if (!wave) {
+      if (this.waves.length >= 6) return;
+      wave = this.scene.add.image(0, 0, tex.key).setBlendMode(Phaser.BlendModes.ADD).setVisible(false);
+      this.addAt(wave, 1);
+      this.waves.push(wave);
+    }
+    const base = this.radius / RING_BASE / tex.res;
+    const gold = strength > 1.5;
+    wave.setTexture(tex.key).setTint(gold ? 0xffd166 : 0xc9b8ff).setScale(base * 0.95).setAlpha(gold ? 0.9 : 0.55).setVisible(true);
+    this.scene.tweens.killTweensOf(wave);
+    this.scene.tweens.add({
+      targets: wave,
+      scale: base * (gold ? 2.1 : 1.6),
+      alpha: 0,
+      duration: gold ? 420 : 300,
+      ease: 'Cubic.Out',
+      onComplete: () => wave!.setVisible(false),
+    });
   }
 
   private tick(_t: number, delta: number) {

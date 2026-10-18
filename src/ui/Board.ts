@@ -233,13 +233,17 @@ export class Board {
     for (let i = 0; i < this.cols * this.rows; i++) {
       const p = this.slotPos(i);
       const open = i < this.run.slots;
+      // Locked spaces stay in the background (user 19/10: eight padlocks made the early board look empty);
+      // only the next one to open shows its padlock.
+      const next = i === this.run.slots;
+      const look = open ? 1 : next ? 2 : 0;
       const img = (this.cells[i] ??= this.scene.add.image(0, 0, '__DEFAULT').setDepth(5));
-      setShape(img, `cell|${c}|${open ? 1 : 0}`, c, c, (g) => {
-        g.fillStyle(open ? 0x1a1840 : 0x0e0d24, open ? 0.72 : 0.55);
+      setShape(img, `cell|${c}|${look}`, c, c, (g) => {
+        g.fillStyle(open ? 0x221e52 : 0x0e0d24, open ? 0.78 : next ? 0.45 : 0.22);
         g.fillRoundedRect(-c / 2, -c / 2, c, c, r);
-        g.lineStyle(2, open ? 0x6f63c9 : 0x2c2856, open ? 0.45 : 0.4);
+        g.lineStyle(2, open ? 0x7d70de : 0x2c2856, open ? 0.6 : next ? 0.4 : 0.18);
         g.strokeRoundedRect(-c / 2, -c / 2, c, c, r);
-        if (!open) {
+        if (next) {
           // Small padlock.
           const s = c * 0.14;
           g.lineStyle(3, 0x3c3770, 0.9);

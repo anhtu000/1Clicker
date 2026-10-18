@@ -21,11 +21,11 @@
   "upgrade": {
     "focus": {
       "name": "Core Focus",
-      "desc": "Each tap gives more energy"
+      "desc": "More energy per tap"
     },
     "slots": {
       "name": "Orbit Ring",
-      "desc": "One more space on the board",
+      "desc": "One more board space",
       "descMax": "All board spaces are open"
     },
     "discount": {
@@ -40,11 +40,11 @@
     },
     "crit": {
       "name": "Supernova Tap",
-      "desc": "Higher chance to earn 6x on a tap"
+      "desc": "Higher chance of 6x taps"
     },
     "luck": {
       "name": "Stellar Luck",
-      "desc": "Rarer bodies from scans and merges"
+      "desc": "Rarer scans and merges"
     },
     "lens": {
       "name": "Gravity Lens",
@@ -52,7 +52,7 @@
     },
     "binary": {
       "name": "Binary Merge",
-      "desc": "Merges may give a free copy"
+      "desc": "Free copies from merges"
     },
     "starMagnet": {
       "name": "Star Magnet",

@@ -21,6 +21,8 @@ export interface FloatOptions {
   size?: number;
   /** How far it rises, in design units. */
   rise?: number;
+  /** How far it drifts sideways while rising, in design units (negative: to the left). */
+  drift?: number;
   durationMs?: number;
   font?: string;
 }
@@ -63,6 +65,7 @@ export function floatText(scene: Phaser.Scene, x: number, y: number, text: strin
   scene.tweens.add({
     targets: target,
     y: y - (options.rise ?? 120),
+    x: target.x + (options.drift ?? 0),
     alpha: 0,
     duration: options.durationMs ?? 800,
     ease: 'Cubic.Out',

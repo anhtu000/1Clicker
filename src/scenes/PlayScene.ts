@@ -301,8 +301,8 @@ export class PlayScene extends BaseScene {
       const toggleY = stripTop - 12 - AUTO_BTN.h / 2;
       const rowY = toggles.length ? toggleY - AUTO_BTN.h / 2 - 6 - 54 : stripTop - 70;
       const boardBottom = rowY - 72;
-      // energy, rate, core, goal chain in two rows and the label under it (its bottom is at y0 + 504), plus a gap
-      const headH = 520;
+      // energy, rate, core, goal chain in two rows and the label under it (its bottom is at y0 + 516), plus a gap
+      const headH = 532;
       const avail = boardBottom - (top + headH);
       const boardSize = Math.min(vp.width - 96, avail);
       const cell = Math.floor(boardSize / (4 + 3 * 0.08));
@@ -311,9 +311,10 @@ export class PlayScene extends BaseScene {
       this.placeEnergy(cx, y0 + 62);
       this.rateText.setPosition(cx, y0 + 108);
       this.rateRoom = vp.width - 48;
-      this.core.setPosition(cx, y0 + 228);
-      this.core.setRadius(84);
-      this.placeChain(cx, y0 + 352, 540, 80);
+      // The core is what a player taps most: as big as the column allows (user 19/10, after the quality rejection).
+      this.core.setPosition(cx, y0 + 240);
+      this.core.setRadius(96);
+      this.placeChain(cx, y0 + 364, 540, 80);
       const size = cell * 4 + 3 * Math.round(cell * 0.08);
       this.board.layout(cx, boardBottom - size / 2, cell);
       this.scanBtn.setPosition(cx, rowY);
@@ -355,15 +356,15 @@ export class PlayScene extends BaseScene {
       const leftX = x0 + colW / 2;
       // Below the pause row on 16:9; centered with the board when the screen is taller.
       const colTop = Math.max(s.y + 4, 100);
-      // The Auto switches under Scan end at colTop + 558.
+      // The Auto switches under Scan end at colTop + 592 (inside 720 on 16:9).
       this.placeEnergy(leftX, colTop + 34);
       this.rateText.setPosition(leftX, colTop + 76);
       this.rateRoom = colW - 10;
-      this.core.setPosition(leftX, colTop + 160);
-      this.core.setRadius(60);
-      this.placeChain(leftX, colTop + 254, 320, 54);
-      this.scanBtn.setPosition(leftX, colTop + 426);
-      this.placeToggles(this.autoToggles(), leftX, colTop + 526);
+      this.core.setPosition(leftX, colTop + 184);
+      this.core.setRadius(74);
+      this.placeChain(leftX, colTop + 290, 320, 54);
+      this.scanBtn.setPosition(leftX, colTop + 462);
+      this.placeToggles(this.autoToggles(), leftX, colTop + 560);
       this.board.layout(x0 + colW + 24 + size / 2, Math.max(s.y + s.height / 2, colTop + size / 2 - 40), cell);
     }
     this.energyY = this.energyText.y;
@@ -531,7 +532,18 @@ export class PlayScene extends BaseScene {
     const { amount, crit } = this.run.tap();
     this.tapsInStep += 1;
     this.core.hit(crit ? 2.5 : 1);
-    floatText(this, x, y - 30, `+${formatNumber(amount)}`, { color: crit ? '#ffd166' : '#ffffff', size: crit ? 64 : 44, rise: crit ? 170 : 120 });
+    // The number drifts out to the side it was tapped on and stops below the energy and rate lines above
+    // the core (user 19/10: they piled up on top of the energy counter).
+    const side = x === this.core.x ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(x - this.core.x);
+    const startY = y - 20;
+    const ceiling = this.rateText.y + this.rateText.displayHeight / 2 + (crit ? 42 : 32);
+    const rise = Phaser.Math.Clamp(startY - ceiling, 16, crit ? 140 : 100);
+    floatText(this, x, startY, `+${formatNumber(amount)}`, {
+      color: crit ? '#ffd166' : '#ffffff',
+      size: crit ? 60 : 42,
+      rise,
+      drift: side * Phaser.Math.Between(crit ? 50 : 30, crit ? 110 : 80),
+    });
     if (crit) {
       burst(this, x, y, 0xffd166, 18, 360);
       app.audio.play('tap', { pitchJitter: 40, volume: 1 });
@@ -918,7 +930,8 @@ export class PlayScene extends BaseScene {
     if (!value) return;
     this.starsCaught += 1;
     floatText(this, star.x, star.y - 20, `+${formatNumber(value)}`, { color: golden ? '#ffd166' : '#cfe8ff', size: golden ? 64 : 50 });
-    if (golden) toast(this, app.t('star.golden'), 1500);
+    // By the star, not a toast at the bottom: a toast landed on top of the reveal screen (user 19/10).
+    if (golden) floatText(this, star.x, star.y + 34, app.t('star.golden'), { color: '#ffd166', size: 34, rise: 60, durationMs: 1100 });
     burst(this, star.x, star.y, golden ? 0xffd166 : 0x9fd8ff, golden ? 30 : 18, 380);
     app.audio.play('reward', { volume: 0.8 });
     app.haptic(20);
