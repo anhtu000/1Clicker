@@ -49,7 +49,8 @@ export class PauseScene extends BaseScene {
       });
     }
     this.soundBtn = soundButton(this, 0, 0);
-    this.input.keyboard?.on('keydown-ESC', () => this.close());
+    // P resumes, as it pauses. Not Esc: in the browser Esc leaves full screen (CrazyGames quality guidelines).
+    this.input.keyboard?.on('keydown-P', () => this.close());
   }
 
   protected layout(vp: ViewportInfo) {

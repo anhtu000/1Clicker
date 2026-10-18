@@ -116,6 +116,8 @@ export interface EconomyDef {
    * rarity rounded down, else a normal roll. Merges into rollFromTier and up always roll.
    */
   mergeRarity: { keepAverage: number; rollFromTier: number };
+  /** Full-screen reveal from this rarity up (user 19/10: Legendary); rarer-than-Common finds below it get an in-place effect. */
+  reveal: { fullFromRarity: number };
   offline: { efficiency: number; capHours: number; minSeconds: number };
   rewarded: {
     /**
@@ -224,6 +226,8 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   check.need(typeof keep === 'number' && keep >= 0 && keep <= 1, 'economy.mergeRarity.keepAverage: 0 to 1');
   const rollFrom = economy?.mergeRarity?.rollFromTier;
   check.need(Number.isInteger(rollFrom) && rollFrom >= 2 && rollFrom <= tiers.length, 'economy.mergeRarity.rollFromTier: a tier from 2 to the goal');
+  const fullFrom = economy?.reveal?.fullFromRarity;
+  check.need(Number.isInteger(fullFrom) && fullFrom >= 1, 'economy.reveal.fullFromRarity: a rarity index from 1 (Rare)');
   const scale = economy?.bodyValueScale;
   check.need(scale === undefined || (typeof scale === 'number' && scale > 0), 'economy.bodyValueScale: a number above 0');
   const valueMult = economy?.stars?.valueMultEndless;

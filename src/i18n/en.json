@@ -124,21 +124,18 @@
   "tut": {
     "tapDesktop": "Click the core, or press Space",
     "tapMobile": "Tap the core to collect energy",
-    "scan": "Scan to find a celestial body",
-    "scanAgain": "Scan again",
+    "scan": "Scan to find celestial bodies",
     "merge": "Drag one onto the other to merge them",
-    "power": "Bodies on the board make every tap stronger",
     "upgrade": "Buy Core Focus: more energy per tap",
-    "goal": "Merge your way up to a Galaxy",
     "ok": "Got it",
     "star": "Catch the shooting star!",
     "full": "Board full. Merge, or drag a body onto the core for energy",
     "probes": "Buy Probe Fleet: probes collect energy without tapping",
-    "tapStill": "Tapping still adds a lot on top of probes",
     "rarity": "Merge two rare bodies for a 50% chance to keep their rarity",
     "reward": "Free rewards come back every few minutes",
     "autoScan": "Auto Scan buys scans for you. Turn it off to save up for an upgrade",
-    "autoMerge": "Auto Merge merges pairs for you. Turn it off to keep a pair, for example for a hidden body"
+    "autoMerge": "Auto Merge merges pairs for you. Turn it off to keep a pair, for example for a hidden body",
+    "skip": "Skip"
   },
   "finish": {
     "title": "Galaxy complete!",
@@ -261,14 +258,7 @@
     }
   },
   "decorTut": {
-    "title": "A gift for you!",
-    "text": "Crystals buy decorations for your space. Let's place your first one.",
-    "claim": "Claim",
-    "buy": "Buy {name} for your space",
-    "show": "Show {name} on your screen",
-    "arrange": "Press Arrange to place it",
-    "drag": "Drag {name} anywhere outside the red areas",
-    "done": "Press Done to get back to the game"
+    "gift": "+{n} crystals! Decorate your space from the menu"
   },
   "info": {
     "tier": "Stage {n} of {total}",

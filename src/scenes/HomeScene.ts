@@ -208,6 +208,7 @@ export class HomeScene extends BaseScene {
   }
 
   private decorShop() {
+    save.data.decorNew = false;
     this.panel(() =>
       showDecorShop(this, {
         onBackground: (id) => this.bg.setTheme(id),

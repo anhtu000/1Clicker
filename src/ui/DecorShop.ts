@@ -16,33 +16,17 @@ export interface DecorShopOptions {
   /** Opens arrange mode (in play only). */
   onArrange?: () => void;
   onClose?: () => void;
-  /** First-decoration tutorial: opens on this item's tab, with no close button (the tutorial leads the way out). */
-  guided?: string;
-}
-
-/** Center and size of something on screen, for the tutorial's pointer. */
-export interface ScreenRect {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-}
-
-export interface DecorShopHandle {
-  panel: Panel;
-  /** The buy (or show) button of an item on the open tab, on screen. */
-  itemButton(id: string): ScreenRect | null;
-  /** The Arrange button, on screen (in play only). */
-  arrangeButton(): ScreenRect | null;
+  /** Tab to open on (default: backgrounds). */
+  tab?: Tab;
 }
 
 type Tab = 'bg' | 'planet' | 'ship';
 
 /** Decor shop (CLAUDE.md 4b item 10): backgrounds, planets and spacecraft for crystals, and an ad for more crystals. */
-export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): DecorShopHandle {
+export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Panel {
   const vp = app.viewport.info;
   const wide = !vp.portrait;
-  const panel = new Panel(scene, { title: app.t('decor.title'), width: wide ? 1160 : 700, height: wide ? vp.height - 40 : Math.min(vp.height - 80, 1240), onClose: opts.onClose, closable: !opts.guided });
+  const panel = new Panel(scene, { title: app.t('decor.title'), width: wide ? 1160 : 700, height: wide ? vp.height - 40 : Math.min(vp.height - 80, 1240), onClose: opts.onClose });
   const font = { fontFamily: app.theme.font, resolution: app.textResolution };
   const W = panel.panelWidth;
   const d = save.data.decor;
@@ -55,8 +39,8 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Deco
   const balance = scene.add.text(-W / 2 + 84, headY, '', { ...font, fontStyle: '900', fontSize: 36, color: '#bff4ff' }).setOrigin(0, 0.5);
   const refreshBalance = () => balance.setText(formatNumber(save.data.crystals));
   refreshBalance();
-  // Left of the close button, which sits in the top-right corner (in the corner itself when there is none).
-  const ad = rewardButton(scene, W / 2 - (opts.guided ? 160 : 270), headY, {
+  // Left of the close button, which sits in the top-right corner.
+  const ad = rewardButton(scene, W / 2 - 270, headY, {
     label: app.t('decor.watch', { n: decor.ad.crystals }),
     width: 236,
     height: 72,
@@ -75,8 +59,7 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Deco
   panel.content.add([gem, balance, ad]);
 
   // Tabs.
-  const guidedKind = decor.items.find((it) => it.id === opts.guided)?.kind;
-  let tab: Tab = guidedKind ?? 'bg';
+  let tab: Tab = opts.tab ?? 'bg';
   const tabIds: Tab[] = ['bg', 'planet', 'ship'];
   const tabLabels = [app.t('decor.backgrounds'), app.t('decor.planets'), app.t('decor.ships')];
   const tabW = Math.min(300, (W - 60) / 3 - 10);
@@ -103,9 +86,7 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Deco
   const gridTop = tabY + 52;
   const gridBottom = panel.bottom - (opts.onArrange ? 120 : 70);
 
-  let arrangeAt: ScreenRect | null = null;
   if (opts.onArrange) {
-    arrangeAt = { x: 0, y: panel.bottom - 64, w: 300, h: 84 };
     const arrange = new Button(scene, 0, panel.bottom - 64, {
       label: app.t('decor.arrange'),
       width: 300,
@@ -163,12 +144,8 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Deco
     render();
   };
 
-  /** Where each item's button sits, relative to the panel center. */
-  const buttons = new Map<string, ScreenRect>();
-
   const render = () => {
     grid.removeAll(true);
-    buttons.clear();
     tabs.forEach((t, i) => t.setColor(tabIds[i] === tab ? app.theme.primary : app.theme.surface, tabIds[i] === tab ? app.theme.primaryText : app.theme.surfaceText));
     const list = tab === 'bg' ? decor.backgrounds.map((b) => ({ id: b.id, price: b.price })) : decor.items.filter((it) => it.kind === tab);
     // Landscape: one row per tab, so the cards stay tall enough in a 16:9 frame.
@@ -210,7 +187,6 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Deco
       grid.add(name);
       const by = top + cardH - 36;
       const bw = Math.min(180, cardW - 24);
-      buttons.set(entry.id, { x, y: by, w: bw, h: 52 });
       if (!owned) {
         grid.add(priceButton(x, by, bw, entry.price, () => buy(entry.id)));
       } else if (tab === 'bg') {
@@ -247,15 +223,5 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Deco
     });
   };
   render();
-  // The panel's box sits at the screen center; its content is laid out around (0, 0).
-  const onScreen = (r: ScreenRect | null | undefined): ScreenRect | null => {
-    if (!r || !panel.active) return null;
-    const v = app.viewport.info;
-    return { x: v.width / 2 + r.x, y: v.height / 2 + r.y, w: r.w, h: r.h };
-  };
-  return {
-    panel,
-    itemButton: (id) => onScreen(buttons.get(id)),
-    arrangeButton: () => onScreen(arrangeAt),
-  };
+  return panel;
 }
