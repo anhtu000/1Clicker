@@ -47,6 +47,7 @@ export class BootScene extends Phaser.Scene {
     this.drawBar();
     createFxTextures(this);
     app.platform.loadingStop();
+    if (app.config.music) app.audio.startMusic(app.config.music);
     // A short beat so a fast load does not flash.
     this.time.delayedCall(120, () => this.scene.start(app.startScene()));
   }

@@ -188,6 +188,7 @@ export class PlayScene extends BaseScene {
       onFree: (id) => {
         this.run.grant(id);
         this.run.useReward('freeUpgrade', app.ads.rewardsAreFree);
+        app.audio.play('reward');
         this.afterPurchase(id);
       },
       freeCooldown: () => this.run.rewardWait('freeUpgrade'),
@@ -478,7 +479,7 @@ export class PlayScene extends BaseScene {
         this.announce(ev.result, false);
       } else if (ev.kind === 'merge') {
         this.board.sync([ev.result.slot, ...(ev.result.twin ? [ev.result.twin.slot] : [])]);
-        this.mergeFx(ev.result);
+        this.mergeFx(ev.result, true);
       } else if (ev.kind === 'star') {
         this.spawnStars(ev.stars);
       } else if (ev.kind === 'starGone') {
@@ -546,10 +547,10 @@ export class PlayScene extends BaseScene {
     });
     if (crit) {
       burst(this, x, y, 0xffd166, 18, 360);
-      app.audio.play('tap', { pitchJitter: 40, volume: 1 });
+      app.audio.play('tap-crit');
       app.haptic(18);
     } else {
-      app.audio.play('tap', { pitchJitter: 140, volume: 0.75 });
+      app.audio.play('tap');
       app.haptic(6);
     }
     if (this.run.s.taps % 20 === 0) burst(this, this.core.x, this.core.y, 0xa98bff, 10, 220);
@@ -558,11 +559,14 @@ export class PlayScene extends BaseScene {
   private scan() {
     const run = this.run;
     if (!run.canScan()) {
-      if (run.freeSlot() < 0) toast(this, app.t('scan.full'));
+      if (run.freeSlot() < 0) {
+        toast(this, app.t('scan.full'));
+        app.audio.play('deny');
+      }
       return;
     }
     const result = run.scan()!;
-    app.audio.play('buy', { pitchJitter: 120, volume: 0.8 });
+    app.audio.play('scan');
     this.beam(result.slot);
     this.board.sync([result.slot]);
     this.announce(result, false);
@@ -596,8 +600,10 @@ export class PlayScene extends BaseScene {
       this.refreshUi();
     } else if (!run.s.board[to] && run.move(from, to)) {
       this.board.moved(from, to);
+      app.audio.play('place');
     } else if (run.swap(from, to)) {
       this.board.swapped(from, to);
+      app.audio.play('place');
     } else {
       // Nothing changed (for example the body was merged away by Auto Merge while being dragged).
       this.board.sync();
@@ -613,7 +619,7 @@ export class PlayScene extends BaseScene {
     this.core.hit(2);
     floatText(this, this.core.x, this.core.y - 60, app.t('reveal.absorbed', { n: formatNumber(value) }), { color: '#ffd166', size: 56 });
     burst(this, this.core.x, this.core.y, 0xffb36b, 24, 420);
-    app.audio.play('reward', { volume: 0.7 });
+    app.audio.play('absorb');
     return true;
   }
 
@@ -663,7 +669,7 @@ export class PlayScene extends BaseScene {
     floatText(this, p.x, p.y + 4, app.t('reveal.odds', { n: formatNumber(Math.round(1 / odds)) }), { color: '#ffffff', size: 30, rise: 80 });
     burst(this, p.x, p.y, RARITY_COLOR[body.r], 30, 420);
     this.board.sprite(result.slot)?.bump(0.35);
-    app.audio.play('reward', { volume: 0.6, detune: 200 });
+    app.audio.play('rare');
   }
 
   /** Reveals wait for each other: auto merge, twins and scans can make several Epic or rarer bodies close together. */
@@ -692,7 +698,8 @@ export class PlayScene extends BaseScene {
     });
   }
 
-  private mergeFx(result: MergeResult) {
+  /** auto: made by Auto Merge, which can fire every few seconds, so its chime is quieter. */
+  private mergeFx(result: MergeResult, auto = false) {
     const p = this.board.slotPos(result.slot);
     const color = RARITY_COLOR[result.body.r];
     burst(this, p.x, p.y, color, 16 + result.body.t * 2, 300 + result.body.t * 20);
@@ -701,8 +708,8 @@ export class PlayScene extends BaseScene {
     if (result.bonus > 0) {
       floatText(this, p.x, p.y + this.board.cell * 0.15, `+${formatNumber(result.bonus)}`, { color: '#ffd166', size: 34 + Math.min(16, result.body.r * 4), rise: 90 });
     }
-    // Pitch rises with tier, so climbing the chain sounds like progress.
-    app.audio.play('buy', { volume: 0.9, detune: (result.body.t - 5) * 90 });
+    // One chime per tier, climbing the scale, so going up the chain sounds like progress (tools/make_sfx.py).
+    app.audio.play(`merge-${Phaser.Math.Clamp(result.body.t, 2, 10)}`, { volume: auto ? 0.6 : 1 });
     app.haptic(12);
     app.moments.emit('merge', { level: result.body.t });
     if (result.twin) {
@@ -740,7 +747,7 @@ export class PlayScene extends BaseScene {
     burst(this, p.x, p.y, 0xffd166, 40, 520);
     burst(this, p.x, p.y, 0x9fd8ff, 24, 380);
     this.board.sprite(made.slot)?.bump(0.4);
-    app.audio.play('reward');
+    app.audio.play('rare');
     app.haptic(30);
     app.moments.emit('collectionNew', { id: `s.${made.special.id}.${made.body.r}` });
     const name = `${app.t(`rarity.${content.rarities[made.body.r].id}`)} ${app.t(`special.${made.special.id}.name`)}`;
@@ -873,8 +880,12 @@ export class PlayScene extends BaseScene {
 
   private useLucky() {
     const result = this.run.luckyScan();
-    if (!result) return toast(this, app.t('scan.full'));
+    if (!result) {
+      app.audio.play('deny');
+      return toast(this, app.t('scan.full'));
+    }
     this.run.useReward('luckyScan', app.ads.rewardsAreFree);
+    app.audio.play('reward');
     this.board.sync([result.slot]);
     this.beam(result.slot);
     this.announce(result, true);
@@ -886,6 +897,7 @@ export class PlayScene extends BaseScene {
     this.run.useReward('twin', app.ads.rewardsAreFree);
     this.copyOffer = null;
     if (copy) {
+      app.audio.play('reward');
       this.board.sync([copy.slot]);
       this.announce(copy, false);
       const p = this.board.slotPos(copy.slot);
@@ -933,7 +945,7 @@ export class PlayScene extends BaseScene {
     // By the star, not a toast at the bottom: a toast landed on top of the reveal screen (user 19/10).
     if (golden) floatText(this, star.x, star.y + 34, app.t('star.golden'), { color: '#ffd166', size: 34, rise: 60, durationMs: 1100 });
     burst(this, star.x, star.y, golden ? 0xffd166 : 0x9fd8ff, golden ? 30 : 18, 380);
-    app.audio.play('reward', { volume: 0.8 });
+    app.audio.play(golden ? 'star-gold' : 'star');
     app.haptic(20);
     this.stars[i] = null;
     star.destroy();
@@ -1131,7 +1143,8 @@ export class PlayScene extends BaseScene {
     for (let i = 0; i < 6; i++) {
       this.time.delayedCall(i * 180, () => burst(this, vp.width * (0.2 + Math.random() * 0.6), vp.height * (0.15 + Math.random() * 0.3), [0xffd166, 0x9fd8ff, 0xd38bff][i % 3], 26, 520));
     }
-    app.audio.play('reward');
+    app.audio.play('finish');
+    app.audio.duckMusic(0.3, 3);
   }
 
   /** Explains the timed run, then starts it. Opened from the stopwatch button. */
@@ -1368,7 +1381,7 @@ export class PlayScene extends BaseScene {
     addCrystals(this, value, true);
     floatText(this, p.x, p.y - 30, app.t('crystal.got', { n: value }), { color: '#bff4ff', size: 40 });
     burst(this, p.x, p.y, 0x7fe8ff, 24, 380);
-    app.audio.play('reward', { volume: 0.8 });
+    app.audio.play('crystal');
     this.refreshUi();
   }
 
@@ -1499,7 +1512,7 @@ export class PlayScene extends BaseScene {
     floatText(this, this.core.x, this.core.y - 60, app.t('reveal.absorbed', { n: formatNumber(value * mult) }), { color: '#ffd166', size: 56 });
     burst(this, from.x, from.y, 0xffb36b, 16, 300);
     burst(this, this.core.x, this.core.y, 0xffb36b, 24, 420);
-    app.audio.play('reward', { volume: 0.7 });
+    app.audio.play('absorb');
     this.refreshUi();
   }
 
@@ -1522,6 +1535,7 @@ export class PlayScene extends BaseScene {
       iconColor: 0xffc23d,
       onCollect: (value) => {
         this.run.addEnergy(value);
+        app.audio.play('reward');
         this.refreshUi();
       },
     });

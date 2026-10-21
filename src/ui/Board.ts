@@ -199,7 +199,7 @@ export class Board {
       s.bob = false;
       s.setDepth(40);
       s.scaleTo(1.18, 100);
-      app.audio.play('ui-tap', { volume: 0.5, pitchJitter: 80 });
+      app.audio.play('pick');
       this.cb.onDragStart?.(i);
     });
     s.on('drag', (p: Phaser.Input.Pointer) => {

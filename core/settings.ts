@@ -2,6 +2,8 @@ import type { KeyValueStorage } from './storage';
 
 interface SettingsData {
   muted: boolean;
+  /** Background music switched off by the player (sound effects stay on). */
+  musicOff: boolean;
   /** Short vibration on taps (Android only, iOS browsers ignore it). */
   haptics: boolean;
   /** Language the player picked. null means "follow the portal or browser". */
@@ -12,7 +14,7 @@ interface SettingsData {
 
 /** Player preferences, stored apart from game progress so a progress reset keeps them. */
 export class Settings {
-  private data: SettingsData = { muted: false, haptics: true, lang: null, renderDpr: null };
+  private data: SettingsData = { muted: false, musicOff: false, haptics: true, lang: null, renderDpr: null };
 
   constructor(
     private storage: KeyValueStorage,
@@ -31,6 +33,14 @@ export class Settings {
   }
   set muted(value: boolean) {
     this.data.muted = value;
+    this.save();
+  }
+
+  get musicOff() {
+    return this.data.musicOff;
+  }
+  set musicOff(value: boolean) {
+    this.data.musicOff = value;
     this.save();
   }
 

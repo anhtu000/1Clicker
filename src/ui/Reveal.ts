@@ -53,7 +53,8 @@ export function showReveal(scene: Phaser.Scene, body: Body, title: string, subti
   scene.tweens.add({ targets: rays, angle: 40, duration: 2600 });
   burst(scene, cx, cy, color, 40, 640);
   scene.cameras.main.flash(180, (color >> 16) & 255, (color >> 8) & 255, color & 255, false);
-  app.audio.play('reward', { volume: 1 });
+  app.audio.play('reveal');
+  app.audio.duckMusic(0.35, 2);
   app.haptic(40);
 
   let closed = false;

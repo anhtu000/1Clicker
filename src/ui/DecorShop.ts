@@ -51,7 +51,7 @@ export function showDecorShop(scene: Phaser.Scene, opts: DecorShopOptions): Pane
       save.data.decorAdAt = Date.now();
       save.flush();
       toast(scene, app.t('crystal.got', { n: decor.ad.crystals }));
-      app.audio.play('reward');
+      app.audio.play('crystal');
       refreshBalance();
       render();
     },

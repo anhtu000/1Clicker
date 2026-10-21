@@ -1,0 +1,37 @@
+{
+  "music": {
+    "volume": 0.6,
+    "crossfadeSec": 3,
+    "tracks": [
+      { "file": "music-exploration.mp3", "lengthSec": 134.4, "loops": 2, "seamless": true },
+      { "file": "music-temple.mp3", "lengthSec": 173.143946, "loops": 1 }
+    ]
+  },
+  "sfx": {
+    "tap": { "file": "tap.wav", "volume": 0.55, "pitchJitter": 60 },
+    "tap-crit": { "file": "tap-crit.wav", "volume": 0.6, "pitchJitter": 30 },
+    "scan": { "file": "scan.wav", "volume": 0.45, "pitchJitter": 40 },
+    "pick": { "file": "pick.wav", "volume": 0.4, "pitchJitter": 80 },
+    "place": { "file": "place.wav", "volume": 0.45, "pitchJitter": 60 },
+    "merge-2": { "file": "merge-2.mp3", "volume": 0.6 },
+    "merge-3": { "file": "merge-3.mp3", "volume": 0.6 },
+    "merge-4": { "file": "merge-4.mp3", "volume": 0.6 },
+    "merge-5": { "file": "merge-5.mp3", "volume": 0.6 },
+    "merge-6": { "file": "merge-6.mp3", "volume": 0.6 },
+    "merge-7": { "file": "merge-7.mp3", "volume": 0.62 },
+    "merge-8": { "file": "merge-8.mp3", "volume": 0.64 },
+    "merge-9": { "file": "merge-9.mp3", "volume": 0.66 },
+    "merge-10": { "file": "merge-10.mp3", "volume": 0.7 },
+    "rare": { "file": "rare.mp3", "volume": 0.7 },
+    "reveal": { "file": "reveal.mp3", "volume": 0.8 },
+    "star": { "file": "star.mp3", "volume": 0.6, "pitchJitter": 50 },
+    "star-gold": { "file": "star-gold.mp3", "volume": 0.7 },
+    "buy": { "file": "buy.wav", "volume": 0.75, "pitchJitter": 40 },
+    "reward": { "file": "reward.mp3", "volume": 0.65 },
+    "finish": { "file": "finish.mp3", "volume": 0.85 },
+    "absorb": { "file": "absorb.mp3", "volume": 0.6 },
+    "crystal": { "file": "crystal.mp3", "volume": 0.6 },
+    "ui-tap": { "file": "ui-tap.wav", "volume": 0.6 },
+    "deny": { "file": "deny.wav", "volume": 0.45 }
+  }
+}
