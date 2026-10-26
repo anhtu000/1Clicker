@@ -81,8 +81,8 @@ export function rewardButton(scene: Phaser.Scene, x: number, y: number, options:
       if (earned) {
         options.onReward();
       } else {
-        const blocked = app.ads.lastOutcome === 'adblock';
-        toast(scene, app.t(blocked ? 'core.adBlocked' : 'core.adUnavailable'));
+        const message = app.ads.failureMessage((k) => app.t(k));
+        if (message) toast(scene, message);
       }
       button.setVisible(app.ads.rewardedAvailable && !app.clean);
     },

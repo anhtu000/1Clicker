@@ -3,8 +3,13 @@ import { app } from '../app';
 import type { ViewportInfo } from '../viewport';
 
 export interface BaseSceneOptions {
-  /** True for scenes where the player is playing. Sends gameplayStart/Stop to the portal. */
-  gameplay?: boolean;
+  /**
+   * Scenes where the player is playing send gameplayStart/Stop to the portal.
+   *   true:         start as soon as the scene opens
+   *   'firstInput': start at the player's first tap or key press (Poki: gameplayStart belongs to the
+   *                 first interaction, not to the end of loading)
+   */
+  gameplay?: boolean | 'firstInput';
 }
 
 function forEachText(list: Phaser.GameObjects.GameObject[], fn: (t: Phaser.GameObjects.Text) => void) {
@@ -25,6 +30,8 @@ function forEachText(list: Phaser.GameObjects.GameObject[], fn: (t: Phaser.GameO
 export abstract class BaseScene extends Phaser.Scene {
   /** Current screen in design units. Same object that layout() receives. */
   vp!: ViewportInfo;
+  /** The player has started playing in this scene (gameplayStart was sent at least once). */
+  protected playStarted = false;
 
   constructor(
     key: string,
@@ -58,8 +65,20 @@ export abstract class BaseScene extends Phaser.Scene {
     const offLang = app.on('language', () => this.onLanguageChange());
 
     const onPause = () => app.gameplay.stop();
-    const onResume = () => app.gameplay.start();
-    if (this.baseOptions.gameplay) {
+    const onResume = () => {
+      if (this.playStarted) app.gameplay.start();
+    };
+    this.playStarted = false;
+    if (this.baseOptions.gameplay === 'firstInput') {
+      const first = () => {
+        if (this.playStarted || !this.scene.isActive()) return;
+        this.playStarted = true;
+        app.gameplay.start();
+      };
+      this.input.once('pointerdown', first);
+      this.input.keyboard?.once('keydown', first);
+    } else if (this.baseOptions.gameplay) {
+      this.playStarted = true;
       app.gameplay.start();
       this.events.on(Phaser.Scenes.Events.PAUSE, onPause);
       this.events.on(Phaser.Scenes.Events.RESUME, onResume);

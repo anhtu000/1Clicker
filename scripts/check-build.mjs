@@ -14,7 +14,7 @@ const LIMITS = {
 
 // Domains that may appear as plain strings without causing a request.
 const HARMLESS_DOMAINS = new Set(['www.w3.org', 'phaser.io', 'github.com', 'www.phaser.io']);
-const SDK_DOMAINS = { crazygames: ['sdk.crazygames.com'], web: [] };
+const SDK_DOMAINS = { crazygames: ['sdk.crazygames.com'], poki: ['game-cdn.poki.com'], web: [] };
 
 function walk(dir) {
   return readdirSync(dir).flatMap((name) => {
@@ -35,7 +35,11 @@ export function checkBuild(dir, { target = 'crazygames' } = {}) {
   if (files.length > LIMITS.crazyFiles) problems.push(`${files.length} files, CrazyGames allows ${LIMITS.crazyFiles}`);
   if (total > LIMITS.crazyTotal) problems.push(`total ${fmt(total)} is over the CrazyGames 250 MB limit`);
   if (total > LIMITS.crazyInitial) warnings.push(`total ${fmt(total)} is over 50 MB, make sure the initial download stays under it`);
-  if (total > LIMITS.targetTotal) warnings.push(`total ${fmt(total)} is over our 8 MB target`);
+  if (total > LIMITS.targetTotal) {
+    // Poki wants the initial download under 8 MB; for the other portals it is our own target.
+    if (target === 'poki') problems.push(`total ${fmt(total)} is over the 8 MB Poki limit`);
+    else warnings.push(`total ${fmt(total)} is over our 8 MB target`);
+  }
 
   // Yandex rejects file and folder names with spaces or non-ASCII characters.
   for (const f of files) {

@@ -5,9 +5,11 @@ import game from './src/game.json' with { type: 'json' };
 // Build targets. Pick one with --mode:
 //   web         no portal SDK (local play, phone test, artifact preview). Default for `npm run dev`.
 //   crazygames  loads the CrazyGames SDK v3 in <head>, before the game code.
+//   poki        loads the Poki SDK v2 in <head>, before the game code.
 const SDK_TAGS: Record<string, string> = {
   web: '',
   crazygames: '<script src="https://sdk.crazygames.com/crazygames-sdk-v3.js"></script>',
+  poki: '<script src="https://game-cdn.poki.com/scripts/v2/poki-sdk.js"></script>',
 };
 
 function targetFor(mode: string) {

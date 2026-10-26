@@ -10,8 +10,16 @@ export interface AdOptions {
    * Other failures (no fill, ad blocker, no SDK) never grant a reward.
    */
   whenAdsDisabled: 'grant' | 'deny';
-  /** Our own gap between midgame ads. CrazyGames uses about 3 minutes and counts rewarded ads too. */
+  /**
+   * Our own gap between midgame ads. CrazyGames uses about 3 minutes and counts rewarded ads too.
+   * Poki manages ad frequency itself and asks games not to add their own timers: pass 0 there.
+   */
   midgameGapSec: number;
+  /**
+   * Say nothing when a rewarded ad fails or is blocked (Poki: the portal tells the player itself,
+   * and a home-made "ads are blocked" message fails QA). Default false: a short message is shown.
+   */
+  silentFailures?: boolean;
 }
 
 /**
@@ -30,6 +38,15 @@ export class AdManager {
     private pause: PauseManager,
     private options: AdOptions,
   ) {}
+
+  /**
+   * Message for the player after a rewarded ad gave no reward, or null when the game should stay
+   * silent (Poki). Never shown for a reward that was granted.
+   */
+  failureMessage(t: (key: string) => string): string | null {
+    if (this.options.silentFailures) return null;
+    return t(this.lastOutcome === 'adblock' ? 'core.adBlocked' : 'core.adUnavailable');
+  }
 
   /** Show rewarded buttons only when this is true. */
   get rewardedAvailable() {

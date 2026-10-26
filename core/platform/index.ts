@@ -1,5 +1,6 @@
 import { CrazyGamesPlatform } from './crazygames';
 import { LocalPlatform, type LocalAdMode } from './local';
+import { PokiPlatform } from './poki';
 import type { Platform } from './types';
 
 export type { AdKind, AdOutcome, Platform } from './types';
@@ -14,6 +15,14 @@ export async function createPlatform(): Promise<Platform> {
       return await CrazyGamesPlatform.create();
     } catch (err) {
       console.warn('[platform] CrazyGames SDK unavailable, running without it:', err);
+      return new LocalPlatform('none');
+    }
+  }
+  if (__TARGET__ === 'poki') {
+    try {
+      return await PokiPlatform.create();
+    } catch (err) {
+      console.warn('[platform] Poki SDK unavailable, running without it:', err);
       return new LocalPlatform('none');
     }
   }

@@ -62,7 +62,8 @@ export function showOfflinePanel(scene: Phaser.Scene, options: OfflinePanelOptio
   }
 
   const bottom = panel.bottom;
-  const double = rewardButton(scene, 0, bottom - 230, {
+  // The free choice sits above the ad and is just as big (Poki: plain button same size, above or beside).
+  const double = rewardButton(scene, 0, bottom - 92, {
     label: app.t('core.collectDouble', { n: mult }),
     width: 440,
     height: 104,
@@ -75,11 +76,11 @@ export function showOfflinePanel(scene: Phaser.Scene, options: OfflinePanelOptio
       scene.time.delayedCall(450, () => panel.close());
     },
   });
-  const collect = new Button(scene, 0, double.visible ? bottom - 100 : bottom - 150, {
+  const collect = new Button(scene, 0, double.visible ? bottom - 214 : bottom - 150, {
     label: app.t('core.collect'),
     width: 440,
-    height: 96,
-    fontSize: 36,
+    height: 104,
+    fontSize: 38,
     color: double.visible ? theme.surface : theme.primary,
     textColor: double.visible ? theme.surfaceText : theme.primaryText,
     onClick: () => {
@@ -218,18 +219,18 @@ export function showDailyPanel(scene: Phaser.Scene, options: DailyPanelOptions):
     app.audio.play('reward');
     scene.time.delayedCall(500, () => panel.close());
   };
-  const double = rewardButton(scene, 0, bottom - 220, {
+  const double = rewardButton(scene, 0, bottom - 92, {
     label: app.t('core.claimDouble', { n: mult }),
     width: 440,
     height: 104,
     fontSize: 38,
     onReward: () => claim(mult),
   });
-  const plain = new Button(scene, 0, double.visible ? bottom - 92 : bottom - 140, {
+  const plain = new Button(scene, 0, double.visible ? bottom - 214 : bottom - 140, {
     label: app.t('core.claim'),
     width: 440,
-    height: 96,
-    fontSize: 36,
+    height: 104,
+    fontSize: 38,
     color: double.visible ? theme.surface : theme.primary,
     textColor: double.visible ? theme.surfaceText : theme.primaryText,
     onClick: () => claim(1),
