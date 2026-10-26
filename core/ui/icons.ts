@@ -49,6 +49,32 @@ export const soundOffIcon: IconDraw = (g, size, color) => {
   g.lineBetween(s * 0.25, s * 0.3, s * 0.85, -s * 0.3);
 };
 
+/** Two beamed eighth notes. */
+export const musicOnIcon: IconDraw = (g, size, color) => {
+  const s = size / 2;
+  g.fillStyle(color, 1);
+  g.fillEllipse(-s * 0.46, s * 0.56, s * 0.62, s * 0.46);
+  g.fillEllipse(s * 0.5, s * 0.42, s * 0.62, s * 0.46);
+  g.fillRect(-s * 0.29, -s * 0.56, s * 0.15, s * 1.1);
+  g.fillRect(s * 0.67, -s * 0.72, s * 0.15, s * 1.12);
+  g.fillPoints(
+    pts([
+      [-s * 0.29, -s * 0.56],
+      [s * 0.82, -s * 0.8],
+      [s * 0.82, -s * 0.5],
+      [-s * 0.29, -s * 0.26],
+    ]),
+    true,
+  );
+};
+
+export const musicOffIcon: IconDraw = (g, size, color) => {
+  musicOnIcon(g, size * 0.9, color);
+  const s = size / 2;
+  g.lineStyle(size * 0.09, color, 1);
+  g.lineBetween(-s * 0.85, -s * 0.85, s * 0.85, s * 0.85);
+};
+
 export const pauseIcon: IconDraw = (g, size, color) => {
   const s = size / 2;
   g.fillStyle(color, 1);

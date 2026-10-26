@@ -10,7 +10,7 @@ export interface PanelOptions {
   /** Size in design units. Shrinks to fit narrow screens. */
   width?: number;
   height?: number;
-  /** Show the close button and close on Esc. Default true. */
+  /** Show the close button. Default true. */
   closable?: boolean;
   /** Runs once when the panel closes, however it was closed. */
   onClose?: () => void;
@@ -31,7 +31,6 @@ export class Panel extends Phaser.GameObjects.Container {
   private closed = false;
   private opts: PanelOptions;
   private offResize: () => void;
-  private onEsc = () => this.close();
 
   constructor(scene: Phaser.Scene, options: PanelOptions) {
     super(scene, 0, 0);
@@ -78,7 +77,6 @@ export class Panel extends Phaser.GameObjects.Container {
         onClick: () => this.close(),
       });
       this.box.add(close);
-      scene.input.keyboard?.on('keydown-ESC', this.onEsc);
     }
     this.add([this.dim, this.box]);
     this.setDepth(1500);
@@ -88,7 +86,6 @@ export class Panel extends Phaser.GameObjects.Container {
     this.offResize = app.viewport.on('change', (info) => this.place(info));
     this.once(Phaser.GameObjects.Events.DESTROY, () => {
       this.offResize();
-      scene.input.keyboard?.off('keydown-ESC', this.onEsc);
     });
 
     this.dim.setAlpha(0);

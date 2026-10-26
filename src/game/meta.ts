@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { app, dailyDayIndex, dailyStatus, formatNumber, Panel, showDailyPanel, toast } from '@core';
 import { Run } from '../logic/run.ts';
 import { crystalIcon, CRYSTAL_COLOR, ENERGY_COLOR, energyIcon } from '../render/icons';
-import { save } from '../save';
+import { isFirstSession, save } from '../save';
 import { content } from './content';
 
 // Things around the runs, shared by the play screen and the home screen: crystals and the daily gift.
@@ -21,7 +21,8 @@ export function dailyClaimable(): boolean {
 /** The daily gift opens by itself once per session, on whichever screen comes first. */
 let dailyOffered = false;
 export function takeDailyOffer(): boolean {
-  if (dailyOffered || !dailyClaimable()) return false;
+  // Not on the very first visit (user 19/10): it was one more panel in a new player's first minute.
+  if (dailyOffered || !dailyClaimable() || isFirstSession()) return false;
   dailyOffered = true;
   return true;
 }

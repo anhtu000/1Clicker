@@ -30,7 +30,14 @@ export interface SaveData {
   decorAdAt: number;
   /** Main-run time to the goal, kept for the finish screen. */
   firstFinishMs: number;
+  /** When this save was created (ms). The daily gift does not pop up in that first session (user 19/10). */
+  firstSeenAt?: number;
+  /** Crystals for decorations were given and the decor shop has not been opened since: a dot on the menu. */
+  decorNew?: boolean;
 }
+
+/** When this page load began. A save created at or after it belongs to the player's first session. */
+export const sessionStart = Date.now();
 
 /**
  * Test builds only (web: the draft artifact and the phone test file). Changing this value wipes the
@@ -90,7 +97,11 @@ const fresh = (): SaveData => ({
   decor: newDecorState(),
   decorAdAt: 0,
   firstFinishMs: 0,
+  firstSeenAt: Date.now(),
 });
+
+/** This save was created in the current session: the player's very first visit. */
+export const isFirstSession = () => (save.data.firstSeenAt ?? 0) >= sessionStart;
 
 /** Version 2 to 3: Orbit Ring went from 2 levels of +4 slots to 8 levels of +1, so the same board stays open. */
 function fromV2(old: SaveData): SaveData {

@@ -83,6 +83,9 @@ function drawMore(g: Phaser.GameObjects.Graphics, r: number, color: number) {
  * the rewarded boost, when there is one, comes first. While cards are out of view past the end, a
  * small arrow there says so (players did not notice the list goes on); tapping it scrolls a screenful.
  */
+/** Desktop column cards: where the name, description and price start (left of it: the icon). */
+const COL_TEXT_X = 66;
+
 export class UpgradeList {
   private scene: Phaser.Scene;
   private opts: UpgradeListOptions;
@@ -131,9 +134,9 @@ export class UpgradeList {
     scene.input.on('wheel', (p: Phaser.Input.Pointer, _over: unknown, dx: number, dy: number) => this.wheel(p, dx, dy));
     this.free = rewardButton(scene, 0, 0, {
       label: app.t('shop.free'),
-      width: 150,
-      height: 64,
-      fontSize: 26,
+      width: 108,
+      height: 46,
+      fontSize: 22,
       cooldown: options.freeCooldown,
       onReward: () => {
         if (this.freeId) options.onFree(this.freeId);
@@ -352,14 +355,15 @@ export class UpgradeList {
       card.coin.setPosition(-w / 2 + 28, h / 2 - 24);
       card.cost.setOrigin(0, 0.5).setPosition(-w / 2 + 48, h / 2 - 24).setFontSize(30);
     } else {
-      card.icon.setPosition(-w / 2 + 44, 0);
+      // Narrower icon column than before, so the text gets more room and stays at full size (user 19/10).
+      card.icon.setPosition(-w / 2 + 36, 0);
       card.level.setOrigin(1, 0).setPosition(w / 2 - 14, -h / 2 + 10);
-      card.name.setOrigin(0, 0.5).setPosition(-w / 2 + 86, -h / 2 + 30).setFontSize(26);
-      card.desc.setOrigin(0, 0.5).setPosition(-w / 2 + 86, 0).setFontSize(21);
+      card.name.setOrigin(0, 0.5).setPosition(-w / 2 + COL_TEXT_X, -h / 2 + 28).setFontSize(27);
+      card.desc.setOrigin(0, 0.5).setPosition(-w / 2 + COL_TEXT_X, -4).setFontSize(21);
       // One line in the column: shrink instead of wrapping.
       card.desc.setWordWrapWidth(null as unknown as number);
-      card.coin.setPosition(-w / 2 + 98, h / 2 - 28);
-      card.cost.setOrigin(0, 0.5).setPosition(-w / 2 + 116, h / 2 - 28).setFontSize(28);
+      card.coin.setPosition(-w / 2 + COL_TEXT_X + 12, h / 2 - 26);
+      card.cost.setOrigin(0, 0.5).setPosition(-w / 2 + COL_TEXT_X + 30, h / 2 - 26).setFontSize(30);
     }
   }
 
@@ -371,7 +375,7 @@ export class UpgradeList {
   /** Long names and effects shrink to fit (clear of the level badge). */
   private fit(card: Card) {
     const w = this.cardW;
-    const room = this.horizontal ? w - 28 : w - 100 - card.level.width - 10;
+    const room = this.horizontal ? w - 28 : w - COL_TEXT_X - 14 - card.level.width - 8;
     card.name.setScale(1);
     card.name.setScale(card.name.width > room ? room / card.name.width : 1);
     if (this.horizontal) {
@@ -387,7 +391,7 @@ export class UpgradeList {
       }
       card.desc.setScale(1);
     } else {
-      const descRoom = w - 100;
+      const descRoom = w - COL_TEXT_X - 14;
       card.desc.setScale(1);
       card.desc.setScale(card.desc.width > descRoom ? descRoom / card.desc.width : 1);
     }
@@ -404,7 +408,7 @@ export class UpgradeList {
     card.state = state;
     this.frame(card, affordable ? 0x2b2463 : 0x16143a, affordable ? 0xffc23d : 0x3a3478, affordable ? 1 : 0.8);
     const iconColor = affordable ? 0xffd166 : 0x9f97d9;
-    this.drawGlyph(card.icon, UPGRADE_ICONS[card.id] ?? UPGRADE_ICONS.focus, this.horizontal ? 42 : 46, iconColor);
+    this.drawGlyph(card.icon, UPGRADE_ICONS[card.id] ?? UPGRADE_ICONS.focus, this.horizontal ? 42 : 40, iconColor);
     card.desc.setText(this.opts.describe(u));
     // A level cap that lifts after the Galaxy shows the level, not MAX: there is more to come.
     card.level.setText(maxed && !run.waitsForGoal(u) ? app.t('shop.max') : app.t('shop.level', { n: run.level(card.id) }));
@@ -423,7 +427,7 @@ export class UpgradeList {
     card.state = state;
     const reward = app.theme.reward;
     this.frame(card, ready ? 0x113a31 : 0x16143a, ready ? reward : 0x2f6b55, ready ? 1 : 0.8);
-    this.drawGlyph(card.icon, boost.icon, this.horizontal ? 42 : 46, ready ? 0x7ff0b8 : 0x5f9c86);
+    this.drawGlyph(card.icon, boost.icon, this.horizontal ? 42 : 40, ready ? 0x7ff0b8 : 0x5f9c86);
     card.name.setText(boost.name);
     card.desc.setText(boost.desc);
     card.level.setText('');
@@ -433,7 +437,7 @@ export class UpgradeList {
     card.cost.setText(status);
     card.cost.setColor(ready ? REWARD_TEXT : '#8fb8a8');
     card.cost.setScale(1);
-    const costRoom = this.cardW - (this.horizontal ? 62 : 130);
+    const costRoom = this.cardW - (this.horizontal ? 62 : COL_TEXT_X + 44);
     if (card.cost.width > costRoom) card.cost.setScale(costRoom / card.cost.width);
     this.fit(card);
   }
@@ -518,7 +522,12 @@ export class UpgradeList {
     const fullyShown = !!target && target.box.visible && target.box.alpha >= this.cardAlpha(target.id) - 0.01;
     const showFree = fullyShown && app.ads.rewardedAvailable && !app.clean && this.opts.freeCooldown() <= 0;
     this.free.setVisible(showFree);
-    if (target && showFree) this.free.setPosition(target.box.x + this.cardW / 2 - 70, target.box.y - this.cardH / 2 + 4);
+    // Over the level in the phone strip's top-right corner; in the desktop column, at the bottom right,
+    // clear of the name and price (user 19/10: it covered the card's title).
+    if (target && showFree) {
+      if (this.horizontal) this.free.setPosition(target.box.x + this.cardW / 2 - 60, target.box.y - this.cardH / 2 + 28);
+      else this.free.setPosition(target.box.x + this.cardW / 2 - 62, target.box.y + this.cardH / 2 - 26);
+    }
     this.placeMore(hidden, buyable);
     this.placeGlow();
   }

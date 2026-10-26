@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { app } from '../app';
 import { Button } from '../ui/button';
 import { homeIcon, playIcon } from '../ui/icons';
-import { soundButton } from '../ui/widgets';
+import { musicButton, soundButton } from '../ui/widgets';
 import type { ViewportInfo } from '../viewport';
 import { BaseScene } from './BaseScene';
 
@@ -15,6 +15,7 @@ export class PauseScene extends BaseScene {
   private resume!: Button;
   private menu: Button | null = null;
   private soundBtn!: Button;
+  private musicBtn: Button | null = null;
 
   constructor() {
     super('Pause');
@@ -49,7 +50,9 @@ export class PauseScene extends BaseScene {
       });
     }
     this.soundBtn = soundButton(this, 0, 0);
-    this.input.keyboard?.on('keydown-ESC', () => this.close());
+    if (app.config.music) this.musicBtn = musicButton(this, 0, 0);
+    // P resumes, as it pauses. Not Esc: in the browser Esc leaves full screen (CrazyGames quality guidelines).
+    this.input.keyboard?.on('keydown-P', () => this.close());
   }
 
   protected layout(vp: ViewportInfo) {
@@ -67,6 +70,7 @@ export class PauseScene extends BaseScene {
     this.resume.setPosition(cx, top + 235);
     this.menu?.setPosition(cx, top + 375);
     this.soundBtn.setPosition(cx + w / 2 - 70, top + 70);
+    this.musicBtn?.setPosition(cx - w / 2 + 70, top + 70);
   }
 
   private close() {

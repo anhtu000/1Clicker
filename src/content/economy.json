@@ -48,6 +48,9 @@
     "keepAverage": 0.5,
     "rollFromTier": 9
   },
+  "reveal": {
+    "fullFromRarity": 3
+  },
   "twinMaxTier": 7,
   "script": {
     "rareScan": 2,

@@ -282,7 +282,7 @@ export class DecorLayer {
         this.at.set(id, { x: img.x, y: img.y });
         this.save(id, img.x, img.y);
         this.moves += 1;
-        app.audio.play('ui-tap', { volume: 0.6 });
+        app.audio.play('place');
       } else {
         const back = this.at.get(id) ?? { x: img.x, y: img.y };
         this.scene.tweens.add({ targets: img, x: back.x, y: back.y, duration: 180, ease: 'Quad.Out' });

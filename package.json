@@ -16,7 +16,7 @@
     "dev:poki": "vite --mode poki",
     "preview": "vite preview --outDir dist/crazygames",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types --test tests/core.test.ts src/logic/run.test.ts src/logic/decor.test.ts",
+    "test": "node --experimental-strip-types --test tests/core.test.ts src/content/sounds.test.ts src/logic/run.test.ts src/logic/decor.test.ts",
     "sync-core": "node scripts/sync-core.mjs",
     "sim": "node --experimental-strip-types tools/sim/run.ts 200",
     "sim:report": "node --experimental-strip-types tools/sim/report.ts"

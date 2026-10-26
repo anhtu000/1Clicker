@@ -1,0 +1,12 @@
+License fields of the two music pages on OpenGameArt, read 21/10/2026 (record for ASSETS.md).
+
+https://opengameart.org/content/exploration-theme
+  Author: CleytonKauffman (posted 22/2/2026, collection "Foxdoor OGA Jam Spring 2026")
+  License(s): CC0
+  Page text: "Loops seamlessly: Yes. Duration: 2:14 ... Credit/Attribution is optional."
+  The zip's readme.txt (copied here as exploration_theme_readme.txt) also says: Creative Commons Zero (CC0).
+
+https://opengameart.org/content/galactic-temple
+  Author: yd (posted 8/8/2013)
+  License(s): CC0 (collection "All CC0 - Uploader: yd")
+  Page text: "Background track. Archive has both ogg and LMMS source."

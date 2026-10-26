@@ -67,7 +67,8 @@ core/        Bộ khung chung. Giống hệt nhau ở 2 repo
   ads.ts       Quảng cáo có thưởng và quảng cáo giữa chừng, tạm dừng và tắt tiếng khi chạy
   save.ts      Lưu tiến trình, tự lưu, đổi phiên bản dữ liệu
   i18n.ts      Chuỗi chữ theo ngôn ngữ, tự nhận ngôn ngữ (RU/BE/KK/UK/UZ dùng tiếng Nga)
-  audio.ts     Âm thanh, tắt/bật, tôn trọng lệnh tắt tiếng của portal
+  audio.ts     Âm thanh, tắt/bật, tôn trọng lệnh tắt tiếng của portal, mức mặc định từng tiếng
+  music.ts     Nhạc nền: danh sách bài, nối vòng liền mạch, chuyển bài có trộn, hạ nhạc dưới tiếng lớn
   pause.ts     Tạm dừng khi chuyển tab hoặc khi có quảng cáo
   fx.ts        Số bay lên, nảy, hạt, rung
   format.ts    Số dạng K/M/B/T, thời lượng, đồng hồ
@@ -110,7 +111,8 @@ Hệ toạ độ: đơn vị thiết kế. Vùng an toàn luôn là 1280×720 (m
 Các dịch vụ dùng qua `app`:
 
 - `app.t('key', { n: 5 })` lấy chuỗi theo ngôn ngữ.
-- `app.audio.play('coin', { pitchJitter: 100 })` phát âm thanh.
+- `app.audio.play('coin', { pitchJitter: 100 })` phát âm thanh. Mức và độ lệch cao độ mặc định của từng tiếng khai báo qua `sounds` trong cấu hình `startGame` (game #1: `src/content/sounds.json`); `volume` truyền vào nhân thêm.
+- Nhạc nền: `music` trong cấu hình `startGame` (danh sách bài, độ dài chính xác, số lần lặp, bài nào nối vòng liền mạch). Nhạc tải ngầm sau màn loading, phát từ lần chạm đầu tiên, tắt theo nút âm thanh, lệnh tắt tiếng của portal, quảng cáo và khi ẩn tab. Người chơi tắt riêng nhạc bằng nút nốt nhạc ở màn tạm dừng. `app.audio.duckMusic()` hạ nhạc trong lúc có tiếng lớn.
 - `save.data.coins += 10` sửa dữ liệu, bộ khung tự lưu mỗi 5 giây, khi chuyển tab và khi đóng trang.
 - `rewardButton(scene, x, y, { label, onReward })` nút xem quảng cáo có thưởng. Thưởng chỉ được trao khi xem xong.
 - `app.ads.midgame()` quảng cáo giữa chừng, chỉ gọi ở điểm nghỉ (bộ khung đã gọi khi quay về menu).

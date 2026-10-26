@@ -54,6 +54,13 @@ const COPY_OFFER_SEC = 8;
 /** Main screen: core to tap, board to merge, shop, and the systems around them. */
 /** The Auto Scan and Auto Merge switches under Scan: two lines of text (name, On/Off). */
 const AUTO_BTN = { w: 164, h: 64, gap: 10 };
+/** Every tutorial step id, for Skip (it ends all hints). collectionTour is the finish screen's walk, not a hint. */
+const TUTORIAL_IDS = ['tap', 'scan', 'scan2', 'merge', 'rarities', 'tapPower', 'goal', 'buy', 'star', 'full', 'probes', 'tapStill', 'rarity', 'reward', 'twin', 'autoScan', 'autoMerge'];
+
+/** Saves tutorial steps as seen. */
+function markSeen(...ids: string[]) {
+  for (const id of ids) if (!save.data.tutorial.includes(id)) save.data.tutorial.push(id);
+}
 /** Desktop: width kept free between the board and the shop for decorations (one item and its margins). */
 const DECOR_LANE = 96;
 
@@ -107,10 +114,6 @@ export class PlayScene extends BaseScene {
   /** Shooting stars on screen, by their index in the run's wave (null once caught). */
   private stars: (ShootingStar | null)[] = [];
   private tutorial!: Tutorial;
-  /** Second tutorial, above panels: walks through the decor shop (user request 12/10). */
-  private guide!: Tutorial;
-  /** The guided first decoration is under way (gift panel, shop, arranging). */
-  private decorFlow = false;
   private step = new FixedStep(STEP_SEC * 1000, () => this.onStep());
   private refreshTimer = 0;
   private shownEnergy = 0;
@@ -144,9 +147,7 @@ export class PlayScene extends BaseScene {
     this.infoSlot = -1;
     this.stuckSince = null;
     this.stuckShown = false;
-    this.introRest = [];
     this.raritiesAt = null;
-    this.decorFlow = false;
 
     if (preset) applyPreset(preset, save.data);
     if (!save.data.run) save.data.run = newRunState(content, 'main', app.rng.int(1, 2 ** 31 - 1));
@@ -187,6 +188,7 @@ export class PlayScene extends BaseScene {
       onFree: (id) => {
         this.run.grant(id);
         this.run.useReward('freeUpgrade', app.ads.rewardsAreFree);
+        app.audio.play('reward');
         this.afterPurchase(id);
       },
       freeCooldown: () => this.run.rewardWait('freeUpgrade'),
@@ -230,9 +232,8 @@ export class PlayScene extends BaseScene {
     this.bestText.setVisible(timed).setText(save.data.bestRunMs ? app.t('finish.best', { t: formatClock(save.data.bestRunMs / 1000) }) : '');
     // A new timed run on a computer: clicks and the Space bar both tap, together too (user 13/10).
     if (timed && this.run.s.time < 1 && !app.platform.isMobile()) this.time.delayedCall(600, () => toast(this, app.t('finish.timedTip'), 4000));
-    // Esc closes an open panel (the panel handles it) or ends arranging; otherwise it pauses.
-    this.input.keyboard?.on('keydown-ESC', () => {
-      if (this.decorFlow) return; // the guided decoration has to be finished
+    // P pauses on a computer. Not Esc: in the browser Esc leaves full screen (CrazyGames quality guidelines, user 19/10).
+    this.input.keyboard?.on('keydown-P', () => {
       if (this.decorLayer.arranging) return this.decorLayer.endArrange();
       if (this.info?.isOpen) return this.closeInfo();
       if (!this.panelsOnScreen()) app.openPause(this);
@@ -246,20 +247,24 @@ export class PlayScene extends BaseScene {
 
     this.tutorial = new Tutorial(this, {
       onStepDone: (id) => {
-        if (!save.data.tutorial.includes(id)) save.data.tutorial.push(id);
+        markSeen(id);
         this.tapsInStep = 0;
-        if (id === 'merge' && !save.data.tutorial.includes('rarities')) this.raritiesAt = this.run.s.time + 0.8;
-      },
-    });
-    // Above panels (1500) and arrange mode, so it can point inside the decor shop.
-    this.guide = new Tutorial(this, {
-      depth: 1600,
-      onStepDone: (id) => {
-        if (!save.data.tutorial.includes(id)) save.data.tutorial.push(id);
-        if (id === 'decor') {
-          this.decorFlow = false;
-          save.flush();
+        // The opening (user 19/10: tap, scan, merge) ends with the rarity panel; closing it marks the old
+        // follow-up steps as seen, which also lets shooting stars and the menu button appear.
+        if (id === 'merge') {
+          if (save.data.tutorial.includes('rarities')) markSeen('tapPower', 'goal');
+          else this.raritiesAt = this.run.s.time + 0.8;
         }
+      },
+      // Every step can be skipped, and Skip ends all hints (CrazyGames quality guidelines, user 19/10).
+      skip: {
+        label: app.t('tut.skip'),
+        onSkip: () => {
+          markSeen(...TUTORIAL_IDS);
+          this.raritiesAt = null;
+          save.flush();
+          this.refreshUi();
+        },
       },
     });
 
@@ -297,8 +302,8 @@ export class PlayScene extends BaseScene {
       const toggleY = stripTop - 12 - AUTO_BTN.h / 2;
       const rowY = toggles.length ? toggleY - AUTO_BTN.h / 2 - 6 - 54 : stripTop - 70;
       const boardBottom = rowY - 72;
-      // energy, rate, core, goal chain in two rows and the label under it (its bottom is at y0 + 504), plus a gap
-      const headH = 520;
+      // energy, rate, core, goal chain in two rows and the label under it (its bottom is at y0 + 516), plus a gap
+      const headH = 532;
       const avail = boardBottom - (top + headH);
       const boardSize = Math.min(vp.width - 96, avail);
       const cell = Math.floor(boardSize / (4 + 3 * 0.08));
@@ -307,9 +312,10 @@ export class PlayScene extends BaseScene {
       this.placeEnergy(cx, y0 + 62);
       this.rateText.setPosition(cx, y0 + 108);
       this.rateRoom = vp.width - 48;
-      this.core.setPosition(cx, y0 + 228);
-      this.core.setRadius(84);
-      this.placeChain(cx, y0 + 352, 540, 80);
+      // The core is what a player taps most: as big as the column allows (user 19/10, after the quality rejection).
+      this.core.setPosition(cx, y0 + 240);
+      this.core.setRadius(96);
+      this.placeChain(cx, y0 + 364, 540, 80);
       const size = cell * 4 + 3 * Math.round(cell * 0.08);
       this.board.layout(cx, boardBottom - size / 2, cell);
       this.scanBtn.setPosition(cx, rowY);
@@ -351,15 +357,15 @@ export class PlayScene extends BaseScene {
       const leftX = x0 + colW / 2;
       // Below the pause row on 16:9; centered with the board when the screen is taller.
       const colTop = Math.max(s.y + 4, 100);
-      // The Auto switches under Scan end at colTop + 558.
+      // The Auto switches under Scan end at colTop + 592 (inside 720 on 16:9).
       this.placeEnergy(leftX, colTop + 34);
       this.rateText.setPosition(leftX, colTop + 76);
       this.rateRoom = colW - 10;
-      this.core.setPosition(leftX, colTop + 160);
-      this.core.setRadius(60);
-      this.placeChain(leftX, colTop + 254, 320, 54);
-      this.scanBtn.setPosition(leftX, colTop + 426);
-      this.placeToggles(this.autoToggles(), leftX, colTop + 526);
+      this.core.setPosition(leftX, colTop + 184);
+      this.core.setRadius(74);
+      this.placeChain(leftX, colTop + 290, 320, 54);
+      this.scanBtn.setPosition(leftX, colTop + 462);
+      this.placeToggles(this.autoToggles(), leftX, colTop + 560);
       this.board.layout(x0 + colW + 24 + size / 2, Math.max(s.y + s.height / 2, colTop + size / 2 - 40), cell);
     }
     this.energyY = this.energyText.y;
@@ -428,8 +434,8 @@ export class PlayScene extends BaseScene {
   update(_time: number, delta: number) {
     if (this.timerText.visible) this.timerText.setText(formatClock(this.run.s.finishedAt ?? this.run.s.time));
     // Reveals and discoveries wait for the guided decoration, which must not be covered.
-    if (!this.revealOpen && this.revealQueue.length && !this.panelsOnScreen() && !this.decorFlow) this.reveal(this.revealQueue.shift()!);
-    if (!this.revealOpen && this.discoveryQueue.length && !this.panelsOnScreen() && !this.decorFlow) {
+    if (!this.revealOpen && this.revealQueue.length && !this.panelsOnScreen()) this.reveal(this.revealQueue.shift()!);
+    if (!this.revealOpen && this.discoveryQueue.length && !this.panelsOnScreen()) {
       const next = this.discoveryQueue.shift()!;
       this.showDiscoveryPanel(next.special, next.rarity);
     }
@@ -473,7 +479,7 @@ export class PlayScene extends BaseScene {
         this.announce(ev.result, false);
       } else if (ev.kind === 'merge') {
         this.board.sync([ev.result.slot, ...(ev.result.twin ? [ev.result.twin.slot] : [])]);
-        this.mergeFx(ev.result);
+        this.mergeFx(ev.result, true);
       } else if (ev.kind === 'star') {
         this.spawnStars(ev.stars);
       } else if (ev.kind === 'starGone') {
@@ -505,14 +511,14 @@ export class PlayScene extends BaseScene {
 
   /** Nothing else on screen: no panel, reveal, tutorial step, arranging or switch. */
   private calm() {
-    return !this.revealOpen && !this.panelsOnScreen() && !this.tutorial.active && !this.decorLayer.arranging && !this.switching && !this.decorFlow;
+    return !this.revealOpen && !this.panelsOnScreen() && !this.tutorial.active && !this.decorLayer.arranging && !this.switching;
   }
 
   // ---------- actions ----------
 
   private spaceAllowed() {
     const id = this.tutorial.currentId;
-    return !this.revealOpen && !this.panelsOnScreen() && !this.decorLayer.arranging && !this.decorFlow && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
+    return !this.revealOpen && !this.panelsOnScreen() && !this.decorLayer.arranging && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
   }
 
   /** Any modal panel open: ours, or the framework's (welcome back, daily gift). */
@@ -527,13 +533,24 @@ export class PlayScene extends BaseScene {
     const { amount, crit } = this.run.tap();
     this.tapsInStep += 1;
     this.core.hit(crit ? 2.5 : 1);
-    floatText(this, x, y - 30, `+${formatNumber(amount)}`, { color: crit ? '#ffd166' : '#ffffff', size: crit ? 64 : 44, rise: crit ? 170 : 120 });
+    // The number drifts out to the side it was tapped on and stops below the energy and rate lines above
+    // the core (user 19/10: they piled up on top of the energy counter).
+    const side = x === this.core.x ? (Math.random() < 0.5 ? -1 : 1) : Math.sign(x - this.core.x);
+    const startY = y - 20;
+    const ceiling = this.rateText.y + this.rateText.displayHeight / 2 + (crit ? 42 : 32);
+    const rise = Phaser.Math.Clamp(startY - ceiling, 16, crit ? 140 : 100);
+    floatText(this, x, startY, `+${formatNumber(amount)}`, {
+      color: crit ? '#ffd166' : '#ffffff',
+      size: crit ? 60 : 42,
+      rise,
+      drift: side * Phaser.Math.Between(crit ? 50 : 30, crit ? 110 : 80),
+    });
     if (crit) {
       burst(this, x, y, 0xffd166, 18, 360);
-      app.audio.play('tap', { pitchJitter: 40, volume: 1 });
+      app.audio.play('tap-crit');
       app.haptic(18);
     } else {
-      app.audio.play('tap', { pitchJitter: 140, volume: 0.75 });
+      app.audio.play('tap');
       app.haptic(6);
     }
     if (this.run.s.taps % 20 === 0) burst(this, this.core.x, this.core.y, 0xa98bff, 10, 220);
@@ -542,11 +559,14 @@ export class PlayScene extends BaseScene {
   private scan() {
     const run = this.run;
     if (!run.canScan()) {
-      if (run.freeSlot() < 0) toast(this, app.t('scan.full'));
+      if (run.freeSlot() < 0) {
+        toast(this, app.t('scan.full'));
+        app.audio.play('deny');
+      }
       return;
     }
     const result = run.scan()!;
-    app.audio.play('buy', { pitchJitter: 120, volume: 0.8 });
+    app.audio.play('scan');
     this.beam(result.slot);
     this.board.sync([result.slot]);
     this.announce(result, false);
@@ -580,8 +600,10 @@ export class PlayScene extends BaseScene {
       this.refreshUi();
     } else if (!run.s.board[to] && run.move(from, to)) {
       this.board.moved(from, to);
+      app.audio.play('place');
     } else if (run.swap(from, to)) {
       this.board.swapped(from, to);
+      app.audio.play('place');
     } else {
       // Nothing changed (for example the body was merged away by Auto Merge while being dragged).
       this.board.sync();
@@ -597,7 +619,7 @@ export class PlayScene extends BaseScene {
     this.core.hit(2);
     floatText(this, this.core.x, this.core.y - 60, app.t('reveal.absorbed', { n: formatNumber(value) }), { color: '#ffd166', size: 56 });
     burst(this, this.core.x, this.core.y, 0xffb36b, 24, 420);
-    app.audio.play('reward', { volume: 0.7 });
+    app.audio.play('absorb');
     return true;
   }
 
@@ -628,7 +650,9 @@ export class PlayScene extends BaseScene {
     if (body.r >= 2) {
       const odds = this.run.rarityOdds()[body.r];
       app.moments.emit('rarePull', { tier: body.r, odds, label: `${body.t}` });
-      this.reveal(result);
+      // Full screen only for Legendary and up (user 19/10: Epic came every few seconds and stopped play each time).
+      if (body.r >= content.economy.reveal.fullFromRarity) this.reveal(result);
+      else this.rareInPlace(result, odds);
     } else if (body.r === 1 || result.isNew || lucky) {
       const text = body.r === 1 ? app.t('rarity.rare') : app.t('reveal.new');
       floatText(this, p.x, p.y - 40, text, { color: RARITY_CSS[body.r], size: 34, rise: 80 });
@@ -636,12 +660,24 @@ export class PlayScene extends BaseScene {
     if (body.r >= 1) burst(this, p.x, p.y, RARITY_COLOR[body.r], 12 + body.r * 6, 320);
   }
 
+  /** A rare find that does not stop play: its rarity and odds rise from the body, with a bigger burst. */
+  private rareInPlace(result: NewBody, odds: number) {
+    const { body } = result;
+    const p = this.board.slotPos(result.slot);
+    const name = app.t(`rarity.${content.rarities[body.r].id}`);
+    floatText(this, p.x, p.y - 46, `${name}!`, { color: RARITY_CSS[body.r], size: 46, rise: 110 });
+    floatText(this, p.x, p.y + 4, app.t('reveal.odds', { n: formatNumber(Math.round(1 / odds)) }), { color: '#ffffff', size: 30, rise: 80 });
+    burst(this, p.x, p.y, RARITY_COLOR[body.r], 30, 420);
+    this.board.sprite(result.slot)?.bump(0.35);
+    app.audio.play('rare');
+  }
+
   /** Reveals wait for each other: auto merge, twins and scans can make several Epic or rarer bodies close together. */
   private revealQueue: NewBody[] = [];
 
   private reveal(result: NewBody) {
     // One at a time, and never over a panel (welcome back, finish): queued until the screen is clear.
-    if (this.revealOpen || this.panelsOnScreen() || this.decorFlow) {
+    if (this.revealOpen || this.panelsOnScreen()) {
       this.revealQueue.push(result);
       return;
     }
@@ -662,7 +698,8 @@ export class PlayScene extends BaseScene {
     });
   }
 
-  private mergeFx(result: MergeResult) {
+  /** auto: made by Auto Merge, which can fire every few seconds, so its chime is quieter. */
+  private mergeFx(result: MergeResult, auto = false) {
     const p = this.board.slotPos(result.slot);
     const color = RARITY_COLOR[result.body.r];
     burst(this, p.x, p.y, color, 16 + result.body.t * 2, 300 + result.body.t * 20);
@@ -671,8 +708,8 @@ export class PlayScene extends BaseScene {
     if (result.bonus > 0) {
       floatText(this, p.x, p.y + this.board.cell * 0.15, `+${formatNumber(result.bonus)}`, { color: '#ffd166', size: 34 + Math.min(16, result.body.r * 4), rise: 90 });
     }
-    // Pitch rises with tier, so climbing the chain sounds like progress.
-    app.audio.play('buy', { volume: 0.9, detune: (result.body.t - 5) * 90 });
+    // One chime per tier, climbing the scale, so going up the chain sounds like progress (tools/make_sfx.py).
+    app.audio.play(`merge-${Phaser.Math.Clamp(result.body.t, 2, 10)}`, { volume: auto ? 0.6 : 1 });
     app.haptic(12);
     app.moments.emit('merge', { level: result.body.t });
     if (result.twin) {
@@ -710,7 +747,7 @@ export class PlayScene extends BaseScene {
     burst(this, p.x, p.y, 0xffd166, 40, 520);
     burst(this, p.x, p.y, 0x9fd8ff, 24, 380);
     this.board.sprite(made.slot)?.bump(0.4);
-    app.audio.play('reward');
+    app.audio.play('rare');
     app.haptic(30);
     app.moments.emit('collectionNew', { id: `s.${made.special.id}.${made.body.r}` });
     const name = `${app.t(`rarity.${content.rarities[made.body.r].id}`)} ${app.t(`special.${made.special.id}.name`)}`;
@@ -843,8 +880,12 @@ export class PlayScene extends BaseScene {
 
   private useLucky() {
     const result = this.run.luckyScan();
-    if (!result) return toast(this, app.t('scan.full'));
+    if (!result) {
+      app.audio.play('deny');
+      return toast(this, app.t('scan.full'));
+    }
     this.run.useReward('luckyScan', app.ads.rewardsAreFree);
+    app.audio.play('reward');
     this.board.sync([result.slot]);
     this.beam(result.slot);
     this.announce(result, true);
@@ -856,6 +897,7 @@ export class PlayScene extends BaseScene {
     this.run.useReward('twin', app.ads.rewardsAreFree);
     this.copyOffer = null;
     if (copy) {
+      app.audio.play('reward');
       this.board.sync([copy.slot]);
       this.announce(copy, false);
       const p = this.board.slotPos(copy.slot);
@@ -900,9 +942,10 @@ export class PlayScene extends BaseScene {
     if (!value) return;
     this.starsCaught += 1;
     floatText(this, star.x, star.y - 20, `+${formatNumber(value)}`, { color: golden ? '#ffd166' : '#cfe8ff', size: golden ? 64 : 50 });
-    if (golden) toast(this, app.t('star.golden'), 1500);
+    // By the star, not a toast at the bottom: a toast landed on top of the reveal screen (user 19/10).
+    if (golden) floatText(this, star.x, star.y + 34, app.t('star.golden'), { color: '#ffd166', size: 34, rise: 60, durationMs: 1100 });
     burst(this, star.x, star.y, golden ? 0xffd166 : 0x9fd8ff, golden ? 30 : 18, 380);
-    app.audio.play('reward', { volume: 0.8 });
+    app.audio.play(golden ? 'star-gold' : 'star');
     app.haptic(20);
     this.stars[i] = null;
     star.destroy();
@@ -1100,7 +1143,8 @@ export class PlayScene extends BaseScene {
     for (let i = 0; i < 6; i++) {
       this.time.delayedCall(i * 180, () => burst(this, vp.width * (0.2 + Math.random() * 0.6), vp.height * (0.15 + Math.random() * 0.3), [0xffd166, 0x9fd8ff, 0xd38bff][i % 3], 26, 520));
     }
-    app.audio.play('reward');
+    app.audio.play('finish');
+    app.audio.duckMusic(0.3, 3);
   }
 
   /** Explains the timed run, then starts it. Opened from the stopwatch button. */
@@ -1165,19 +1209,19 @@ export class PlayScene extends BaseScene {
     // The menu shows once the opening steps are done, so it does not pull a new player away from the core.
     const menuOn = this.run.s.mode === 'speedrun' || save.data.tutorial.includes('goal');
     this.menuBtn.setVisible(menuOn);
-    this.menuDot.setVisible(menuOn && dailyClaimable());
+    this.menuDot.setVisible(menuOn && (dailyClaimable() || !!save.data.decorNew));
   }
 
   // ---------- menu, body card, decorations, stuck board (CLAUDE.md 4b items 8-10) ----------
 
   private showMenu() {
-    if (this.panelsOnScreen() || this.switching || this.decorLayer.arranging || this.decorFlow) return;
+    if (this.panelsOnScreen() || this.switching || this.decorLayer.arranging) return;
     this.closeInfo();
     const timed = this.run.s.mode === 'speedrun';
     const entries: MenuEntry[] = [
       { label: app.t('menu.daily'), icon: icons.giftIcon, badge: dailyClaimable(), onClick: () => this.showDaily() },
       { label: app.t('menu.collection'), icon: collectionIcon, onClick: () => this.showCollectionPanel() },
-      { label: app.t('menu.decor'), icon: decorIcon, onClick: () => this.openDecorShop() },
+      { label: app.t('menu.decor'), icon: decorIcon, badge: !!save.data.decorNew, onClick: () => this.openDecorShop() },
     ];
     if (save.data.decor.shown.length) entries.push({ label: app.t('menu.arrange'), icon: arrangeIcon, onClick: () => this.arrangeDecor() });
     if (timed) entries.push({ label: app.t('menu.leave'), icon: icons.homeIcon, onClick: () => this.showLeavePanel() });
@@ -1198,8 +1242,12 @@ export class PlayScene extends BaseScene {
   }
 
   private openDecorShop() {
+    // After the crystal gift, open where the first affordable decoration is.
+    const tab = save.data.decorNew ? 'planet' : undefined;
+    save.data.decorNew = false;
     this.openPanels += 1;
     showDecorShop(this, {
+      tab,
       onBackground: (id) => this.bg.setTheme(id),
       showItem: (id) => this.decorLayer.show(id),
       hideItem: (id) => this.decorLayer.hide(id),
@@ -1333,7 +1381,7 @@ export class PlayScene extends BaseScene {
     addCrystals(this, value, true);
     floatText(this, p.x, p.y - 30, app.t('crystal.got', { n: value }), { color: '#bff4ff', size: 40 });
     burst(this, p.x, p.y, 0x7fe8ff, 24, 380);
-    app.audio.play('reward', { volume: 0.8 });
+    app.audio.play('crystal');
     this.refreshUi();
   }
 
@@ -1464,7 +1512,7 @@ export class PlayScene extends BaseScene {
     floatText(this, this.core.x, this.core.y - 60, app.t('reveal.absorbed', { n: formatNumber(value * mult) }), { color: '#ffd166', size: 56 });
     burst(this, from.x, from.y, 0xffb36b, 16, 300);
     burst(this, this.core.x, this.core.y, 0xffb36b, 24, 420);
-    app.audio.play('reward', { volume: 0.7 });
+    app.audio.play('absorb');
     this.refreshUi();
   }
 
@@ -1487,6 +1535,7 @@ export class PlayScene extends BaseScene {
       iconColor: 0xffc23d,
       onCollect: (value) => {
         this.run.addEnergy(value);
+        app.audio.play('reward');
         this.refreshUi();
       },
     });
@@ -1504,7 +1553,7 @@ export class PlayScene extends BaseScene {
 
   private queueOnce(id: string, steps: TutorialStep[]) {
     // Not over the guided decoration: the trigger comes again later (next star, next merge...).
-    if (save.data.tutorial.includes(id) || this.queued.has(id) || this.decorFlow) return;
+    if (save.data.tutorial.includes(id) || this.queued.has(id)) return;
     this.queued.add(id);
     this.tutorial.queue(steps);
   }
@@ -1520,10 +1569,10 @@ export class PlayScene extends BaseScene {
     const coreRect = () => ({ x: this.core.x, y: this.core.y, w: this.core.radius * 2.2, h: this.core.radius * 2.2 });
     const scanRect = () => ({ x: this.scanBtn.x, y: this.scanBtn.y, w: 300, h: 108 });
     const desktop = !app.platform.isMobile();
+    // Three things to do (user 19/10): tap, scan (twice, for a pair), merge. Then the rarity panel.
     const first: TutorialStep[] = [
       { id: 'tap', text: app.t(desktop ? 'tut.tapDesktop' : 'tut.tapMobile'), target: coreRect, done: () => this.tapsInStep >= 5 },
-      { id: 'scan', text: app.t('tut.scan'), target: scanRect, done: () => this.run.s.scans >= 1 },
-      { id: 'scan2', text: app.t('tut.scanAgain'), target: scanRect, done: () => this.run.s.scans >= 2 },
+      { id: 'scan', text: app.t('tut.scan'), target: scanRect, done: () => this.run.s.scans >= 2 },
       {
         id: 'merge',
         text: app.t('tut.merge'),
@@ -1532,24 +1581,14 @@ export class PlayScene extends BaseScene {
         done: () => this.run.s.merges >= 1,
       },
     ];
-    const rest: TutorialStep[] = [
-      { id: 'tapPower', text: app.t('tut.power'), target: coreRect, done: () => this.tapsInStep >= 5 },
-      {
-        id: 'goal',
-        text: app.t('tut.goal'),
-        target: () => ({ x: this.chainCenter.x, y: this.chainCenter.y, w: this.chainCenter.w + 10, h: this.chainCenter.h }),
-        ack: app.t('tut.ok'),
-      },
-    ];
-    const todo = (list: TutorialStep[]) => list.filter((s) => !save.data.tutorial.includes(s.id));
-    this.introRest = todo(rest);
-    if (todo(first).length) this.tutorial.queue(todo(first));
+    // Saves from the longer opening: a step done there counts here (scan2 was the second scan).
+    if (save.data.tutorial.includes('scan2')) markSeen('scan');
+    const todo = first.filter((st) => !save.data.tutorial.includes(st.id));
+    if (todo.length) this.tutorial.queue(todo);
     else if (!save.data.tutorial.includes('rarities')) this.raritiesAt = this.run.s.time;
-    else this.tutorial.queue(this.introRest);
+    else markSeen('tapPower', 'goal');
   }
 
-  /** Opening steps left after the rarity panel. */
-  private introRest: TutorialStep[] = [];
   /** Run time at which the rarity panel opens (a moment after the first merge, so its effect is seen). */
   private raritiesAt: number | null = null;
 
@@ -1559,16 +1598,15 @@ export class PlayScene extends BaseScene {
     this.openPanels += 1;
     showRarities(this, Math.max(2, this.run.s.highestTier), () => {
       this.openPanels = Math.max(0, this.openPanels - 1);
-      if (!save.data.tutorial.includes('rarities')) save.data.tutorial.push('rarities');
+      markSeen('rarities', 'tapPower', 'goal');
       save.flush();
-      this.tutorial.queue(this.introRest);
-      this.introRest = [];
+      this.refreshUi();
     });
   }
 
   /** Teaches each new thing the first time it shows up. Runs with the UI refresh. */
   private checkTutorialTriggers() {
-    if (!save.data.tutorial.includes('goal') || this.tutorial.active || this.revealOpen || this.decorLayer.arranging || this.decorFlow) return;
+    if (!save.data.tutorial.includes('goal') || this.tutorial.active || this.revealOpen || this.decorLayer.arranging) return;
     const run = this.run;
     const focus = run.upgrade('focus');
     if (run.s.energy >= run.upgradeCost(focus) && run.level('focus') === 0) {
@@ -1576,10 +1614,14 @@ export class PlayScene extends BaseScene {
       this.queueOnce('buy', [{ id: 'buy', text: app.t('tut.upgrade'), target: () => this.shop.cardRect('focus'), done: () => run.level('focus') > 0 }]);
       return;
     }
-    // First Comet in the main run: a crystal gift and a guided first decoration (user request 12/10).
-    if (run.s.mode === 'main' && run.s.highestTier >= decor.guide.atTier && !save.data.tutorial.includes('decor')) {
-      if (this.calm()) this.startDecorGuide();
-      return;
+    // First Comet in the main run: crystals for a first decoration and a dot on the menu (user 19/10:
+    // before, a guided purchase and placement took over the screen in the first minute).
+    if (run.s.mode === 'main' && run.s.highestTier >= decor.guide.atTier && !save.data.tutorial.includes('decorGift')) {
+      markSeen('decorGift', 'decorBuy', 'decorArrange', 'decorDrag', 'decor');
+      save.data.decorNew = true;
+      addCrystals(this, decor.guide.crystals, true);
+      toast(this, app.t('decorTut.gift', { n: decor.guide.crystals }), 3500);
+      this.refreshUi();
     }
     if (run.freeSlot() < 0 && !run.findPair()) {
       this.queueOnce('full', [{ id: 'full', text: app.t('tut.full'), target: () => ({ x: this.board.x, y: this.board.y, w: this.board.size, h: this.board.size }), ack: app.t('tut.ok') }]);
@@ -1591,7 +1633,6 @@ export class PlayScene extends BaseScene {
       this.shop.reveal('fleet');
       this.queueOnce('probes', [
         { id: 'probes', text: app.t('tut.probes'), target: () => this.shop.cardRect('fleet'), done: () => run.level('fleet') > 0 },
-        { id: 'tapStill', text: app.t('tut.tapStill'), target: () => ({ x: this.core.x, y: this.core.y, w: this.core.radius * 2.2, h: this.core.radius * 2.2 }), ack: app.t('tut.ok') },
       ]);
       return;
     }
@@ -1612,88 +1653,6 @@ export class PlayScene extends BaseScene {
       this.shop.reveal(BOOST_CARD);
       this.queueOnce('reward', [{ id: 'reward', text: app.t('tut.reward'), target: () => this.shop.cardRect(BOOST_CARD), ack: app.t('tut.ok') }]);
     }
-  }
-
-  // ---------- guided first decoration (user request 12/10) ----------
-
-  private startDecorGuide() {
-    this.decorFlow = true;
-    this.closeInfo();
-    if (save.data.tutorial.includes('decorGift')) this.openGuidedShop();
-    else this.showDecorGift();
-  }
-
-  /** Crystals for the first decoration. Saved as soon as they are claimed, so a reload never gives them twice. */
-  private showDecorGift() {
-    const n = decor.guide.crystals;
-    const panel = this.openPanel({ title: app.t('decorTut.title'), width: 600, height: 600, closable: false });
-    const font = { fontFamily: app.theme.font, resolution: app.textResolution };
-    const y0 = panel.top + 70;
-    const gem = this.add.graphics();
-    crystalIcon(gem, 96, 0x7fe8ff);
-    const amount = this.add.text(0, y0, `+${n}`, { ...font, fontStyle: '900', fontSize: 72, color: '#bff4ff' }).setOrigin(0, 0.5);
-    const rowW = 96 + 18 + amount.width;
-    gem.setPosition(-rowW / 2 + 48, y0);
-    amount.setX(-rowW / 2 + 96 + 18);
-    this.tweens.add({ targets: gem, scale: 1.08, duration: 700, yoyo: true, repeat: -1, ease: 'Sine.InOut' });
-    const text = this.add
-      .text(0, y0 + 90, app.t('decorTut.text'), { ...font, fontStyle: '700', fontSize: 28, color: app.theme.surfaceText, align: 'center', wordWrap: { width: panel.panelWidth - 90 } })
-      .setOrigin(0.5, 0);
-    const claim = new Button(this, 0, panel.bottom - 80, {
-      label: app.t('decorTut.claim'),
-      width: 280,
-      height: 96,
-      fontSize: 34,
-      onClick: () => {
-        addCrystals(this, n, true);
-        if (!save.data.tutorial.includes('decorGift')) save.data.tutorial.push('decorGift');
-        save.flush();
-        app.audio.play('reward');
-        panel.close();
-        this.time.delayedCall(260, () => this.openGuidedShop());
-      },
-    });
-    panel.content.add([gem, amount, text, claim]);
-    burst(this, this.vp.width / 2, this.vp.height / 2 - 120, 0x7fe8ff, 24, 420);
-  }
-
-  /** Decor shop on the item's tab; the guide points at buy, Arrange, the item, then Done. Taps elsewhere are blocked. */
-  private openGuidedShop() {
-    const d = save.data.decor;
-    const item = decor.items.find((it) => it.id === decor.guide.item)!;
-    const name = app.t(`decor.name.${item.id}`);
-    // No room to show one more item (only possible after many purchases): nothing to teach.
-    if (!d.shown.includes(item.id) && d.shown.length >= decor.maxShown) {
-      save.data.tutorial.push('decor');
-      this.decorFlow = false;
-      return;
-    }
-    // Crystals spent elsewhere after the gift (a reload, the home screen): top up so the step can be done.
-    const owned = d.owned.includes(item.id);
-    if (!owned && save.data.crystals < item.price) save.data.crystals = item.price;
-    this.openPanels += 1;
-    const shop = showDecorShop(this, {
-      guided: item.id,
-      onBackground: (id) => this.bg.setTheme(id),
-      showItem: (id) => this.decorLayer.show(id),
-      hideItem: (id) => this.decorLayer.hide(id),
-      onArrange: () => this.arrangeDecor(),
-      onClose: () => (this.openPanels = Math.max(0, this.openPanels - 1)),
-    });
-    const layer = this.decorLayer;
-    this.guide.queue([
-      { id: 'decorBuy', text: app.t(owned ? 'decorTut.show' : 'decorTut.buy', { name }), target: () => shop.itemButton(item.id), done: () => d.shown.includes(item.id) || (!owned && d.owned.includes(item.id)) },
-      { id: 'decorArrange', text: app.t('decorTut.arrange'), target: () => shop.arrangeButton(), done: () => layer.arranging },
-      // The hand drags towards a free spot; with no other room (or the item off screen) the step is skipped.
-      {
-        id: 'decorDrag',
-        text: app.t('decorTut.drag', { name }),
-        target: () => layer.itemRect(item.id),
-        dragTo: () => layer.suggestSpot(item.id),
-        done: () => layer.moves > 0 || !layer.arranging || !layer.suggestSpot(item.id),
-      },
-      { id: 'decor', text: app.t('decorTut.done'), target: () => layer.doneRect(), done: () => !layer.arranging },
-    ]);
   }
 
   /**

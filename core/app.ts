@@ -1,7 +1,8 @@
 import Phaser from 'phaser';
 import './styles.css';
 import { AdManager, type AdOptions } from './ads';
-import { AudioManager } from './audio';
+import { AudioManager, type SoundDefaults } from './audio';
+import type { MusicConfig } from './music';
 import { DebugOverlay } from './debug';
 import { Emitter } from './emitter';
 import { loadFonts } from './fonts';
@@ -44,6 +45,10 @@ export interface GameConfig {
   menuScene?: string;
   /** Queue the game's assets. They load behind the loading bar. */
   preload?: (scene: Phaser.Scene) => void;
+  /** Default level and pitch spread per sound key (app.audio.play multiplies on top). */
+  sounds?: Record<string, SoundDefaults>;
+  /** Background music. It loads after the loading screen and starts with the first tap or key. */
+  music?: MusicConfig;
   save: SaveStore<any>;
   /** Seconds between autosaves. Default 5. */
   autosaveSec?: number;
@@ -192,6 +197,7 @@ class App extends Emitter<{ language: [lang: string] }> {
     this.save.load(this.platform.storage);
 
     this.audio = new AudioManager(this.settings);
+    this.audio.setSounds(config.sounds ?? {});
     this.pause = new PauseManager();
     this.gameplay = new GameplayTracker(this.platform);
     this.ads = new AdManager(this.platform, this.pause, {

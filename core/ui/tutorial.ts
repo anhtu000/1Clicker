@@ -4,7 +4,8 @@ import { Button } from './button';
 
 // Step-by-step tutorial (CLAUDE.md 4.2): one short line per step, a hand pointing at the right place,
 // and the step only moves on when the player does what it says. Taps outside the target are blocked.
-// Steps teach by doing, so each one should give a reward right away.
+// Steps teach by doing, so each one should give a reward right away. With `skip`, every step shows a
+// Skip button that ends the whole tutorial (CrazyGames quality guidelines: onboarding must be skippable).
 
 /** A rectangle in scene coordinates, given by its center and size. */
 export interface TutorialTarget {
@@ -35,6 +36,8 @@ export interface TutorialOptions {
   /** Called after each step, with its id. Save it here. */
   onStepDone?: (id: string) => void;
   depth?: number;
+  /** A Skip button on every step. onSkip gets the ids of the step on screen and of those still queued. */
+  skip?: { label: string; onSkip: (ids: string[]) => void };
 }
 
 const PAD = 18;
@@ -57,6 +60,7 @@ export class Tutorial {
   private bubbleText: Phaser.GameObjects.Text;
   private hand: Phaser.GameObjects.Graphics;
   private ackButton: Button | null = null;
+  private skipButton: Button | null = null;
   private hole: TutorialTarget | null = null;
   private time = 0;
   private stepStarted = 0;
@@ -95,6 +99,18 @@ export class Tutorial {
     this.bubble = scene.add.container(0, 0, [this.bubbleBg, this.bubbleText]).setDepth(depth + 2);
     this.hand = scene.add.graphics().setDepth(depth + 3);
     drawHand(this.hand);
+    if (options.skip) {
+      this.skipButton = new Button(scene, 0, 0, {
+        label: options.skip.label,
+        width: 180,
+        height: 72,
+        fontSize: 28,
+        color: theme.surface,
+        textColor: theme.surfaceText,
+        onClick: () => this.skipAll(),
+      });
+      this.skipButton.setDepth(depth + 4);
+    }
     this.hide();
 
     const onUpdate = (_t: number, delta: number) => this.update(delta);
@@ -126,6 +142,17 @@ export class Tutorial {
     this.next();
   }
 
+  /** Ends the step on screen and drops the queued ones; the game marks them all as seen. */
+  skipAll() {
+    const ids = [this.current?.id, ...this.steps.map((st) => st.id)].filter((id): id is string => !!id);
+    this.steps = [];
+    this.current = null;
+    this.ackButton?.destroy();
+    this.ackButton = null;
+    this.hide();
+    this.opts.skip?.onSkip(ids);
+  }
+
   private next() {
     this.ackButton?.destroy();
     this.ackButton = null;
@@ -149,6 +176,7 @@ export class Tutorial {
       this.ackButton.setDepth((this.opts.depth ?? 1400) + 4);
     }
     this.shade.setVisible(true);
+    this.skipButton?.setVisible(true);
     this.bubble.setVisible(true).setAlpha(0);
     this.scene.tweens.add({ targets: this.bubble, alpha: 1, duration: 200 });
     this.layout();
@@ -156,6 +184,7 @@ export class Tutorial {
 
   private hide() {
     this.shade.clear().setVisible(false);
+    this.skipButton?.setVisible(false);
     this.bubble.setVisible(false);
     this.hand.setVisible(false);
     this.hole = null;
@@ -188,7 +217,8 @@ export class Tutorial {
     const g = this.shade;
     g.clear();
     const h = this.hole;
-    const dim = step.ack && !h ? 0.6 : 0.5;
+    // Light enough that the game still reads around the hole (user 19/10: the opening looked too dark).
+    const dim = step.ack && !h ? 0.5 : 0.35;
     g.fillStyle(0x000000, dim);
     if (!h) {
       g.fillRect(0, 0, vp.width, vp.height);
@@ -232,6 +262,7 @@ export class Tutorial {
     by = Phaser.Math.Clamp(by, safe.y + bh / 2 + 20, safe.y + safe.height - bh / 2 - (this.ackButton ? 140 : 20));
     this.bubble.setPosition(vp.width / 2, by);
     this.ackButton?.setPosition(vp.width / 2, by + bh / 2 + 70);
+    if (this.skipButton) this.placeSkip(vp, { x: vp.width / 2, y: by, w: bw, h: bh });
 
     // Hand: taps the target, or slides from target to dragTo.
     if (target) {
@@ -253,6 +284,35 @@ export class Tutorial {
       this.hand.setVisible(false);
     }
   }
+
+  private placeSkip(vp: Parameters<typeof skipSpot>[0], bubble: TutorialTarget) {
+    const ack = this.ackButton ? { x: this.ackButton.x, y: this.ackButton.y, w: 300, h: 92 } : null;
+    const p = skipSpot(vp, [this.hole, bubble, ack], { w: 180, h: 72 });
+    this.skipButton!.setPosition(p.x, p.y);
+  }
+}
+
+/** Skip goes to the first corner or edge spot clear of the hole, the bubble and the ack button. */
+export function skipSpot(
+  vp: { width: number; height: number; safe: { x: number; y: number; width: number; height: number } },
+  avoid: (TutorialTarget | null)[],
+  size: { w: number; h: number },
+): { x: number; y: number } {
+  const s = vp.safe;
+  const m = 20;
+  const topCenter = { x: s.x + s.width / 2, y: s.y + size.h / 2 + m };
+  const topRight = { x: s.x + s.width - size.w / 2 - m, y: s.y + size.h / 2 + m };
+  // A phone's top center holds the energy counter; its top-right corner is free while the tutorial runs.
+  const portrait = vp.height > vp.width;
+  const spots = [
+    ...(portrait ? [topRight, topCenter] : [topCenter, topRight]),
+    { x: s.x + s.width / 2, y: s.y + s.height - size.h / 2 - m },
+    { x: s.x + s.width - size.w / 2 - m, y: s.y + s.height - size.h / 2 - m },
+    { x: s.x + size.w / 2 + m, y: s.y + s.height - size.h / 2 - m },
+  ];
+  const clear = (p: { x: number; y: number }) =>
+    avoid.every((r) => !r || Math.abs(p.x - r.x) > (r.w + size.w) / 2 + PAD || Math.abs(p.y - r.y) > (r.h + size.h) / 2 + PAD);
+  return spots.find(clear) ?? spots[0];
 }
 
 /** The part of a target inside the screen (minus the frame's padding), or null when none of it is. */

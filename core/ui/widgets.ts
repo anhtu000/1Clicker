@@ -3,7 +3,7 @@ import { app } from '../app';
 import { formatCountdown } from '../format';
 import { toast } from './toast';
 import { Button } from './button';
-import { soundOffIcon, soundOnIcon, videoIcon } from './icons';
+import { musicOffIcon, musicOnIcon, soundOffIcon, soundOnIcon, videoIcon } from './icons';
 
 /** Square mute toggle. Follows the portal's forced mute and greys out while it is on. */
 export function soundButton(scene: Phaser.Scene, x: number, y: number, size = 96) {
@@ -18,6 +18,26 @@ export function soundButton(scene: Phaser.Scene, x: number, y: number, size = 96
   const refresh = () => {
     button.setIcon(app.audio.muted ? soundOffIcon : soundOnIcon);
     button.setEnabled(app.audio.canToggle);
+  };
+  refresh();
+  const off = app.audio.on('change', refresh);
+  button.once(Phaser.GameObjects.Events.DESTROY, off);
+  return button;
+}
+
+/** Square music toggle (sound effects stay on). Greyed out while all sound is muted. */
+export function musicButton(scene: Phaser.Scene, x: number, y: number, size = 96) {
+  const button = new Button(scene, x, y, {
+    icon: app.audio.musicOn ? musicOnIcon : musicOffIcon,
+    width: size,
+    height: size,
+    color: app.theme.surface,
+    textColor: app.theme.surfaceText,
+    onClick: () => app.audio.toggleMusic(),
+  });
+  const refresh = () => {
+    button.setIcon(app.audio.musicOn ? musicOnIcon : musicOffIcon);
+    button.setEnabled(!app.audio.muted);
   };
   refresh();
   const off = app.audio.on('change', refresh);
