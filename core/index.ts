@@ -9,6 +9,7 @@ export type { SoundDefaults, PlayOptions } from './audio';
 export type { MusicConfig, MusicTrack } from './music';
 export { toast } from './ui/toast';
 export { Panel, type PanelOptions } from './ui/panel';
+export { confirmPanel, type ConfirmText } from './ui/confirm';
 export { Tutorial, type TutorialStep, type TutorialTarget } from './ui/tutorial';
 export { showOfflinePanel, showDailyPanel, dailyDayIndex, type DailyRewardView } from './ui/rewardPanels';
 export * as icons from './ui/icons';

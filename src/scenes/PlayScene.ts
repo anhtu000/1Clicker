@@ -4,6 +4,8 @@ import {
   BaseScene,
   Button,
   burst,
+  confirmPanel,
+  type ConfirmText,
   FixedStep,
   floatText,
   formatClock,
@@ -138,6 +140,12 @@ export class PlayScene extends BaseScene {
     this.starsCaught = 0;
     this.revealOpen = false;
     this.revealQueue = [];
+    // The pause screen's menu button asks before dropping a timed run (user 28/10).
+    const warning = () => this.quitWarning();
+    app.leaveWarning = warning;
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      if (app.leaveWarning === warning) app.leaveWarning = null;
+    });
     this.discoveryQueue = [];
     this.queued = new Set();
     this.finishPending = null;
@@ -1185,6 +1193,23 @@ export class PlayScene extends BaseScene {
     this.scene.restart();
   }
 
+  /**
+   * A timed run still going: going to the main menu drops it and it does not count toward the records
+   * (user 28/10). Asked from the pause screen and from the Board full panel. null when nothing is lost.
+   */
+  private quitWarning(): ConfirmText | null {
+    if (!this.run || this.run.s.mode !== 'speedrun' || this.run.s.finishedAt !== null) return null;
+    return { title: app.t('finish.quitTitle'), text: app.t('finish.quitText'), confirm: app.t('finish.quit'), cancel: app.t('finish.stay') };
+  }
+
+  /** Main menu from inside the scene (Board full panel): asks first during a timed run. */
+  private toMenuAsking() {
+    const warning = this.quitWarning();
+    if (!warning) return app.toMenu();
+    this.openPanels += 1;
+    confirmPanel(this, warning, () => app.toMenu(), () => (this.openPanels = Math.max(0, this.openPanels - 1)));
+  }
+
   private leaveTimedRun() {
     if (this.switching) return;
     this.switching = true;
@@ -1489,7 +1514,7 @@ export class PlayScene extends BaseScene {
       fontSize: 28,
       color: app.theme.surface,
       textColor: app.theme.surfaceText,
-      onClick: () => app.toMenu(),
+      onClick: () => this.toMenuAsking(),
     });
     const ring = this.add.graphics();
     ring.lineStyle(3, 0xffffff, 0.22);

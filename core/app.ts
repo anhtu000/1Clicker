@@ -20,6 +20,7 @@ import { QualityGovernor } from './quality';
 import { BootScene } from './scenes/BootScene';
 import { MenuScene } from './scenes/MenuScene';
 import { PauseScene } from './scenes/PauseScene';
+import type { ConfirmText } from './ui/confirm';
 
 const CORE_STRINGS: Record<string, LangFile> = { en: coreEn, ru: coreRu };
 
@@ -104,6 +105,12 @@ class App extends Emitter<{ language: [lang: string] }> {
   readonly moments = new Moments();
   /** ?clean: no ad buttons, no toasts, no debug box, no mouse cursor. For recording videos (CLAUDE.md 5c, A4). */
   clean = false;
+  /**
+   * Set by a gameplay scene while leaving for the menu would lose something (for example a timed run
+   * that would not count). The pause screen's menu button asks with these words first; null leaves at once.
+   * The scene clears it when it shuts down.
+   */
+  leaveWarning: (() => ConfirmText | null) | null = null;
 
   /** Translate a key of the current language. */
   t(key: string, vars?: Record<string, string | number>) {

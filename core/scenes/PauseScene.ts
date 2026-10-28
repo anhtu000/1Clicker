@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { app } from '../app';
 import { Button } from '../ui/button';
+import { confirmPanel } from '../ui/confirm';
 import { homeIcon, playIcon } from '../ui/icons';
 import { musicButton, soundButton } from '../ui/widgets';
 import type { ViewportInfo } from '../viewport';
@@ -46,7 +47,12 @@ export class PauseScene extends BaseScene {
         fontSize: 36,
         color: app.theme.surface,
         textColor: app.theme.surfaceText,
-        onClick: () => void app.toMenu(),
+        onClick: () => {
+          // A scene that would lose something (a timed run) asks first.
+          const warning = app.leaveWarning?.();
+          if (warning) confirmPanel(this, warning, () => app.toMenu());
+          else app.toMenu();
+        },
       });
     }
     this.soundBtn = soundButton(this, 0, 0);
