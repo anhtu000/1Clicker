@@ -89,7 +89,11 @@ export interface EconomyDef {
    * Energy for each merge, as a share of the current scan price.
    * scanShare[tier - 1][rarity]: tier of the pair, rarity of the rarer body (CLAUDE.md 4b).
    */
-  mergeBonus: { scanShare: number[][] };
+  mergeBonus: {
+    scanShare: number[][];
+    /** Multiplier in the main run after the Galaxy (user 28/10: 0.4, i.e. 60% less). Timed runs never use it. */
+    endlessMult?: number;
+  };
   /** Highest tier the Binary Merge upgrade can copy. The rewarded copy has its own, lower cap (rewarded.twin.maxTier). */
   twinMaxTier: number;
   /** Shooting stars: tap one for a burst of energy. Fills the wait between purchases. */
@@ -109,6 +113,12 @@ export interface EconomyDef {
     doubleChance?: number;
     /** Star value multiplier in the main run after the Galaxy, while hunting the collection (user 13/10: 2). */
     valueMultEndless?: number;
+    /**
+     * Main run after the Galaxy only (user 28/10): a star gives less while the player already holds a lot of
+     * energy. Holding more than aboveScanCosts x the current scan price multiplies the star by mult; the
+     * highest threshold passed wins (above 30 scans: x0.5, above 50: x0.3).
+     */
+    endlessRichCuts?: { aboveScanCosts: number; mult: number }[];
   };
   script: { rareScan: number; rareMerge: number };
   /**
@@ -232,6 +242,13 @@ export function checkContent(bodies: any, economy: any, upgradesFile: any): Cont
   check.need(scale === undefined || (typeof scale === 'number' && scale > 0), 'economy.bodyValueScale: a number above 0');
   const valueMult = economy?.stars?.valueMultEndless;
   check.need(valueMult === undefined || (typeof valueMult === 'number' && valueMult > 0), 'economy.stars.valueMultEndless: a number above 0');
+  const cuts: unknown = economy?.stars?.endlessRichCuts;
+  check.need(
+    cuts === undefined || (Array.isArray(cuts) && cuts.every((c) => typeof c?.aboveScanCosts === 'number' && c.aboveScanCosts > 0 && typeof c?.mult === 'number' && c.mult >= 0 && c.mult <= 1)),
+    'economy.stars.endlessRichCuts: a list of { aboveScanCosts above 0, mult from 0 to 1 }',
+  );
+  const mergeEndless = economy?.mergeBonus?.endlessMult;
+  check.need(mergeEndless === undefined || (typeof mergeEndless === 'number' && mergeEndless >= 0 && mergeEndless <= 1), 'economy.mergeBonus.endlessMult: 0 to 1');
   const double = economy?.stars?.doubleChance;
   check.need(double === undefined || (typeof double === 'number' && double >= 0 && double <= 1), 'economy.stars.doubleChance: 0 to 1');
   const growth = economy?.scan?.endlessGrowth;

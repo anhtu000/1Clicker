@@ -469,6 +469,59 @@ test('after the Galaxy (main run): stars worth double, scans climb half as fast'
   assert.equal(new Run(content, old, { found: {} }).s.endlessUnits, 500);
 });
 
+test('after the first Galaxy, main run only: merge bonus 60% less, stars cut while holding lots of energy (user 28/10)', () => {
+  const goal = content.economy.goalTier;
+  const finishOne = (run: Run) => {
+    run.s.board[0] = { t: goal - 1, r: 0 };
+    run.s.board[1] = { t: goal - 1, r: 0 };
+    run.s.units = 300;
+    run.s.time = 9999;
+    assert.ok(run.merge(0, 1)!.finished);
+  };
+  const main = fresh('main');
+  const timed = fresh('speedrun');
+  main.s.units = timed.s.units = 300;
+  const fullBonus = main.mergeBonus(8, 3);
+  assert.ok(fullBonus > 0);
+  finishOne(main);
+  finishOne(timed);
+  // Merge bonus: x0.4 in the main run after the Galaxy, unchanged in a timed run.
+  assert.equal(content.economy.mergeBonus.endlessMult, 0.4);
+  const share = content.economy.mergeBonus.scanShare[7][3];
+  assert.equal(main.mergeBonus(8, 3), Math.round(share * 0.4 * main.scanCost()));
+  assert.equal(timed.mergeBonus(8, 3), Math.round(share * timed.scanCost()));
+  // Stars: by energy held, counted in scans at the current price.
+  const cost = main.scanCost();
+  const plain = (run: Run) => run.starValue() / run.starRichMult();
+  for (const [held, mult] of [[0, 1], [30, 1], [30.5, 0.5], [50, 0.5], [50.5, 0.3], [1000, 0.3]] as const) {
+    main.s.energy = held * cost;
+    assert.equal(main.starRichMult(), mult, `holding ${held} scans`);
+    assert.ok(Math.abs(main.starValue(true) - plain(main) * content.economy.stars.goldenMult * mult) < 1e-6, 'golden stars are cut too');
+  }
+  // The cut uses the energy held when the star is caught, before the star's own energy is added.
+  main.s.energy = 40 * cost;
+  main.s.starTimer = -3;
+  main.s.starGolden = false;
+  delete main.s.wave;
+  const half = plain(main) * 0.5;
+  const got = main.catchStar();
+  assert.ok(Math.abs(got - half) < 1e-6, `holding 40 scans: half value (${got} vs ${half})`);
+  assert.ok(Math.abs(main.s.energy - (40 * cost + got)) < 1e-6);
+  // Timed runs and the main run before the Galaxy: never cut.
+  timed.s.energy = 1000 * timed.scanCost();
+  assert.equal(timed.starRichMult(), 1);
+  const before = fresh('main');
+  before.s.energy = 1000 * before.scanCost();
+  assert.equal(before.starRichMult(), 1);
+  assert.equal(before.mergeBonus(8, 3), Math.round(share * before.scanCost()));
+});
+
+test('Orbit Ring levels 7 and 8 cost 4x and 5x the old price (user 28/10)', () => {
+  const slots = content.upgrades.find((u) => u.id === 'slots')!;
+  assert.equal(slots.costs[6], 44e9 * 4);
+  assert.equal(slots.costs[7], 100e9 * 5);
+});
+
 test('Lean Optics: 8 levels before the Galaxy, 11 after', () => {
   const run = fresh();
   const u = run.upgrade('discount');

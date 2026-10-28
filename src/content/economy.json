@@ -32,6 +32,7 @@
   },
   "absorbTaps": 15,
   "mergeBonus": {
+    "endlessMult": 0.4,
     "scanShare": [
       [0, 0.15, 0.26, 0.4, 0.54],
       [0.07, 0.22, 0.32, 0.46, 0.59],
@@ -111,6 +112,10 @@
     "goldenChance": 0.1,
     "goldenMult": 5,
     "doubleChance": 0.2,
-    "valueMultEndless": 2
+    "valueMultEndless": 2,
+    "endlessRichCuts": [
+      { "aboveScanCosts": 30, "mult": 0.5 },
+      { "aboveScanCosts": 50, "mult": 0.3 }
+    ]
   }
 }

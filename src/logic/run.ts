@@ -430,8 +430,11 @@ export class Run {
 
   /** Energy a merge of this pair gives: a share of the current scan price (CLAUDE.md 4b). */
   mergeBonus(tier: number, rarerRarity: number): number {
-    const row = this.content.economy.mergeBonus.scanShare[tier - 1];
-    const share = row?.[Math.min(rarerRarity, row.length - 1)] ?? 0;
+    const cfg = this.content.economy.mergeBonus;
+    const row = cfg.scanShare[tier - 1];
+    let share = row?.[Math.min(rarerRarity, row.length - 1)] ?? 0;
+    // Main run after the Galaxy: 60% less (user 28/10). The merge that makes the Galaxy still pays in full.
+    if (this.endless) share *= cfg.endlessMult ?? 1;
     return share > 0 ? Math.round(share * this.scanCost()) : 0;
   }
 
@@ -749,7 +752,27 @@ export class Run {
   starValue(golden = false): number {
     const st = this.content.economy.stars;
     const base = st.seconds * this.activeIncome() * (this.endless ? (st.valueMultEndless ?? 1) : 1);
-    return base * (golden ? st.goldenMult : 1);
+    return base * (golden ? st.goldenMult : 1) * this.starRichMult();
+  }
+
+  /**
+   * Main run after the Galaxy (user 28/10): stars give less while the player already holds a lot of
+   * energy, measured in scans at the current price (above 30 scans x0.5, above 50 scans x0.3).
+   * 1 before the Galaxy and in timed runs.
+   */
+  starRichMult(): number {
+    const cuts = this.content.economy.stars.endlessRichCuts;
+    if (!this.endless || !cuts?.length) return 1;
+    const scans = this.s.energy / this.scanCost();
+    let mult = 1;
+    let passed = 0;
+    for (const cut of cuts) {
+      if (scans > cut.aboveScanCosts && cut.aboveScanCosts >= passed) {
+        passed = cut.aboveScanCosts;
+        mult = cut.mult;
+      }
+    }
+    return mult;
   }
 
   /**
