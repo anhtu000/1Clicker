@@ -121,6 +121,8 @@ export class PlayScene extends BaseScene {
   private shownEnergy = 0;
   /** Taps since the current tutorial step began. */
   private tapsInStep = 0;
+  /** The star hint is holding the shooting stars in place. */
+  private starParked = false;
   private starsCaught = 0;
   private revealOpen = false;
 
@@ -469,10 +471,14 @@ export class PlayScene extends BaseScene {
       this.refreshTimer = 200;
       this.refreshUi();
     }
-    // Tutorial star: keep it on screen until it is caught.
+    // Tutorial star: parked on screen while the hint shows, then free to fly off (a light hint since 30/10).
     if (this.firstStar && this.tutorial.currentId === 'star') {
       for (const star of this.stars) if (star) star.hold = true;
       this.run.s.starTimer = Math.min(this.run.s.starTimer, -2);
+      this.starParked = true;
+    } else if (this.starParked) {
+      for (const star of this.stars) if (star) star.hold = false;
+      this.starParked = false;
     }
   }
 
@@ -525,7 +531,8 @@ export class PlayScene extends BaseScene {
   // ---------- actions ----------
 
   private spaceAllowed() {
-    const id = this.tutorial.currentId;
+    // Light hints leave the game free; only a blocking step limits what works.
+    const id = this.tutorial.blocking ? this.tutorial.currentId : null;
     return !this.revealOpen && !this.panelsOnScreen() && !this.decorLayer.arranging && (!id || id === 'tap' || id === 'tapPower') && !app.platform.isMobile();
   }
 
@@ -536,7 +543,7 @@ export class PlayScene extends BaseScene {
 
   private tapCore(x: number, y: number) {
     if (this.revealOpen) return;
-    const id = this.tutorial.currentId;
+    const id = this.tutorial.blocking ? this.tutorial.currentId : null;
     if (id && id !== 'tap' && id !== 'tapPower' && id !== 'star') return;
     const { amount, crit } = this.run.tap();
     this.tapsInStep += 1;
@@ -701,7 +708,7 @@ export class PlayScene extends BaseScene {
       // Saves from before that panel existed have the opening done ('goal') and keep the old behaviour.
       const introDone = save.data.tutorial.includes('rarities') || save.data.tutorial.includes('goal');
       if (body.r >= 2 && !save.data.tutorial.includes('rarity') && introDone) {
-        this.queueOnce('rarity', [{ id: 'rarity', text: app.t('tut.rarity'), ack: app.t('tut.ok') }]);
+        this.queueOnce('rarity', [{ id: 'rarity', text: app.t('tut.rarity'), light: true, hold: 7 }]);
       }
     });
   }
@@ -937,6 +944,8 @@ export class PlayScene extends BaseScene {
             return star ? { x: star.x, y: star.y, w: 110, h: 110 } : null;
           },
           done: () => this.starsCaught > 0,
+          light: true,
+          hold: 10,
         },
       ]);
     }
@@ -1328,7 +1337,7 @@ export class PlayScene extends BaseScene {
     this.closeInfo();
     this.infoClosed.slot = -1;
     if (!body || same || this.revealOpen || this.panelsOnScreen() || this.decorLayer.arranging) return;
-    const tid = this.tutorial.currentId;
+    const tid = this.tutorial.blocking ? this.tutorial.currentId : null;
     if (tid && tid !== 'tap' && tid !== 'tapPower') return;
     const rarity = app.t(`rarity.${content.rarities[body.r].id}`);
     const goal = content.economy.goalTier;
@@ -1591,7 +1600,13 @@ export class PlayScene extends BaseScene {
    */
   private startIntro() {
     if (save.data.tutorial.includes('goal')) return;
-    const coreRect = () => ({ x: this.core.x, y: this.core.y, w: this.core.radius * 2.2, h: this.core.radius * 2.2 });
+    // The frame (drawn 18 units outside the target) stops below the "+1 per tap" line instead of cutting it.
+    const coreRect = () => {
+      const r = this.core.radius * 1.1;
+      const top = Math.max(this.core.y - r, this.rateText.y + this.rateText.displayHeight / 2 + 24);
+      const bottom = this.core.y + r;
+      return { x: this.core.x, y: (top + bottom) / 2, w: r * 2, h: bottom - top };
+    };
     const scanRect = () => ({ x: this.scanBtn.x, y: this.scanBtn.y, w: 300, h: 108 });
     const desktop = !app.platform.isMobile();
     // Three things to do (user 19/10): tap, scan (twice, for a pair), merge. Then the rarity panel.
@@ -1636,7 +1651,7 @@ export class PlayScene extends BaseScene {
     const focus = run.upgrade('focus');
     if (run.s.energy >= run.upgradeCost(focus) && run.level('focus') === 0) {
       this.shop.reveal('focus');
-      this.queueOnce('buy', [{ id: 'buy', text: app.t('tut.upgrade'), target: () => this.shop.cardRect('focus'), done: () => run.level('focus') > 0 }]);
+      this.queueOnce('buy', [{ id: 'buy', text: app.t('tut.upgrade'), target: () => this.shop.cardRect('focus'), done: () => run.level('focus') > 0, light: true }]);
       return;
     }
     // First Comet in the main run: crystals for a first decoration and a dot on the menu (user 19/10:
@@ -1649,7 +1664,7 @@ export class PlayScene extends BaseScene {
       this.refreshUi();
     }
     if (run.freeSlot() < 0 && !run.findPair()) {
-      this.queueOnce('full', [{ id: 'full', text: app.t('tut.full'), target: () => ({ x: this.board.x, y: this.board.y, w: this.board.size, h: this.board.size }), ack: app.t('tut.ok') }]);
+      this.queueOnce('full', [{ id: 'full', text: app.t('tut.full'), target: () => ({ x: this.board.x, y: this.board.y, w: this.board.size, h: this.board.size }), light: true }]);
       return;
     }
     // First Probe Fleet level: the probes start (the tutorial step keeps its old id, so saves stay valid).
@@ -1657,27 +1672,24 @@ export class PlayScene extends BaseScene {
     if (run.isVisible(fleet) && run.level('fleet') === 0 && run.s.energy >= run.upgradeCost(fleet)) {
       this.shop.reveal('fleet');
       this.queueOnce('probes', [
-        { id: 'probes', text: app.t('tut.probes'), target: () => this.shop.cardRect('fleet'), done: () => run.level('fleet') > 0 },
+        { id: 'probes', text: app.t('tut.probes'), target: () => this.shop.cardRect('fleet'), done: () => run.level('fleet') > 0, light: true },
       ]);
       return;
     }
     if (run.level('autoScan') > 0 && !save.data.tutorial.includes('autoScan')) {
       this.queueOnce('autoScan', [
-        { id: 'autoScan', text: app.t('tut.autoScan'), target: () => ({ x: this.autoScanBtn.x, y: this.autoScanBtn.y, w: AUTO_BTN.w, h: AUTO_BTN.h }), ack: app.t('tut.ok') },
+        { id: 'autoScan', text: app.t('tut.autoScan'), target: () => ({ x: this.autoScanBtn.x, y: this.autoScanBtn.y, w: AUTO_BTN.w, h: AUTO_BTN.h }), light: true, hold: 9 },
       ]);
       return;
     }
     if (run.level('autoMerge') > 0 && !save.data.tutorial.includes('autoMerge')) {
       this.queueOnce('autoMerge', [
-        { id: 'autoMerge', text: app.t('tut.autoMerge'), target: () => ({ x: this.autoMergeBtn.x, y: this.autoMergeBtn.y, w: AUTO_BTN.w, h: AUTO_BTN.h }), ack: app.t('tut.ok') },
+        { id: 'autoMerge', text: app.t('tut.autoMerge'), target: () => ({ x: this.autoMergeBtn.x, y: this.autoMergeBtn.y, w: AUTO_BTN.w, h: AUTO_BTN.h }), light: true, hold: 9 },
       ]);
       return;
     }
-    const boost = this.shop.currentBoost;
-    if (boost && boost.wait <= 0 && !boost.blocked && !boost.id.startsWith('twin') && !save.data.tutorial.includes('reward')) {
-      this.shop.reveal(BOOST_CARD);
-      this.queueOnce('reward', [{ id: 'reward', text: app.t('tut.reward'), target: () => this.shop.cardRect(BOOST_CARD), ack: app.t('tut.ok') }]);
-    }
+    // No step for the rewarded Lucky Scan card (removed 30/10): a hand pointing at it sent players straight
+    // into an ad, and CrazyGames asks not to push rewarded ads. The green card with its video icon stays.
   }
 
   /**

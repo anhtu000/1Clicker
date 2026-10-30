@@ -6,6 +6,7 @@ import { Button } from './button';
 // and the step only moves on when the player does what it says. Taps outside the target are blocked.
 // Steps teach by doing, so each one should give a reward right away. With `skip`, every step shows a
 // Skip button that ends the whole tutorial (CrazyGames quality guidelines: onboarding must be skippable).
+// Light steps are hints rather than lessons: no dimming, nothing blocked, no Skip; they leave by themselves.
 
 /** A rectangle in scene coordinates, given by its center and size. */
 export interface TutorialTarget {
@@ -30,6 +31,14 @@ export interface TutorialStep {
   ack?: string;
   /** Block taps outside the target. Default: true when there is a target. */
   block?: boolean;
+  /**
+   * A hint, not a lesson: the screen is not dimmed, nothing is blocked, there is no Skip or ack button.
+   * The frame, bubble and hand still show. It ends when done() turns true or after `hold` seconds, and
+   * counts as done either way (onStepDone).
+   */
+  light?: boolean;
+  /** Light steps: seconds on screen before the step ends by itself. Default 8. */
+  hold?: number;
 }
 
 export interface TutorialOptions {
@@ -77,7 +86,7 @@ export class Tutorial {
       hitArea: new Phaser.Geom.Rectangle(0, 0, 10, 10),
       // Taps inside the hole fall through to the game; everything else is swallowed.
       hitAreaCallback: (area: Phaser.Geom.Rectangle, x: number, y: number) => {
-        if (!Phaser.Geom.Rectangle.Contains(area, x, y)) return false;
+        if (!Phaser.Geom.Rectangle.Contains(area, x, y) || this.current?.light) return false;
         const block = this.current?.block ?? !!this.hole;
         if (!block) return false;
         if (!this.hole) return true;
@@ -127,6 +136,11 @@ export class Tutorial {
     return this.current?.id ?? null;
   }
 
+  /** A step that takes over the screen is showing (any step except a light one). */
+  get blocking(): boolean {
+    return this.current !== null && !this.current.light;
+  }
+
   /** Adds steps to run after the ones already waiting. */
   queue(steps: TutorialStep[]) {
     this.steps.push(...steps);
@@ -165,7 +179,7 @@ export class Tutorial {
     this.stepStarted = this.time;
     this.bubbleText.setText(step.text);
     this.bubbleText.setWordWrapWidth(Math.min(620, app.viewport.info.safe.width - 120));
-    if (step.ack) {
+    if (step.ack && !step.light) {
       this.ackButton = new Button(this.scene, 0, 0, {
         label: step.ack,
         width: 300,
@@ -176,7 +190,7 @@ export class Tutorial {
       this.ackButton.setDepth((this.opts.depth ?? 1400) + 4);
     }
     this.shade.setVisible(true);
-    this.skipButton?.setVisible(true);
+    this.skipButton?.setVisible(!step.light);
     this.bubble.setVisible(true).setAlpha(0);
     this.scene.tweens.add({ targets: this.bubble, alpha: 1, duration: 200 });
     this.layout();
@@ -194,7 +208,7 @@ export class Tutorial {
     this.time += delta / 1000;
     const step = this.current;
     if (!step) return;
-    if (step.done?.()) {
+    if (step.done?.() || (step.light && this.time - this.stepStarted >= (step.hold ?? 8))) {
       this.complete(step.id);
       return;
     }
@@ -218,19 +232,22 @@ export class Tutorial {
     g.clear();
     const h = this.hole;
     // Light enough that the game still reads around the hole (user 19/10: the opening looked too dark).
-    const dim = step.ack && !h ? 0.5 : 0.35;
+    // Light steps keep the screen as it is: only the frame around the target.
+    const dim = step.light ? 0 : step.ack && !h ? 0.5 : 0.35;
     g.fillStyle(0x000000, dim);
     if (!h) {
-      g.fillRect(0, 0, vp.width, vp.height);
+      if (dim > 0) g.fillRect(0, 0, vp.width, vp.height);
     } else {
       const left = h.x - h.w / 2 - PAD;
       const right = h.x + h.w / 2 + PAD;
       const top = h.y - h.h / 2 - PAD;
       const bottom = h.y + h.h / 2 + PAD;
-      g.fillRect(0, 0, vp.width, Math.max(0, top));
-      g.fillRect(0, bottom, vp.width, Math.max(0, vp.height - bottom));
-      g.fillRect(0, top, Math.max(0, left), bottom - top);
-      g.fillRect(right, top, Math.max(0, vp.width - right), bottom - top);
+      if (dim > 0) {
+        g.fillRect(0, 0, vp.width, Math.max(0, top));
+        g.fillRect(0, bottom, vp.width, Math.max(0, vp.height - bottom));
+        g.fillRect(0, top, Math.max(0, left), bottom - top);
+        g.fillRect(right, top, Math.max(0, vp.width - right), bottom - top);
+      }
       const pulse = 0.5 + 0.5 * Math.sin(this.time * 5);
       g.lineStyle(5, app.theme.primary, 0.55 + 0.45 * pulse);
       g.strokeRoundedRect(left, top, right - left, bottom - top, 22);
@@ -262,7 +279,7 @@ export class Tutorial {
     by = Phaser.Math.Clamp(by, safe.y + bh / 2 + 20, safe.y + safe.height - bh / 2 - (this.ackButton ? 140 : 20));
     this.bubble.setPosition(vp.width / 2, by);
     this.ackButton?.setPosition(vp.width / 2, by + bh / 2 + 70);
-    if (this.skipButton) this.placeSkip(vp, { x: vp.width / 2, y: by, w: bw, h: bh });
+    if (this.skipButton && !step.light) this.placeSkip(vp, { x: vp.width / 2, y: by, w: bw, h: bh });
 
     // Hand: taps the target, or slides from target to dragTo.
     if (target) {

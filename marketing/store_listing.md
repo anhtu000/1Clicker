@@ -1,6 +1,6 @@
 # Cosmic RNG Clicker: store listing
 
-Text for the CrazyGames submission form (also usable on other portals). Last checked against the game on 14/10/2026.
+Text for the CrazyGames submission form (also usable on other portals). Last checked against the game on 30/10/2026 (text and controls; the preview videos are still from 14/10, see Media).
 
 ## Title
 
@@ -35,6 +35,7 @@ Desktop:
 - Drag a body onto the core: turn it into energy
 - Click an upgrade: buy it
 - Click a shooting star: catch it
+- P: pause and resume
 
 Mobile:
 - Tap the core: collect energy
@@ -62,5 +63,7 @@ Mobile:
 | `cover_square_800x800.png` | Cover 1:1 |
 | `preview_landscape_1920x1080.mp4` | Preview video 16:9 |
 | `preview_portrait_1080x1620.mp4` | Preview video 2:3 |
+
+The two preview videos were recorded on 14/10, before the fixes of 19–30/10 (bigger core, tap numbers clear of the HUD, readable cards). Record them again before resubmitting.
 
 Covers: `tools/capture/cover.html` (dev server, `?layout=landscape|portrait|square&w=`). Videos: `python tools/capture/video.py <port>` with the dev server running (script in `tools/capture/director.ts`, start state `#video` in `src/game/presets.ts`).
